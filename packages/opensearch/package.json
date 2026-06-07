@@ -23,6 +23,9 @@
       "import": "./out/index.js"
     }
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "files": [
     "out"
   ],
