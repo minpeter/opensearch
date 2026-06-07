@@ -1,4 +1,5 @@
 ---
+"@minpeter/opensearch": patch
 "opensearch-mcp": patch
 ---
 

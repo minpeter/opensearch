@@ -2,6 +2,18 @@
   "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
   "extends": ["ultracite/biome/core", "ultracite/biome/vitest"],
   "files": {
-    "includes": ["**", "!src/__tests__/fixtures"]
-  }
+    "includes": ["!packages/**/src/__tests__/fixtures"]
+  },
+  "overrides": [
+    {
+      "includes": ["packages/opensearch/src/index.ts"],
+      "linter": {
+        "rules": {
+          "performance": {
+            "noBarrelFile": "off"
+          }
+        }
+      }
+    }
+  ]
 }

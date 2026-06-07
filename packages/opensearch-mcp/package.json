@@ -1,0 +1,40 @@
+{
+  "$schema": "http://json.schemastore.org/package.json",
+  "name": "opensearch-mcp",
+  "version": "0.1.5",
+  "description": "Zero-config web search and fetch MCP backed by @minpeter/opensearch",
+  "keywords": [
+    "ai",
+    "mcp",
+    "modelcontextprotocol",
+    "search",
+    "websearch"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/minpeter/opensearch-mcp.git",
+    "directory": "packages/opensearch-mcp"
+  },
+  "type": "module",
+  "bin": {
+    "opensearch-mcp": "out/index.js"
+  },
+  "files": [
+    "out"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "check": "ultracite check",
+    "fix": "ultracite fix",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage --coverage.reporter=text --coverage.reporter=json-summary",
+    "start": "node out/index.js"
+  },
+  "dependencies": {
+    "@minpeter/opensearch": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^4.4.3"
+  }
+}

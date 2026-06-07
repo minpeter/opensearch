@@ -1,58 +1,38 @@
 {
   "$schema": "http://json.schemastore.org/package.json",
-  "name": "opensearch-mcp",
-  "version": "0.1.5",
+  "name": "opensearch-workspace",
+  "private": true,
   "description": "Zero-config web search and fetch MCP with free-tier-first routing across official providers",
-  "keywords": [
-    "ai",
-    "mcp",
-    "modelcontextprotocol",
-    "search",
-    "websearch"
-  ],
   "license": "MIT",
+  "packageManager": "pnpm@11.3.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/minpeter/opensearch-mcp.git"
   },
   "type": "module",
-  "bin": {
-    "opensearch-mcp": "out/index.js"
-  },
-  "files": [
-    "out"
-  ],
   "scripts": {
-    "build": "tsup",
-    "typecheck": "tsc --noEmit",
-    "check": "ultracite check",
-    "fix": "ultracite fix",
-    "test": "vitest run",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "check": "turbo run check",
+    "fix": "turbo run fix",
+    "test": "turbo run test",
+    "test:coverage": "turbo run test:coverage",
+    "start": "pnpm --filter opensearch-mcp start",
     "changeset": "changeset",
     "version": "changeset version",
-    "release": "pnpm run build && changeset publish"
-  },
-  "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.29.0",
-    "@mozilla/readability": "^0.6.0",
-    "cheerio": "^1.2.0",
-    "jsdom": "^29.0.2",
-    "p-retry": "^8.0.0",
-    "turndown": "^7.2.4",
-    "turndown-plugin-gfm": "^1.0.2",
-    "unpdf": "^1.6.0",
-    "zod": "^4.3.6"
+    "release": "pnpm build && changeset publish"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.4.12",
-    "@changesets/cli": "^2.30.0",
-    "@types/jsdom": "^28.0.1",
-    "@types/node": "^25.6.0",
+    "@biomejs/biome": "2.4.16",
+    "@changesets/cli": "^2.31.0",
+    "@types/jsdom": "^28.0.3",
+    "@types/node": "^25.9.2",
     "@types/turndown": "^5.0.6",
-    "@vitest/coverage-v8": "^4.1.4",
+    "@vitest/coverage-v8": "^4.1.8",
+    "turbo": "^2.6.1",
     "tsup": "^8.5.1",
-    "typescript": "^6.0.2",
-    "ultracite": "7.5.9",
-    "vitest": "^4.1.4"
+    "typescript": "^6.0.3",
+    "ultracite": "7.8.1",
+    "vitest": "^4.1.8"
   }
 }

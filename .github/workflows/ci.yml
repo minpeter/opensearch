@@ -15,7 +15,7 @@ jobs:
 
       - uses: pnpm/action-setup@v4
         with:
-          version: latest
+          version: 11.3.0
 
       - uses: actions/setup-node@v4
         with:
@@ -36,7 +36,7 @@ jobs:
 
       - uses: pnpm/action-setup@v4
         with:
-          version: latest
+          version: 11.3.0
 
       - uses: actions/setup-node@v4
         with:
@@ -57,7 +57,7 @@ jobs:
 
       - uses: pnpm/action-setup@v4
         with:
-          version: latest
+          version: 11.3.0
 
       - uses: actions/setup-node@v4
         with:
@@ -68,9 +68,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Test with coverage (unit only — skip integration)
-        run: |
-          pnpm exec vitest run --coverage --coverage.reporter=text \
-            --exclude 'src/__tests__/integration.test.ts' 2>&1 | tee coverage-output.txt
+        run: pnpm run test:coverage 2>&1 | tee coverage-output.txt
 
       - name: Coverage summary
         if: always()
@@ -89,7 +87,7 @@ jobs:
 
       - uses: pnpm/action-setup@v4
         with:
-          version: latest
+          version: 11.3.0
 
       - uses: actions/setup-node@v4
         with:
