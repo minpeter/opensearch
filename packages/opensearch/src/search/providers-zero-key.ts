@@ -56,6 +56,9 @@ function createHtmlProvider(
         });
         return limitResults(name, parse(body), numResults);
       } catch (error) {
+        if (error instanceof SearchEngineError) {
+          throw error;
+        }
         throw toProviderError(name, error);
       }
     },
@@ -66,10 +69,6 @@ function toProviderError(
   engine: SearchEngineName,
   error: unknown
 ): SearchEngineError {
-  if (error instanceof SearchEngineError) {
-    return error;
-  }
-
   return new SearchEngineError(
     engine,
     "misconfigured",

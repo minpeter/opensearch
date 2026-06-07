@@ -65,6 +65,9 @@ function createHtmlProvider(
         });
         return attachEngine(name, parse(body).slice(0, numResults));
       } catch (error) {
+        if (error instanceof SearchEngineError) {
+          throw error;
+        }
         throw toProviderError(name, error);
       }
     },
@@ -90,6 +93,9 @@ function createJsonProvider(
           parse(parseJsonResponse(body, name)).slice(0, numResults)
         );
       } catch (error) {
+        if (error instanceof SearchEngineError) {
+          throw error;
+        }
         throw toProviderError(name, error);
       }
     },
@@ -100,10 +106,6 @@ function toProviderError(
   engine: SearchEngineName,
   error: unknown
 ): SearchEngineError {
-  if (error instanceof SearchEngineError) {
-    return error;
-  }
-
   return new SearchEngineError(
     engine,
     "transient",

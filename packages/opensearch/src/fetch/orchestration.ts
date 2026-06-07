@@ -59,7 +59,10 @@ async function fetchUrlDirect(
     try {
       const exaResult = await fetchExaMcpForEnv(url, context.env);
       return createFetchResult(url, exaResult.content, exaResult.title);
-    } catch {
+    } catch (error) {
+      if (!(error instanceof Error)) {
+        throw error;
+      }
       // Fall through to the official Exa API or local fetch pipeline.
     }
   }
@@ -78,7 +81,10 @@ async function fetchUrlDirect(
         tinyFishResult.content,
         tinyFishResult.title
       );
-    } catch {
+    } catch (error) {
+      if (!(error instanceof Error)) {
+        throw error;
+      }
       return fetchUrlWithoutTinyFish(url, context);
     }
   }
@@ -86,7 +92,10 @@ async function fetchUrlDirect(
   if (hasExaApiKey(context.env)) {
     try {
       return await fetchExaApiForEnv(url, context.env);
-    } catch {
+    } catch (error) {
+      if (!(error instanceof Error)) {
+        throw error;
+      }
       // Fall through to the local fetch pipeline.
     }
   }
@@ -101,7 +110,10 @@ async function fetchUrlWithoutTinyFish(
   if (hasExaApiKey(context.env)) {
     try {
       return await fetchExaApiForEnv(url, context.env);
-    } catch {
+    } catch (error) {
+      if (!(error instanceof Error)) {
+        throw error;
+      }
       return fetchLocalUrl(url);
     }
   }
@@ -144,7 +156,10 @@ async function fetchUrlsDirect(
 
         return createFetchResult(url, exaResult.content, exaResult.title);
       });
-    } catch {
+    } catch (error) {
+      if (!(error instanceof Error)) {
+        throw error;
+      }
       // Fall through to the official Exa API or local fetch pipeline.
     }
   }
@@ -164,7 +179,10 @@ async function fetchUrlsDirect(
         }
         return createFetchResult(url, result.content, result.title);
       });
-    } catch {
+    } catch (error) {
+      if (!(error instanceof Error)) {
+        throw error;
+      }
       return fetchUrlsWithoutTinyFish(urls, maxCharacters, context);
     }
   }
@@ -172,7 +190,10 @@ async function fetchUrlsDirect(
   if (hasExaApiKey(context.env)) {
     try {
       return await fetchExaApiBatchForEnv(urls, maxCharacters, context.env);
-    } catch {
+    } catch (error) {
+      if (!(error instanceof Error)) {
+        throw error;
+      }
       // Fall through to the local fetch pipeline.
     }
   }
@@ -188,7 +209,10 @@ async function fetchUrlsWithoutTinyFish(
   if (hasExaApiKey(context.env)) {
     try {
       return await fetchExaApiBatchForEnv(urls, maxCharacters, context.env);
-    } catch {
+    } catch (error) {
+      if (!(error instanceof Error)) {
+        throw error;
+      }
       return Promise.all(urls.map((url) => fetchLocalUrl(url)));
     }
   }

@@ -19,16 +19,12 @@ const server = new McpServer({
 
 const textContentType = "text" as const;
 
-function getErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
 function createToolErrorResponse(
   toolName: string,
   action: string,
-  error: unknown
+  error: Error
 ) {
-  const errorMessage = getErrorMessage(error);
+  const errorMessage = error.message;
   console.error(`[opensearch] ${toolName} failed: ${errorMessage}`);
 
   return {
@@ -59,7 +55,9 @@ If highlights are insufficient, follow up with web_fetch on the best URLs.`,
         await search(input.query, getSearchResultCount(input))
       );
     } catch (error) {
-      return createToolErrorResponse("web_search", "Search", error);
+      const toolError =
+        error instanceof Error ? error : new Error(String(error));
+      return createToolErrorResponse("web_search", "Search", toolError);
     }
   }
 );
@@ -80,7 +78,9 @@ Returns: Clean text content and metadata from the page(s).`,
       });
       return createFetchToolResult(results);
     } catch (error) {
-      return createToolErrorResponse("web_fetch", "Fetch", error);
+      const toolError =
+        error instanceof Error ? error : new Error(String(error));
+      return createToolErrorResponse("web_fetch", "Fetch", toolError);
     }
   }
 );

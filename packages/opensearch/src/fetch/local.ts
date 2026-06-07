@@ -37,8 +37,12 @@ async function getFallbackContent(
     if (response.ok) {
       return await response.text();
     }
-  } catch {
-    // Keep the original content when Jina fails.
+  } catch (error) {
+    if (error instanceof Error) {
+      return content;
+    }
+
+    throw error;
   }
 
   return content;
