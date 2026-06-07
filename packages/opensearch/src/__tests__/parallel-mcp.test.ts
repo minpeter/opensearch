@@ -30,6 +30,36 @@ describe("Parallel MCP transport options", () => {
     });
   });
 
+  it("does not send a semicolon-delimited Parallel MCP API key as one bearer token", () => {
+    process.env.PARALLEL_API_KEY = "parallel-a;parallel-b";
+
+    const init = createParallelMcpRequestInit();
+
+    expect(init.headers).toEqual({
+      Authorization: "Bearer parallel-a",
+    });
+  });
+
+  it("rotates Parallel MCP auth headers across repeated request init calls", () => {
+    process.env.PARALLEL_API_KEY = "parallel-c;parallel-d";
+
+    const firstInit = createParallelMcpRequestInit();
+    const secondInit = createParallelMcpRequestInit();
+
+    expect([firstInit.headers, secondInit.headers]).toEqual([
+      { Authorization: "Bearer parallel-c" },
+      { Authorization: "Bearer parallel-d" },
+    ]);
+  });
+
+  it("keeps Parallel MCP anonymous when no API key is configured", () => {
+    delete process.env.PARALLEL_API_KEY;
+
+    const init = createParallelMcpRequestInit();
+
+    expect(init.headers).toBeUndefined();
+  });
+
   it("forces manual redirects for SDK fetch calls that omit requestInit", async () => {
     const fetchSpy = vi
       .fn()

@@ -1,0 +1,155 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { search } from "../search.ts";
+import {
+  createMockJsonResponse,
+  resetSearchEnv,
+} from "./search-test-helpers.ts";
+
+const SECRET_VALUE_PATTERN = /login-secret|password-secret/u;
+
+describe("DataForSEO credential pair pools", () => {
+  beforeEach(() => {
+    resetSearchEnv();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    resetSearchEnv();
+  });
+
+  it("rejects mismatched credential pools without leaking secrets", async () => {
+    process.env.DATAFORSEO_LOGIN = "login-secret-a;login-secret-b";
+    process.env.DATAFORSEO_PASSWORD = "password-secret-a";
+    vi.stubGlobal("fetch", vi.fn());
+
+    await expect(search("dataforseo mismatch", 1)).rejects.toThrow(
+      "DATAFORSEO_LOGIN has 2 entries but DATAFORSEO_PASSWORD has 1 entries"
+    );
+    await expect(search("dataforseo mismatch", 1)).rejects.not.toThrow(
+      SECRET_VALUE_PATTERN
+    );
+  });
+
+  it("retries the next credential pair on HTTP 429", async () => {
+    process.env.DATAFORSEO_LOGIN = "data-login-a;data-login-b";
+    process.env.DATAFORSEO_PASSWORD = "data-password-a;data-password-b";
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValueOnce(new Response("", { status: 429 }))
+      .mockResolvedValueOnce(
+        createMockJsonResponse({
+          tasks: [
+            {
+              result: [
+                {
+                  items: [
+                    {
+                      description: "DataForSEO recovered with second pair.",
+                      title: "DataForSEO pooled pair",
+                      url: "https://example.com/dataforseo-pooled",
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        })
+      );
+    vi.stubGlobal("fetch", mockFetch);
+
+    const results = await search("dataforseo pooled", 1);
+
+    expect(results[0]).toEqual({
+      engine: "DataForSEO",
+      snippet: "DataForSEO recovered with second pair.",
+      title: "DataForSEO pooled pair",
+      url: "https://example.com/dataforseo-pooled",
+    });
+    expect(mockFetch.mock.calls.map(([, init]) => init?.headers)).toEqual([
+      expect.objectContaining({
+        Authorization: basicAuth("data-login-a", "data-password-a"),
+      }),
+      expect.objectContaining({
+        Authorization: basicAuth("data-login-b", "data-password-b"),
+      }),
+    ]);
+  });
+
+  it("does not try the next pair for malformed payloads", async () => {
+    process.env.DATAFORSEO_LOGIN = "malformed-login-a;malformed-login-b";
+    process.env.DATAFORSEO_PASSWORD =
+      "malformed-password-a;malformed-password-b";
+    process.env.GOOGLE_CUSTOM_SEARCH_API_KEY = "google-after-dataforseo";
+    process.env.GOOGLE_CUSTOM_SEARCH_ENGINE_ID = "engine-after-dataforseo";
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValueOnce(createMockJsonResponse({ unexpected: true }))
+      .mockResolvedValueOnce(
+        createMockJsonResponse({
+          items: [
+            {
+              link: "https://example.com/google-after-dataforseo",
+              snippet: "Google recovered after malformed DataForSEO.",
+              title: "Google fallback",
+            },
+          ],
+        })
+      );
+    vi.stubGlobal("fetch", mockFetch);
+
+    const results = await search("dataforseo malformed", 1);
+
+    expect(results[0]?.engine).toBe("Google");
+    expect(mockFetch.mock.calls.map(([, init]) => init?.headers)).toEqual([
+      expect.objectContaining({
+        Authorization: basicAuth("malformed-login-a", "malformed-password-a"),
+      }),
+      expect.objectContaining({}),
+    ]);
+    expect(
+      JSON.stringify(mockFetch.mock.calls.map(([, init]) => init?.headers))
+    ).not.toContain(basicAuth("malformed-login-b", "malformed-password-b"));
+  });
+
+  it("rotates starting pairs across repeated search calls", async () => {
+    process.env.DATAFORSEO_LOGIN = "repeat-login-a;repeat-login-b";
+    process.env.DATAFORSEO_PASSWORD = "repeat-password-a;repeat-password-b";
+    const mockFetch = vi.fn().mockImplementation(() =>
+      createMockJsonResponse({
+        tasks: [
+          {
+            result: [
+              {
+                items: [
+                  {
+                    description: "DataForSEO repeated search result.",
+                    title: "DataForSEO repeated pair",
+                    url: "https://example.com/dataforseo-repeated",
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      })
+    );
+    vi.stubGlobal("fetch", mockFetch);
+
+    await search("dataforseo repeat one", 1);
+    await search("dataforseo repeat two", 1);
+
+    expect(mockFetch.mock.calls.map(([, init]) => init?.headers)).toEqual([
+      expect.objectContaining({
+        Authorization: basicAuth("repeat-login-a", "repeat-password-a"),
+      }),
+      expect.objectContaining({
+        Authorization: basicAuth("repeat-login-b", "repeat-password-b"),
+      }),
+    ]);
+  });
+});
+
+function basicAuth(login: string, password: string): string {
+  return `Basic ${Buffer.from(`${login}:${password}`).toString("base64")}`;
+}

@@ -95,7 +95,8 @@ export async function fetchSearchText({
     throw new SearchEngineError(
       engine,
       classifyApiStatusFailure(response.status, authFailureStatuses),
-      `${engine} fetch failed with status ${response.status}`
+      `${engine} fetch failed with status ${response.status}`,
+      { status: response.status }
     );
   }
 

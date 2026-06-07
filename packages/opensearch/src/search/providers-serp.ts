@@ -1,13 +1,21 @@
+import { getApiKeyPool } from "../credentials/api-key-pool.ts";
+import {
+  type CredentialPair,
+  getCredentialPairPool,
+} from "../credentials/credential-pairs.ts";
 import {
   type EnvironmentReader,
   processEnvironmentReader,
 } from "../environment.ts";
 import {
+  compactProviders,
+  createPooledCredentialPairSearchProvider,
+  createPooledJsonSearchProvider,
+} from "./api-key-provider.ts";
+import {
   createBasicAuthHeader,
   createJsonSearchProvider,
   getBaseUrl,
-  getEnvPair,
-  getEnvPool,
   parseArrayFromAnyPath,
   parseCommonResultArray,
 } from "./api-provider-utils.ts";
@@ -17,54 +25,29 @@ import type { SearchProvider } from "./types.ts";
 export function createSerpProviders(
   env: EnvironmentReader = processEnvironmentReader
 ): SearchProvider[] {
-  const dataForSeoCredentials = getEnvPair(
-    "DATAFORSEO_LOGIN",
-    "DATAFORSEO_PASSWORD",
-    env
-  );
-  const googleCredentials = getEnvPair(
-    "GOOGLE_CUSTOM_SEARCH_API_KEY",
-    "GOOGLE_CUSTOM_SEARCH_ENGINE_ID",
-    env
-  );
+  const googleEngineId = env.read("GOOGLE_CUSTOM_SEARCH_ENGINE_ID")?.trim();
   const brightDataZone =
     env.read("BRIGHT_DATA_SERP_ZONE")?.trim() ||
     env.read("OPENSEARCH_BRIGHT_DATA_SERP_ZONE")?.trim();
 
-  return [
-    ...getEnvPool("SERPER_API_KEY", env).map((apiKey) =>
-      createSerperProvider(apiKey, env)
-    ),
-    ...getEnvPool("SERPAPI_API_KEY", env).map((apiKey) =>
-      createSerpApiProvider(apiKey, env)
-    ),
-    ...(dataForSeoCredentials
-      ? [createDataForSeoProvider(dataForSeoCredentials, env)]
+  return compactProviders([
+    createSerperProvider(env),
+    createSerpApiProvider(env),
+    createDataForSeoProvider(env),
+    ...(googleEngineId
+      ? [createGoogleCustomSearchProvider(googleEngineId, env)]
       : []),
-    ...(googleCredentials
-      ? [createGoogleCustomSearchProvider(googleCredentials, env)]
-      : []),
-    ...(brightDataZone
-      ? getEnvPool("BRIGHT_DATA_SERP_API_KEY", env).map((apiKey) =>
-          createBrightDataProvider(apiKey, brightDataZone, env)
-        )
-      : []),
-    ...getEnvPool("SCRAPINGBEE_API_KEY", env).map((apiKey) =>
-      createScrapingBeeProvider(apiKey, env)
-    ),
-    ...getEnvPool("SEARCHAPI_API_KEY", env).map((apiKey) =>
-      createSearchApiProvider(apiKey, env)
-    ),
-  ];
+    ...(brightDataZone ? [createBrightDataProvider(brightDataZone, env)] : []),
+    createScrapingBeeProvider(env),
+    createSearchApiProvider(env),
+  ]);
 }
 
-function createSerperProvider(
-  apiKey: string,
-  env: EnvironmentReader
-): SearchProvider {
-  return createJsonSearchProvider({
+function createSerperProvider(env: EnvironmentReader): SearchProvider | null {
+  return createPooledJsonSearchProvider({
+    apiKeyPool: getApiKeyPool("SERPER_API_KEY", env),
     name: "Serper",
-    buildRequest: (query, numResults) => ({
+    buildRequest: (apiKey, query, numResults) => ({
       body: { num: numResults, q: query },
       headers: { "X-API-KEY": apiKey },
       method: "POST",
@@ -78,13 +61,11 @@ function createSerperProvider(
   });
 }
 
-function createSerpApiProvider(
-  apiKey: string,
-  env: EnvironmentReader
-): SearchProvider {
-  return createJsonSearchProvider({
+function createSerpApiProvider(env: EnvironmentReader): SearchProvider | null {
+  return createPooledJsonSearchProvider({
+    apiKeyPool: getApiKeyPool("SERPAPI_API_KEY", env),
     name: "SerpAPI",
-    buildRequest: (query, numResults) => ({
+    buildRequest: (apiKey, query, numResults) => ({
       method: "GET",
       url: createSearchUrl(
         getBaseUrl(
@@ -105,7 +86,26 @@ function createSerpApiProvider(
 }
 
 function createDataForSeoProvider(
-  credentials: readonly [string, string],
+  env: EnvironmentReader
+): SearchProvider | null {
+  return createPooledCredentialPairSearchProvider({
+    credentialPairPool: getCredentialPairPool(
+      "DATAFORSEO_LOGIN",
+      "DATAFORSEO_PASSWORD",
+      env
+    ),
+    name: "DataForSEO",
+    searchWithCredentials(credentials, query, numResults) {
+      return createDataForSeoProviderWithCredentials(credentials, env).search(
+        query,
+        numResults
+      );
+    },
+  });
+}
+
+function createDataForSeoProviderWithCredentials(
+  credentials: CredentialPair,
   env: EnvironmentReader
 ): SearchProvider {
   const [login, password] = credentials;
@@ -137,13 +137,13 @@ function createDataForSeoProvider(
 }
 
 function createGoogleCustomSearchProvider(
-  credentials: readonly [string, string],
+  engineId: string,
   env: EnvironmentReader
-): SearchProvider {
-  const [apiKey, engineId] = credentials;
-  return createJsonSearchProvider({
+): SearchProvider | null {
+  return createPooledJsonSearchProvider({
+    apiKeyPool: getApiKeyPool("GOOGLE_CUSTOM_SEARCH_API_KEY", env),
     name: "Google",
-    buildRequest: (query, numResults) => ({
+    buildRequest: (apiKey, query, numResults) => ({
       method: "GET",
       url: createSearchUrl(
         getBaseUrl(
@@ -164,13 +164,13 @@ function createGoogleCustomSearchProvider(
 }
 
 function createBrightDataProvider(
-  apiKey: string,
   zone: string,
   env: EnvironmentReader
-): SearchProvider {
-  return createJsonSearchProvider({
+): SearchProvider | null {
+  return createPooledJsonSearchProvider({
+    apiKeyPool: getApiKeyPool("BRIGHT_DATA_SERP_API_KEY", env),
     name: "BrightData",
-    buildRequest: (query, numResults) => ({
+    buildRequest: (apiKey, query, numResults) => ({
       body: {
         format: "json",
         method: "GET",
@@ -198,12 +198,12 @@ function createBrightDataProvider(
 }
 
 function createScrapingBeeProvider(
-  apiKey: string,
   env: EnvironmentReader
-): SearchProvider {
-  return createJsonSearchProvider({
+): SearchProvider | null {
+  return createPooledJsonSearchProvider({
+    apiKeyPool: getApiKeyPool("SCRAPINGBEE_API_KEY", env),
     name: "ScrapingBee",
-    buildRequest: (query, numResults) => ({
+    buildRequest: (apiKey, query, numResults) => ({
       method: "GET",
       url: createSearchUrl(
         getBaseUrl(
@@ -224,12 +224,12 @@ function createScrapingBeeProvider(
 }
 
 function createSearchApiProvider(
-  apiKey: string,
   env: EnvironmentReader
-): SearchProvider {
-  return createJsonSearchProvider({
+): SearchProvider | null {
+  return createPooledJsonSearchProvider({
+    apiKeyPool: getApiKeyPool("SEARCHAPI_API_KEY", env),
     name: "SearchAPI",
-    buildRequest: (query, numResults) => ({
+    buildRequest: (apiKey, query, numResults) => ({
       method: "GET",
       url: createSearchUrl(
         getBaseUrl(

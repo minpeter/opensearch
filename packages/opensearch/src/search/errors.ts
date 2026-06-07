@@ -13,16 +13,21 @@ export class SearchExecutionError extends Error {
 export class SearchEngineError extends Error {
   readonly engine: SearchEngineName;
   readonly kind: EngineFailureKind;
+  readonly status?: number;
 
   constructor(
     engine: SearchEngineName,
     kind: EngineFailureKind,
-    message: string
+    message: string,
+    options: { readonly status?: number } = {}
   ) {
     super(message);
     this.engine = engine;
     this.kind = kind;
     this.name = "SearchEngineError";
+    if (options.status !== undefined) {
+      this.status = options.status;
+    }
   }
 }
 

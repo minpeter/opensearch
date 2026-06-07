@@ -117,6 +117,21 @@ Returns an array of `{ engine, title, url, snippet }`. Result source names inclu
 | DuckDuckGo | HTML scraping | No | Public HTML endpoint; can still hit anti-bot challenges. |
 | Bing | HTML scraping plus parallel supplements | No | Final keyless general fallback; fetches Bing, Wikipedia, Internet Archive, and Wiby in parallel, then returns Bing-first merged results. |
 
+### API key pools
+
+Every routed API-key environment variable accepts one key or a semicolon-delimited key pool:
+
+```sh
+TAVILY_API_KEY="tavily-key-1;tavily-key-2"
+EXA_API_KEY="exa-key-1;exa-key-2"
+```
+
+Whitespace is trimmed and empty segments are ignored. For pooled providers, each request starts from the next configured key, and HTTP 429 responses retry the next key inside the same provider before normal fallback continues. Malformed payloads, no-result responses, and non-rate-limit failures do not consume the next key; they follow the existing provider fallback chain.
+
+Search and fetch key pools are supported for `TINYFISH_API_KEY`, `TAVILY_API_KEY`, `FIRECRAWL_API_KEY`, `PARALLEL_API_KEY`, `YOU_API_KEY`, `PERPLEXITY_API_KEY`, `VALYU_API_KEY`, `LINKUP_API_KEY`, `JINA_API_KEY`, `SERPER_API_KEY`, `SERPAPI_API_KEY`, `GOOGLE_CUSTOM_SEARCH_API_KEY`, `BRIGHT_DATA_SERP_API_KEY`, `SCRAPINGBEE_API_KEY`, `SEARCHAPI_API_KEY`, `KAGI_API_KEY`, `KAGI_API_TOKEN`, `MOJEEK_API_KEY`, `BRAVE_SEARCH_API_KEY`, and `EXA_API_KEY`.
+
+`GOOGLE_CUSTOM_SEARCH_ENGINE_ID` is a single shared engine id used with every `GOOGLE_CUSTOM_SEARCH_API_KEY` entry. `DATAFORSEO_LOGIN` and `DATAFORSEO_PASSWORD` remain a single credential pair by default; multiple DataForSEO accounts require zipped semicolon lists with equal counts, for example `DATAFORSEO_LOGIN="login-a;login-b"` and `DATAFORSEO_PASSWORD="password-a;password-b"`. Count mismatch errors include env names and counts only, not credential values.
+
 This project intentionally aggregates only official API paths, official hosted MCP paths, or public web pages. It does not rely on reverse-engineered private endpoints or credential bypasses.
 
 #### Free coverage
@@ -179,7 +194,7 @@ The zero-key audit also checked Dogpile, Info.com, ZapMeta, Search.com, Million 
 |-----------|------|-------------|
 | `urls` | string[] | URLs to fetch in one call |
 
-For non-disabled hosted MCP mode, `web_fetch` tries Exa's official hosted MCP fetch path first so it can use the hosted free tier. If that is unavailable and `TINYFISH_API_KEY` is configured, it falls back to TinyFish's fetch API before trying Exa's official `POST /contents` API, the local Readability/PDF pipeline, and Jina for sparse content. `TINYFISH_API_KEY` may contain a single key or a semicolon-delimited key pool; HTTP 429 responses rotate to the next configured key before falling back.
+For non-disabled hosted MCP mode, `web_fetch` tries Exa's official hosted MCP fetch path first so it can use the hosted free tier. If that is unavailable and `TINYFISH_API_KEY` is configured, it falls back to TinyFish's fetch API before trying Exa's official `POST /contents` API, the local Readability/PDF pipeline, and Jina for sparse content. `TINYFISH_API_KEY` and `EXA_API_KEY` may contain a single key or a semicolon-delimited key pool; HTTP 429 responses rotate to the next configured key before falling back.
 
 Single-fetch calls return one text block in `content` with `Title`, `URL`, `Length`, and the extracted markdown. Batch-fetch calls return a short summary block plus one text block per fetched URL with the same metadata-first format.
 

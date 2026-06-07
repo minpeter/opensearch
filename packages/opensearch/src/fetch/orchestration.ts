@@ -1,4 +1,8 @@
 import {
+  type ApiKeyPool,
+  createApiKeyPool,
+} from "../credentials/api-key-pool.ts";
+import {
   type EnvironmentReader,
   processEnvironmentReader,
 } from "../environment.ts";
@@ -13,7 +17,7 @@ import {
   EXA_API_KEY_ENV,
   OPENSEARCH_ENABLE_EXA_MCP_ENV,
 } from "./config.ts";
-import { fetchExaApi, fetchExaApiBatch } from "./exa-api.ts";
+import { fetchExaApiBatchWithPool } from "./exa-api.ts";
 import { fetchLocalUrl } from "./local.ts";
 import { createFetchResult, type FetchResult } from "./result.ts";
 
@@ -24,6 +28,7 @@ export interface FetchOperations {
 
 interface FetchPipelineContext {
   readonly env: EnvironmentReader;
+  readonly exaApiKeyPool: ApiKeyPool;
   readonly tinyFishApiKeyPool: TinyFishApiKeyPool;
 }
 
@@ -33,6 +38,7 @@ export function createFetchOperations(
   env: EnvironmentReader = processEnvironmentReader
 ): FetchOperations {
   const context: FetchPipelineContext = {
+    exaApiKeyPool: createApiKeyPool(EXA_API_KEY_ENV, env),
     env,
     tinyFishApiKeyPool: createTinyFishApiKeyPool(env),
   };
@@ -89,9 +95,9 @@ async function fetchUrlDirect(
     }
   }
 
-  if (hasExaApiKey(context.env)) {
+  if (context.exaApiKeyPool.hasApiKeys()) {
     try {
-      return await fetchExaApiForEnv(url, context.env);
+      return await fetchExaApiForContext(url, context);
     } catch (error) {
       if (!(error instanceof Error)) {
         throw error;
@@ -107,9 +113,9 @@ async function fetchUrlWithoutTinyFish(
   url: string,
   context: FetchPipelineContext
 ): Promise<FetchResult> {
-  if (hasExaApiKey(context.env)) {
+  if (context.exaApiKeyPool.hasApiKeys()) {
     try {
-      return await fetchExaApiForEnv(url, context.env);
+      return await fetchExaApiForContext(url, context);
     } catch (error) {
       if (!(error instanceof Error)) {
         throw error;
@@ -187,9 +193,13 @@ async function fetchUrlsDirect(
     }
   }
 
-  if (hasExaApiKey(context.env)) {
+  if (context.exaApiKeyPool.hasApiKeys()) {
     try {
-      return await fetchExaApiBatchForEnv(urls, maxCharacters, context.env);
+      return await fetchExaApiBatchWithPool(
+        urls,
+        maxCharacters,
+        context.exaApiKeyPool
+      );
     } catch (error) {
       if (!(error instanceof Error)) {
         throw error;
@@ -206,9 +216,13 @@ async function fetchUrlsWithoutTinyFish(
   maxCharacters: number,
   context: FetchPipelineContext
 ): Promise<FetchResult[]> {
-  if (hasExaApiKey(context.env)) {
+  if (context.exaApiKeyPool.hasApiKeys()) {
     try {
-      return await fetchExaApiBatchForEnv(urls, maxCharacters, context.env);
+      return await fetchExaApiBatchWithPool(
+        urls,
+        maxCharacters,
+        context.exaApiKeyPool
+      );
     } catch (error) {
       if (!(error instanceof Error)) {
         throw error;
@@ -220,27 +234,21 @@ async function fetchUrlsWithoutTinyFish(
   return Promise.all(urls.map((url) => fetchLocalUrl(url)));
 }
 
-function hasExaApiKey(env: EnvironmentReader): boolean {
-  return Boolean(env.read(EXA_API_KEY_ENV)?.trim());
-}
-
-function fetchExaApiForEnv(
+async function fetchExaApiForContext(
   url: string,
-  env: EnvironmentReader
+  context: FetchPipelineContext
 ): Promise<FetchResult> {
-  return env === processEnvironmentReader
-    ? fetchExaApi(url)
-    : fetchExaApi(url, env);
-}
+  const [result] = await fetchExaApiBatchWithPool(
+    [url],
+    DEFAULT_MAX_CHARACTERS,
+    context.exaApiKeyPool
+  );
 
-function fetchExaApiBatchForEnv(
-  urls: string[],
-  maxCharacters: number,
-  env: EnvironmentReader
-): Promise<FetchResult[]> {
-  return env === processEnvironmentReader
-    ? fetchExaApiBatch(urls, maxCharacters)
-    : fetchExaApiBatch(urls, maxCharacters, env);
+  if (!result) {
+    throw new Error("Exa API fetch returned no text content");
+  }
+
+  return result;
 }
 
 function fetchExaMcpForEnv(

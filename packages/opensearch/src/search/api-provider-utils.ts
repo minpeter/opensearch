@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { readApiKeyPool } from "../credentials/api-key-pool.ts";
 import {
   type EnvironmentReader,
   processEnvironmentReader,
@@ -107,10 +108,7 @@ export function getEnvPool(
   name: string,
   env: EnvironmentReader = processEnvironmentReader
 ): readonly string[] {
-  return (env.read(name) ?? "")
-    .split(";")
-    .map((segment) => segment.trim())
-    .filter((segment) => segment.length > 0);
+  return readApiKeyPool(name, env);
 }
 
 export function getEnvPair(

@@ -1,5 +1,8 @@
 import { z } from "zod";
-
+import {
+  type ApiKeyPool,
+  createApiKeyPool,
+} from "../credentials/api-key-pool.ts";
 import {
   type EnvironmentReader,
   processEnvironmentReader,
@@ -9,6 +12,10 @@ import { createFetchResult, type FetchResult } from "./result.ts";
 
 const EXA_API_TIMEOUT_MS = 10_000;
 const EXA_CONTENTS_API_URL = "https://api.exa.ai/contents";
+const defaultExaApiKeyPool = createApiKeyPool(
+  EXA_API_KEY_ENV,
+  processEnvironmentReader
+);
 
 const exaContentsResponseSchema = z.object({
   results: z
@@ -46,7 +53,11 @@ export async function fetchExaApi(
   url: string,
   env: EnvironmentReader = processEnvironmentReader
 ): Promise<FetchResult> {
-  const [result] = await fetchExaApiBatch([url], undefined, env);
+  const [result] = await fetchExaApiBatchWithPool(
+    [url],
+    DEFAULT_MAX_CHARACTERS,
+    getExaApiKeyPool(env)
+  );
 
   if (!result) {
     throw new Error("Exa API fetch returned no text content");
@@ -55,17 +66,51 @@ export async function fetchExaApi(
   return result;
 }
 
-export async function fetchExaApiBatch(
+export function fetchExaApiBatch(
   urls: string[],
   maxCharacters = DEFAULT_MAX_CHARACTERS,
   env: EnvironmentReader = processEnvironmentReader
 ): Promise<FetchResult[]> {
-  const apiKey = env.read(EXA_API_KEY_ENV)?.trim();
-  if (!apiKey) {
+  return fetchExaApiBatchWithPool(urls, maxCharacters, getExaApiKeyPool(env));
+}
+
+export async function fetchExaApiBatchWithPool(
+  urls: string[],
+  maxCharacters: number,
+  apiKeyPool: ApiKeyPool
+): Promise<FetchResult[]> {
+  const attemptOrder = apiKeyPool.getAttemptOrder();
+  if (attemptOrder.length === 0) {
     throw new Error("Exa API key is not configured");
   }
 
-  const response = await fetch(EXA_CONTENTS_API_URL, {
+  let lastRateLimitError: Error | null = null;
+
+  for (const apiKey of attemptOrder) {
+    const response = await requestExaContents(apiKey, urls, maxCharacters);
+    if (response.status === 429) {
+      lastRateLimitError = new Error(
+        `Exa API fetch failed with status ${response.status}`
+      );
+      continue;
+    }
+
+    return parseExaContentsResponse(response, urls);
+  }
+
+  if (lastRateLimitError) {
+    throw lastRateLimitError;
+  }
+
+  throw new Error("Exa API key is not configured");
+}
+
+function requestExaContents(
+  apiKey: string,
+  urls: readonly string[],
+  maxCharacters: number
+): Promise<Response> {
+  return fetch(EXA_CONTENTS_API_URL, {
     body: JSON.stringify({
       text: {
         maxCharacters,
@@ -79,7 +124,12 @@ export async function fetchExaApiBatch(
     method: "POST",
     signal: AbortSignal.timeout(EXA_API_TIMEOUT_MS),
   });
+}
 
+async function parseExaContentsResponse(
+  response: Response,
+  urls: readonly string[]
+): Promise<FetchResult[]> {
   if (!response.ok) {
     throw new Error(`Exa API fetch failed with status ${response.status}`);
   }
@@ -130,4 +180,10 @@ export async function fetchExaApiBatch(
   }
 
   return normalizedResults;
+}
+
+function getExaApiKeyPool(env: EnvironmentReader): ApiKeyPool {
+  return env === processEnvironmentReader
+    ? defaultExaApiKeyPool
+    : createApiKeyPool(EXA_API_KEY_ENV, env);
 }

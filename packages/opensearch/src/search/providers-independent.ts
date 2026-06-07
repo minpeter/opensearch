@@ -1,11 +1,15 @@
+import { getApiKeyPool } from "../credentials/api-key-pool.ts";
 import {
   type EnvironmentReader,
   processEnvironmentReader,
 } from "../environment.ts";
 import {
+  compactProviders,
+  createPooledJsonSearchProvider,
+} from "./api-key-provider.ts";
+import {
   createJsonSearchProvider,
   getBaseUrl,
-  getEnvPool,
   parseArrayFromAnyPath,
   parseCommonResultArray,
   requireTrustedProviderBaseUrl,
@@ -17,26 +21,23 @@ export function createIndependentProviders(
   env: EnvironmentReader = processEnvironmentReader
 ): SearchProvider[] {
   return [
-    ...getEnvPool("KAGI_API_KEY", env).map((apiKey) =>
-      createKagiProvider(apiKey, env)
-    ),
-    ...getEnvPool("KAGI_API_TOKEN", env).map((apiKey) =>
-      createKagiProvider(apiKey, env)
-    ),
-    ...getEnvPool("MOJEEK_API_KEY", env).map((apiKey) =>
-      createMojeekProvider(apiKey, env)
-    ),
-    ...getEnvPool("OPENSEARCH_SEARXNG_URLS", env).map(createSearxngProvider),
+    ...compactProviders([
+      createKagiProvider("KAGI_API_KEY", env),
+      createKagiProvider("KAGI_API_TOKEN", env),
+      createMojeekProvider(env),
+    ]),
+    ...createSearxngProviders(env),
   ];
 }
 
 function createKagiProvider(
-  apiKey: string,
+  envName: string,
   env: EnvironmentReader
-): SearchProvider {
-  return createJsonSearchProvider({
+): SearchProvider | null {
+  return createPooledJsonSearchProvider({
+    apiKeyPool: getApiKeyPool(envName, env),
     name: "Kagi",
-    buildRequest: (query, numResults) => ({
+    buildRequest: (apiKey, query, numResults) => ({
       headers: { Authorization: `Bot ${apiKey}` },
       method: "GET",
       url: createSearchUrl(
@@ -55,13 +56,11 @@ function createKagiProvider(
   });
 }
 
-function createMojeekProvider(
-  apiKey: string,
-  env: EnvironmentReader
-): SearchProvider {
-  return createJsonSearchProvider({
+function createMojeekProvider(env: EnvironmentReader): SearchProvider | null {
+  return createPooledJsonSearchProvider({
+    apiKeyPool: getApiKeyPool("MOJEEK_API_KEY", env),
     name: "Mojeek",
-    buildRequest: (query, numResults) => ({
+    buildRequest: (apiKey, query, numResults) => ({
       method: "GET",
       url: createSearchUrl(
         getBaseUrl(
@@ -80,6 +79,14 @@ function createMojeekProvider(
     parse: (payload) =>
       parseArrayFromAnyPath(payload, [["response", "results"], ["results"]]),
   });
+}
+
+function createSearxngProviders(env: EnvironmentReader): SearchProvider[] {
+  return (env.read("OPENSEARCH_SEARXNG_URLS") ?? "")
+    .split(";")
+    .map((segment) => segment.trim())
+    .filter((segment) => segment.length > 0)
+    .map(createSearxngProvider);
 }
 
 function createSearxngProvider(baseUrl: string): SearchProvider {

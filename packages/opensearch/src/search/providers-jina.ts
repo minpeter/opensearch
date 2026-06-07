@@ -1,9 +1,14 @@
+import { getApiKeyPool } from "../credentials/api-key-pool.ts";
 import {
   type EnvironmentReader,
   processEnvironmentReader,
 } from "../environment.ts";
 import { getRandomUserAgent } from "../user-agents.ts";
-import { getBaseUrl, getEnvPool } from "./api-provider-utils.ts";
+import {
+  compactProviders,
+  createPooledSearchProvider,
+} from "./api-key-provider.ts";
+import { getBaseUrl } from "./api-provider-utils.ts";
 import { SearchEngineError } from "./errors.ts";
 import { fetchSearchText, REQUEST_TIMEOUT_MS } from "./http.ts";
 import { attachEngine, dedupeResults, normalizeResult } from "./text.ts";
@@ -23,9 +28,15 @@ interface JinaSearchDraft {
 export function createJinaProviders(
   env: EnvironmentReader = processEnvironmentReader
 ): SearchProvider[] {
-  return getEnvPool("JINA_API_KEY", env).map((apiKey) =>
-    createJinaProvider(apiKey, env)
-  );
+  return compactProviders([
+    createPooledSearchProvider({
+      apiKeyPool: getApiKeyPool("JINA_API_KEY", env),
+      name: "Jina",
+      searchWithApiKey(apiKey, query, numResults) {
+        return createJinaProvider(apiKey, env).search(query, numResults);
+      },
+    }),
+  ]);
 }
 
 function createJinaProvider(

@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-
+import { type ApiKeyPool, getApiKeyPool } from "./credentials/api-key-pool.ts";
 import {
   type EnvironmentReader,
   processEnvironmentReader,
@@ -16,6 +16,7 @@ import { getErrorMessage } from "./search/errors.ts";
 
 const PARALLEL_MCP_TIMEOUT_MS = 8000;
 const PARALLEL_MCP_SESSION_ID = `opensearch_${randomUUID().replaceAll("-", "")}`;
+const parallelMcpApiKeyPools = new WeakMap<EnvironmentReader, ApiKeyPool>();
 
 export interface ParallelMcpSearchResult {
   readonly snippet: string;
@@ -104,12 +105,23 @@ export function fetchParallelMcp(
 function createAuthHeaders(
   env: EnvironmentReader
 ): Record<string, string> | undefined {
-  const apiKey = env.read("PARALLEL_API_KEY")?.trim();
+  const [apiKey] = getParallelMcpApiKeyPool(env).getAttemptOrder();
   if (!apiKey) {
     return;
   }
 
   return { Authorization: `Bearer ${apiKey}` };
+}
+
+function getParallelMcpApiKeyPool(env: EnvironmentReader): ApiKeyPool {
+  const existingPool = parallelMcpApiKeyPools.get(env);
+  if (existingPool) {
+    return existingPool;
+  }
+
+  const apiKeyPool = getApiKeyPool("PARALLEL_API_KEY", env);
+  parallelMcpApiKeyPools.set(env, apiKeyPool);
+  return apiKeyPool;
 }
 
 function getMcpErrorText(content: unknown): string {

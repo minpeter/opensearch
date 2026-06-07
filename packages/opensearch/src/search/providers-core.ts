@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { getApiKeyPool } from "../credentials/api-key-pool.ts";
 import {
   type EnvironmentReader,
   processEnvironmentReader,
@@ -9,6 +10,7 @@ import {
 } from "../tinyfish/api-key-pool.ts";
 import { searchTinyFish } from "../tinyfish/search.ts";
 import { getRandomUserAgent } from "../user-agents.ts";
+import { createPooledSearchProvider } from "./api-key-provider.ts";
 import { getErrorMessage, SearchEngineError } from "./errors.ts";
 import {
   createSearchUrl,
@@ -75,14 +77,10 @@ function createTinyFishProviderWithPool(
 export function createBraveSearchProvider(
   env: EnvironmentReader = processEnvironmentReader
 ): SearchProvider | null {
-  const apiKey = env.read("BRAVE_SEARCH_API_KEY")?.trim();
-  if (!apiKey) {
-    return null;
-  }
-
-  return {
+  return createPooledSearchProvider({
+    apiKeyPool: getApiKeyPool("BRAVE_SEARCH_API_KEY", env),
     name: "Brave",
-    async search(query: string, numResults: number) {
+    async searchWithApiKey(apiKey, query, numResults) {
       const response = await fetchSearchText({
         authFailureStatuses: new Set([401]),
         engine: "Brave",
@@ -105,7 +103,7 @@ export function createBraveSearchProvider(
 
       return attachEngine("Brave", parseBraveResults(response));
     },
-  };
+  });
 }
 
 function parseBraveResults(responseBody: string): ParsedResult[] {
