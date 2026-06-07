@@ -1,5 +1,9 @@
 import { z } from "zod";
 
+import {
+  type EnvironmentReader,
+  processEnvironmentReader,
+} from "../environment.ts";
 import { DEFAULT_MAX_CHARACTERS, EXA_API_KEY_ENV } from "./config.ts";
 import { createFetchResult, type FetchResult } from "./result.ts";
 
@@ -38,8 +42,11 @@ type ExaContentsStatus = z.infer<
   ? Status
   : never;
 
-export async function fetchExaApi(url: string): Promise<FetchResult> {
-  const [result] = await fetchExaApiBatch([url]);
+export async function fetchExaApi(
+  url: string,
+  env: EnvironmentReader = processEnvironmentReader
+): Promise<FetchResult> {
+  const [result] = await fetchExaApiBatch([url], undefined, env);
 
   if (!result) {
     throw new Error("Exa API fetch returned no text content");
@@ -50,9 +57,10 @@ export async function fetchExaApi(url: string): Promise<FetchResult> {
 
 export async function fetchExaApiBatch(
   urls: string[],
-  maxCharacters = DEFAULT_MAX_CHARACTERS
+  maxCharacters = DEFAULT_MAX_CHARACTERS,
+  env: EnvironmentReader = processEnvironmentReader
 ): Promise<FetchResult[]> {
-  const apiKey = process.env[EXA_API_KEY_ENV]?.trim();
+  const apiKey = env.read(EXA_API_KEY_ENV)?.trim();
   if (!apiKey) {
     throw new Error("Exa API key is not configured");
   }

@@ -1,6 +1,9 @@
+import { requireTrustedProviderBaseUrl } from "./search/api-provider-utils.ts";
+
 export const DEFAULT_EXA_MCP_SERVER_URL = "https://mcp.exa.ai/mcp";
 export const DEFAULT_EXA_MCP_FETCH_TOOL = "web_fetch_exa";
 export const DEFAULT_EXA_MCP_SEARCH_TOOL = "web_search_exa";
+const EXA_MCP_URL_ENV = "OPENSEARCH_EXA_MCP_URL";
 const EXA_FETCH_TITLE_PREFIX = "# ";
 const EXA_FETCH_URL_PREFIX = "URL:";
 const EXA_FETCH_PUBLISHED_PREFIX = "Published:";
@@ -30,7 +33,7 @@ export function createExaMcpServerUrl(
   baseUrl = DEFAULT_EXA_MCP_SERVER_URL,
   enabledTools: string[] = [DEFAULT_EXA_MCP_SEARCH_TOOL]
 ): string {
-  const url = new URL(baseUrl);
+  const url = new URL(requireTrustedProviderBaseUrl(EXA_MCP_URL_ENV, baseUrl));
   const normalizedTools = [
     ...new Set(enabledTools.map((tool) => tool.trim()).filter(Boolean)),
   ];

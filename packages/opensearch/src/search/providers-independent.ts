@@ -1,4 +1,8 @@
 import {
+  type EnvironmentReader,
+  processEnvironmentReader,
+} from "../environment.ts";
+import {
   createJsonSearchProvider,
   getBaseUrl,
   getEnvPool,
@@ -9,23 +13,38 @@ import {
 import { createSearchUrl } from "./http.ts";
 import type { SearchProvider } from "./types.ts";
 
-export function createIndependentProviders(): SearchProvider[] {
+export function createIndependentProviders(
+  env: EnvironmentReader = processEnvironmentReader
+): SearchProvider[] {
   return [
-    ...getEnvPool("KAGI_API_KEY").map(createKagiProvider),
-    ...getEnvPool("KAGI_API_TOKEN").map(createKagiProvider),
-    ...getEnvPool("MOJEEK_API_KEY").map(createMojeekProvider),
-    ...getEnvPool("OPENSEARCH_SEARXNG_URLS").map(createSearxngProvider),
+    ...getEnvPool("KAGI_API_KEY", env).map((apiKey) =>
+      createKagiProvider(apiKey, env)
+    ),
+    ...getEnvPool("KAGI_API_TOKEN", env).map((apiKey) =>
+      createKagiProvider(apiKey, env)
+    ),
+    ...getEnvPool("MOJEEK_API_KEY", env).map((apiKey) =>
+      createMojeekProvider(apiKey, env)
+    ),
+    ...getEnvPool("OPENSEARCH_SEARXNG_URLS", env).map(createSearxngProvider),
   ];
 }
 
-function createKagiProvider(apiKey: string): SearchProvider {
+function createKagiProvider(
+  apiKey: string,
+  env: EnvironmentReader
+): SearchProvider {
   return createJsonSearchProvider({
     name: "Kagi",
     buildRequest: (query, numResults) => ({
       headers: { Authorization: `Bot ${apiKey}` },
       method: "GET",
       url: createSearchUrl(
-        getBaseUrl("OPENSEARCH_KAGI_URL", "https://kagi.com/api/v1/search"),
+        getBaseUrl(
+          "OPENSEARCH_KAGI_URL",
+          "https://kagi.com/api/v1/search",
+          env
+        ),
         {
           limit: String(numResults),
           q: query,
@@ -36,13 +55,20 @@ function createKagiProvider(apiKey: string): SearchProvider {
   });
 }
 
-function createMojeekProvider(apiKey: string): SearchProvider {
+function createMojeekProvider(
+  apiKey: string,
+  env: EnvironmentReader
+): SearchProvider {
   return createJsonSearchProvider({
     name: "Mojeek",
     buildRequest: (query, numResults) => ({
       method: "GET",
       url: createSearchUrl(
-        getBaseUrl("OPENSEARCH_MOJEEK_URL", "https://www.mojeek.com/search"),
+        getBaseUrl(
+          "OPENSEARCH_MOJEEK_URL",
+          "https://www.mojeek.com/search",
+          env
+        ),
         {
           api_key: apiKey,
           fmt: "json",

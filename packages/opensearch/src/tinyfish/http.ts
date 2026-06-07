@@ -1,4 +1,7 @@
-import { getTinyFishApiKeyAttemptOrder } from "./api-key-pool.ts";
+import {
+  getTinyFishApiKeyAttemptOrder,
+  type TinyFishApiKeyPool,
+} from "./api-key-pool.ts";
 
 export const TINYFISH_TIMEOUT_MS = 30_000;
 
@@ -6,9 +9,11 @@ type TinyFishServiceName = "fetch" | "search";
 
 export async function requestTinyFishJson(
   serviceName: TinyFishServiceName,
-  requestWithApiKey: (apiKey: string) => Promise<Response>
+  requestWithApiKey: (apiKey: string) => Promise<Response>,
+  apiKeyPool?: TinyFishApiKeyPool
 ): Promise<unknown> {
-  const [firstApiKey, ...remainingApiKeys] = getTinyFishApiKeyAttemptOrder();
+  const [firstApiKey, ...remainingApiKeys] =
+    apiKeyPool?.getAttemptOrder() ?? getTinyFishApiKeyAttemptOrder();
   if (!firstApiKey) {
     throw new Error("TINYFISH_API_KEY is not configured");
   }

@@ -1,4 +1,8 @@
 import { z } from "zod";
+import {
+  type EnvironmentReader,
+  processEnvironmentReader,
+} from "../environment.ts";
 import { getRandomUserAgent } from "../user-agents.ts";
 import { getErrorMessage, SearchEngineError } from "./errors.ts";
 import {
@@ -99,8 +103,11 @@ export function createJsonSearchProvider(
   };
 }
 
-export function getEnvPool(name: string): readonly string[] {
-  return (process.env[name] ?? "")
+export function getEnvPool(
+  name: string,
+  env: EnvironmentReader = processEnvironmentReader
+): readonly string[] {
+  return (env.read(name) ?? "")
     .split(";")
     .map((segment) => segment.trim())
     .filter((segment) => segment.length > 0);
@@ -108,10 +115,11 @@ export function getEnvPool(name: string): readonly string[] {
 
 export function getEnvPair(
   firstName: string,
-  secondName: string
+  secondName: string,
+  env: EnvironmentReader = processEnvironmentReader
 ): readonly [string, string] | null {
-  const firstValue = process.env[firstName]?.trim();
-  const secondValue = process.env[secondName]?.trim();
+  const firstValue = env.read(firstName)?.trim();
+  const secondValue = env.read(secondName)?.trim();
 
   if (!(firstValue && secondValue)) {
     return null;
@@ -191,8 +199,12 @@ export function parseArrayFromAnyPath(
   return [];
 }
 
-export function getBaseUrl(envName: string, defaultBaseUrl: string): string {
-  const configuredUrl = process.env[envName]?.trim();
+export function getBaseUrl(
+  envName: string,
+  defaultBaseUrl: string,
+  env: EnvironmentReader = processEnvironmentReader
+): string {
+  const configuredUrl = env.read(envName)?.trim();
   if (!configuredUrl) {
     return defaultBaseUrl;
   }

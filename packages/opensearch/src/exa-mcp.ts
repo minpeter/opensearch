@@ -2,16 +2,23 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 
 import {
+  type EnvironmentReader,
+  processEnvironmentReader,
+} from "./environment.ts";
+import {
   createExaMcpServerUrl,
   DEFAULT_EXA_MCP_FETCH_TOOL,
   DEFAULT_EXA_MCP_SEARCH_TOOL,
+  DEFAULT_EXA_MCP_SERVER_URL,
   type ExaMcpContentItem,
   parseExaMcpContentItems,
   parseExaMcpFetchContentItems,
 } from "./exa-mcp-provider.ts";
+import { getBaseUrl } from "./search/api-provider-utils.ts";
 
 const EXA_MCP_TIMEOUT_MS = 8000;
 const EXA_MCP_FETCH_MAX_CHARACTERS = 12_000;
+const EXA_MCP_URL_ENV = "OPENSEARCH_EXA_MCP_URL";
 
 export interface ExaMcpSearchResult {
   snippet: string;
@@ -27,29 +34,37 @@ export interface ExaMcpFetchResult {
 
 export function searchExaMcp(
   query: string,
-  numResults: number
+  numResults: number,
+  env: EnvironmentReader = processEnvironmentReader
 ): Promise<ExaMcpSearchResult[]> {
-  return withExaMcpClient([DEFAULT_EXA_MCP_SEARCH_TOOL], async ({ client }) => {
-    const response = await client.callTool({
-      arguments: {
-        numResults,
-        query,
-      },
-      name: DEFAULT_EXA_MCP_SEARCH_TOOL,
-    });
+  return withExaMcpClient(
+    [DEFAULT_EXA_MCP_SEARCH_TOOL],
+    env,
+    async ({ client }) => {
+      const response = await client.callTool({
+        arguments: {
+          numResults,
+          query,
+        },
+        name: DEFAULT_EXA_MCP_SEARCH_TOOL,
+      });
 
-    if (response.isError) {
-      throw new Error(getExaMcpErrorText(response.content));
+      if (response.isError) {
+        throw new Error(getExaMcpErrorText(response.content));
+      }
+
+      return parseExaMcpContentItems(
+        response.content as ExaMcpContentItem[]
+      ).map(({ engine: _engine, ...result }) => result);
     }
-
-    return parseExaMcpContentItems(response.content as ExaMcpContentItem[]).map(
-      ({ engine: _engine, ...result }) => result
-    );
-  });
+  );
 }
 
-export function fetchExaMcp(url: string): Promise<ExaMcpFetchResult> {
-  return fetchExaMcpBatch([url]).then((results) => {
+export function fetchExaMcp(
+  url: string,
+  env: EnvironmentReader = processEnvironmentReader
+): Promise<ExaMcpFetchResult> {
+  return fetchExaMcpBatch([url], undefined, env).then((results) => {
     const [result] = results;
 
     if (!result) {
@@ -62,35 +77,41 @@ export function fetchExaMcp(url: string): Promise<ExaMcpFetchResult> {
 
 export function fetchExaMcpBatch(
   urls: string[],
-  maxCharacters = EXA_MCP_FETCH_MAX_CHARACTERS
+  maxCharacters = EXA_MCP_FETCH_MAX_CHARACTERS,
+  env: EnvironmentReader = processEnvironmentReader
 ): Promise<ExaMcpFetchResult[]> {
-  return withExaMcpClient([DEFAULT_EXA_MCP_FETCH_TOOL], async ({ client }) => {
-    const response = await client.callTool({
-      arguments: {
-        maxCharacters,
-        urls,
-      },
-      name: DEFAULT_EXA_MCP_FETCH_TOOL,
-    });
+  return withExaMcpClient(
+    [DEFAULT_EXA_MCP_FETCH_TOOL],
+    env,
+    async ({ client }) => {
+      const response = await client.callTool({
+        arguments: {
+          maxCharacters,
+          urls,
+        },
+        name: DEFAULT_EXA_MCP_FETCH_TOOL,
+      });
 
-    if (response.isError) {
-      throw new Error(getExaMcpErrorText(response.content));
+      if (response.isError) {
+        throw new Error(getExaMcpErrorText(response.content));
+      }
+
+      const results = parseExaMcpFetchContentItems(
+        response.content as ExaMcpContentItem[]
+      );
+
+      if (results.length === 0) {
+        throw new Error("Exa MCP fetch returned an unexpected response shape");
+      }
+
+      return results;
     }
-
-    const results = parseExaMcpFetchContentItems(
-      response.content as ExaMcpContentItem[]
-    );
-
-    if (results.length === 0) {
-      throw new Error("Exa MCP fetch returned an unexpected response shape");
-    }
-
-    return results;
-  });
+  );
 }
 
 async function withExaMcpClient<T>(
   enabledTools: string[],
+  env: EnvironmentReader,
   run: (context: { client: Client }) => Promise<T>
 ): Promise<T> {
   const client = new Client({
@@ -98,7 +119,7 @@ async function withExaMcpClient<T>(
     version: "0.1.0",
   });
   const transport = new StreamableHTTPClientTransport(
-    new URL(createExaMcpServerUrl(undefined, enabledTools)),
+    new URL(createExaMcpRequestUrl(enabledTools, env)),
     {
       requestInit: {
         signal: AbortSignal.timeout(EXA_MCP_TIMEOUT_MS),
@@ -130,4 +151,14 @@ function getExaMcpErrorText(content: unknown): string {
     : "";
 
   return text || "Exa MCP search failed";
+}
+
+export function createExaMcpRequestUrl(
+  enabledTools: string[],
+  env: EnvironmentReader = processEnvironmentReader
+): string {
+  return createExaMcpServerUrl(
+    getBaseUrl(EXA_MCP_URL_ENV, DEFAULT_EXA_MCP_SERVER_URL, env),
+    enabledTools
+  );
 }

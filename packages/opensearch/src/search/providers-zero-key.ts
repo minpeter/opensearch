@@ -1,3 +1,7 @@
+import {
+  type EnvironmentReader,
+  processEnvironmentReader,
+} from "../environment.ts";
 import { getBaseUrl } from "./api-provider-utils.ts";
 import { getErrorMessage, SearchEngineError } from "./errors.ts";
 import {
@@ -19,12 +23,18 @@ import {
 
 type HtmlParser = (html: string) => ParsedResult[];
 
-export function createZeroKeyProviders(): SearchProvider[] {
+export function createZeroKeyProviders(
+  env: EnvironmentReader = processEnvironmentReader
+): SearchProvider[] {
   return [
-    createHtmlProvider("Startpage", createStartpageUrl, parseStartpageResults),
+    createHtmlProvider(
+      "Startpage",
+      (query) => createStartpageUrl(query, env),
+      parseStartpageResults
+    ),
     createHtmlProvider(
       "Webcrawler",
-      createWebcrawlerUrl,
+      (query) => createWebcrawlerUrl(query, env),
       parseWebcrawlerResults
     ),
   ];
@@ -80,19 +90,24 @@ function limitResults(
   return attachEngine(engine, limitedResults);
 }
 
-function createStartpageUrl(query: string): string {
+function createStartpageUrl(query: string, env: EnvironmentReader): string {
   return createSearchUrl(
     getBaseUrl(
       "OPENSEARCH_STARTPAGE_URL",
-      "https://www.startpage.com/sp/search"
+      "https://www.startpage.com/sp/search",
+      env
     ),
     { cat: "web", query }
   );
 }
 
-function createWebcrawlerUrl(query: string): string {
+function createWebcrawlerUrl(query: string, env: EnvironmentReader): string {
   return createSearchUrl(
-    getBaseUrl("OPENSEARCH_WEBCRAWLER_URL", "https://www.webcrawler.com/serp"),
+    getBaseUrl(
+      "OPENSEARCH_WEBCRAWLER_URL",
+      "https://www.webcrawler.com/serp",
+      env
+    ),
     { q: query }
   );
 }

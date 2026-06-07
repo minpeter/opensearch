@@ -1,3 +1,7 @@
+import {
+  type EnvironmentReader,
+  processEnvironmentReader,
+} from "../environment.ts";
 import { getRandomUserAgent } from "../user-agents.ts";
 import { getBaseUrl, getEnvPool } from "./api-provider-utils.ts";
 import { SearchEngineError } from "./errors.ts";
@@ -16,11 +20,18 @@ interface JinaSearchDraft {
   url: string;
 }
 
-export function createJinaProviders(): SearchProvider[] {
-  return getEnvPool("JINA_API_KEY").map(createJinaProvider);
+export function createJinaProviders(
+  env: EnvironmentReader = processEnvironmentReader
+): SearchProvider[] {
+  return getEnvPool("JINA_API_KEY", env).map((apiKey) =>
+    createJinaProvider(apiKey, env)
+  );
 }
 
-function createJinaProvider(apiKey: string): SearchProvider {
+function createJinaProvider(
+  apiKey: string,
+  env: EnvironmentReader
+): SearchProvider {
   return {
     name: "Jina",
     async search(query: string, numResults: number) {
@@ -36,7 +47,7 @@ function createJinaProvider(apiKey: string): SearchProvider {
           redirect: "manual",
           signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
         },
-        url: createJinaSearchUrl(query),
+        url: createJinaSearchUrl(query, env),
       });
 
       const results = parseJinaSearchText(response);
@@ -102,9 +113,9 @@ export function parseJinaSearchText(text: string): ParsedResult[] {
   return dedupeResults(results);
 }
 
-function createJinaSearchUrl(query: string): string {
+function createJinaSearchUrl(query: string, env: EnvironmentReader): string {
   const url = new URL(
-    getBaseUrl("OPENSEARCH_JINA_SEARCH_URL", "https://s.jina.ai/")
+    getBaseUrl("OPENSEARCH_JINA_SEARCH_URL", "https://s.jina.ai/", env)
   );
   const pathPrefix = url.pathname.endsWith("/")
     ? url.pathname

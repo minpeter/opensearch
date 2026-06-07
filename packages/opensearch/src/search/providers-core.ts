@@ -1,6 +1,12 @@
 import { z } from "zod";
-
-import { hasTinyFishApiKeys } from "../tinyfish/api-key-pool.ts";
+import {
+  type EnvironmentReader,
+  processEnvironmentReader,
+} from "../environment.ts";
+import {
+  createTinyFishApiKeyPool,
+  type TinyFishApiKeyPool,
+} from "../tinyfish/api-key-pool.ts";
 import { searchTinyFish } from "../tinyfish/search.ts";
 import { getRandomUserAgent } from "../user-agents.ts";
 import { getErrorMessage, SearchEngineError } from "./errors.ts";
@@ -28,18 +34,27 @@ const braveResponseSchema = z.object({
     .optional(),
 });
 
-export function createTinyFishSearchProvider(): SearchProvider | null {
-  if (!hasTinyFishApiKeys()) {
+export function createTinyFishSearchProvider(
+  env: EnvironmentReader = processEnvironmentReader
+): SearchProvider | null {
+  const apiKeyPool = createTinyFishApiKeyPool(env);
+  if (!apiKeyPool.hasApiKeys()) {
     return null;
   }
 
+  return createTinyFishProviderWithPool(apiKeyPool);
+}
+
+function createTinyFishProviderWithPool(
+  apiKeyPool: TinyFishApiKeyPool
+): SearchProvider {
   return {
     name: "TinyFish",
     async search(query: string, numResults: number) {
       let results: Awaited<ReturnType<typeof searchTinyFish>>;
 
       try {
-        results = await searchTinyFish(query);
+        results = await searchTinyFish(query, apiKeyPool);
       } catch (error) {
         throw new SearchEngineError(
           "TinyFish",
@@ -57,8 +72,10 @@ export function createTinyFishSearchProvider(): SearchProvider | null {
   };
 }
 
-export function createBraveSearchProvider(): SearchProvider | null {
-  const apiKey = process.env.BRAVE_SEARCH_API_KEY?.trim();
+export function createBraveSearchProvider(
+  env: EnvironmentReader = processEnvironmentReader
+): SearchProvider | null {
+  const apiKey = env.read("BRAVE_SEARCH_API_KEY")?.trim();
   if (!apiKey) {
     return null;
   }

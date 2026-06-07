@@ -1,3 +1,7 @@
+import {
+  type EnvironmentReader,
+  processEnvironmentReader,
+} from "../environment.ts";
 import { createAugmentedBingProvider } from "./providers-augmented-bing.ts";
 import {
   createBraveSearchProvider,
@@ -19,46 +23,48 @@ const EXA_MCP_OPT_OUT_ENV = "OPENSEARCH_ENABLE_EXA_MCP";
 const PARALLEL_MCP_OPT_OUT_ENV = "OPENSEARCH_ENABLE_PARALLEL_MCP";
 const ZERO_KEY_OPT_OUT_ENV = "OPENSEARCH_ENABLE_ZERO_KEY_PROVIDERS";
 
-function isExaMcpEnabled(): boolean {
-  return process.env[EXA_MCP_OPT_OUT_ENV] !== "false";
+function isExaMcpEnabled(env: EnvironmentReader): boolean {
+  return env.read(EXA_MCP_OPT_OUT_ENV) !== "false";
 }
 
-function isParallelMcpEnabled(): boolean {
-  return process.env[PARALLEL_MCP_OPT_OUT_ENV] !== "false";
+function isParallelMcpEnabled(env: EnvironmentReader): boolean {
+  return env.read(PARALLEL_MCP_OPT_OUT_ENV) !== "false";
 }
 
-function isZeroKeyProvidersEnabled(): boolean {
-  return process.env[ZERO_KEY_OPT_OUT_ENV] !== "false";
+function isZeroKeyProvidersEnabled(env: EnvironmentReader): boolean {
+  return env.read(ZERO_KEY_OPT_OUT_ENV) !== "false";
 }
 
-export function getSearchProviders(): SearchProvider[] {
+export function getSearchProviders(
+  env: EnvironmentReader = processEnvironmentReader
+): SearchProvider[] {
   const providers: SearchProvider[] = [];
 
-  pushProvider(providers, createTinyFishSearchProvider());
-  providers.push(...createLlmNativeProviders());
-  providers.push(...createSerpProviders());
+  pushProvider(providers, createTinyFishSearchProvider(env));
+  providers.push(...createLlmNativeProviders(env));
+  providers.push(...createSerpProviders(env));
 
-  pushProvider(providers, createBraveSearchProvider());
+  pushProvider(providers, createBraveSearchProvider(env));
 
-  if (isParallelMcpEnabled()) {
-    providers.push(createParallelMcpSearchProvider());
+  if (isParallelMcpEnabled(env)) {
+    providers.push(createParallelMcpSearchProvider(env));
   }
 
-  if (isExaMcpEnabled()) {
-    providers.push(createExaMcpSearchProvider());
+  if (isExaMcpEnabled(env)) {
+    providers.push(createExaMcpSearchProvider(env));
   }
 
-  pushProvider(providers, createExaSearchProvider());
-  providers.push(...createIndependentProviders());
+  pushProvider(providers, createExaSearchProvider(env));
+  providers.push(...createIndependentProviders(env));
 
-  if (isZeroKeyProvidersEnabled()) {
-    providers.push(...createZeroKeyProviders());
+  if (isZeroKeyProvidersEnabled(env)) {
+    providers.push(...createZeroKeyProviders(env));
   }
 
   providers.push(createScrapeSearchProvider(SCRAPE_SEARCH_ENGINES.DuckDuckGo));
   providers.push(
-    isZeroKeyProvidersEnabled()
-      ? createAugmentedBingProvider()
+    isZeroKeyProvidersEnabled(env)
+      ? createAugmentedBingProvider(env)
       : createScrapeSearchProvider(SCRAPE_SEARCH_ENGINES.Bing)
   );
 

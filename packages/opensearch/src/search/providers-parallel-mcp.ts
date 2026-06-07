@@ -1,14 +1,23 @@
+import {
+  type EnvironmentReader,
+  processEnvironmentReader,
+} from "../environment.ts";
 import { searchParallelMcp } from "../parallel-mcp.ts";
 import { getErrorMessage, SearchEngineError } from "./errors.ts";
 import { attachEngine } from "./text.ts";
 import type { EngineFailureKind, SearchProvider } from "./types.ts";
 
-export function createParallelMcpSearchProvider(): SearchProvider {
+export function createParallelMcpSearchProvider(
+  env: EnvironmentReader = processEnvironmentReader
+): SearchProvider {
   return {
     name: "Parallel",
     async search(query: string, numResults: number) {
       try {
-        const results = await searchParallelMcp(query);
+        const results =
+          env === processEnvironmentReader
+            ? await searchParallelMcp(query)
+            : await searchParallelMcp(query, env);
         if (results.length === 0) {
           throw new SearchEngineError("Parallel", "no-results", "No Results");
         }

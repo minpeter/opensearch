@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  createOpenSearch,
   fetch,
   fetchResultSchema,
   SEARCH_ENGINE_NAMES,
@@ -41,6 +42,7 @@ describe("public API", () => {
     });
 
     expect(SEARCH_ENGINE_NAMES).toContain("Bing");
+    expect(typeof createOpenSearch).toBe("function");
     expect(parsedSearchResult.engine).toBe("Bing");
     expect(parsedFetchResult.length).toBe(9);
     expect(publicApi).not.toHaveProperty("fetchUrl");

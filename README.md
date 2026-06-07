@@ -47,6 +47,31 @@ const results = await search("TypeScript release notes", 5);
 const pages = await fetch(results.slice(0, 2).map((result) => result.url));
 ```
 
+For library code that should not implicitly read `process.env`, create an
+explicit client. Pass `process.env` when you want Node environment variables, or
+pass a plain object when the host app owns configuration.
+
+```ts
+import { createOpenSearch } from "@minpeter/opensearch";
+
+const openSearch = createOpenSearch({
+  env: {
+    OPENSEARCH_ENABLE_EXA_MCP: "false",
+    TAVILY_API_KEY: process.env.TAVILY_API_KEY,
+  },
+});
+
+const results = await openSearch.search("TypeScript release notes", 5);
+const firstResult = results[0];
+
+if (firstResult) {
+  const page = await openSearch.fetch(firstResult.url);
+}
+```
+
+The MCP wrapper keeps using the module-level `search` and `fetch` exports so
+existing environment-variable based setup remains zero-config.
+
 ## Tool Reference
 
 ### `web_search`

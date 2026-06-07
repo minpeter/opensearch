@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import type { TinyFishApiKeyPool } from "./api-key-pool.ts";
 import { requestTinyFishJson, TINYFISH_TIMEOUT_MS } from "./http.ts";
 
 const TINYFISH_FETCH_ENDPOINT = "https://api.fetch.tinyfish.ai";
@@ -33,23 +34,27 @@ export interface TinyFishFetchResult {
 }
 
 export async function fetchTinyFishUrls(
-  urls: readonly string[]
+  urls: readonly string[],
+  apiKeyPool?: TinyFishApiKeyPool
 ): Promise<TinyFishFetchResult[]> {
-  const response = await requestTinyFishJson("fetch", (apiKey) =>
-    fetch(TINYFISH_FETCH_ENDPOINT, {
-      body: JSON.stringify({
-        format: "markdown",
-        image_links: false,
-        links: false,
-        urls,
+  const response = await requestTinyFishJson(
+    "fetch",
+    (apiKey) =>
+      fetch(TINYFISH_FETCH_ENDPOINT, {
+        body: JSON.stringify({
+          format: "markdown",
+          image_links: false,
+          links: false,
+          urls,
+        }),
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-Key": apiKey,
+        },
+        method: "POST",
+        signal: AbortSignal.timeout(TINYFISH_TIMEOUT_MS),
       }),
-      headers: {
-        "Content-Type": "application/json",
-        "X-API-Key": apiKey,
-      },
-      method: "POST",
-      signal: AbortSignal.timeout(TINYFISH_TIMEOUT_MS),
-    })
+    apiKeyPool
   );
   const parsed = tinyFishFetchResponseSchema.parse(response);
   const resultsByUrl = mapTinyFishResultsByUrl(parsed.results);

@@ -1,3 +1,7 @@
+import {
+  type EnvironmentReader,
+  processEnvironmentReader,
+} from "../environment.ts";
 import { createAugmentedBingFailure } from "./augmented-bing/failure.ts";
 import { createAugmentedBingSupplementalProviders } from "./augmented-bing/providers.ts";
 import {
@@ -7,9 +11,11 @@ import {
 import { createScrapeSearchProvider, SCRAPE_SEARCH_ENGINES } from "./scrape.ts";
 import type { SearchProvider } from "./types.ts";
 
-export function createAugmentedBingProvider(): SearchProvider {
+export function createAugmentedBingProvider(
+  env: EnvironmentReader = processEnvironmentReader
+): SearchProvider {
   const bingProvider = createScrapeSearchProvider(SCRAPE_SEARCH_ENGINES.Bing);
-  const supplementalProviders = createAugmentedBingSupplementalProviders();
+  const supplementalProviders = createAugmentedBingSupplementalProviders(env);
 
   return {
     name: "Bing",

@@ -29,6 +29,21 @@ describe("createExaMcpServerUrl", () => {
 
     expect(url.searchParams.has("tools")).toBe(false);
   });
+
+  it("rejects non-local HTTP endpoint overrides", () => {
+    expect(() =>
+      createExaMcpServerUrl("http://evil.example/mcp", ["web_search_exa"])
+    ).toThrow("OPENSEARCH_EXA_MCP_URL must be an HTTPS URL");
+  });
+
+  it("allows localhost HTTP endpoint overrides", () => {
+    const url = new URL(
+      createExaMcpServerUrl("http://127.0.0.1:43111/mcp", ["web_search_exa"])
+    );
+
+    expect(`${url.origin}${url.pathname}`).toBe("http://127.0.0.1:43111/mcp");
+    expect(url.searchParams.get("tools")).toBe("web_search_exa");
+  });
 });
 
 describe("parseExaMcpFetchText", () => {

@@ -1,3 +1,7 @@
+import {
+  type EnvironmentReader,
+  processEnvironmentReader,
+} from "../../environment.ts";
 import { getBaseUrl } from "../api-provider-utils.ts";
 import { getErrorMessage, SearchEngineError } from "../errors.ts";
 import {
@@ -23,13 +27,23 @@ type JsonParser = (payload: unknown) => ParsedResult[];
 
 const INTERNET_ARCHIVE_FIELDS = ["identifier", "title", "description"] as const;
 
-export function createAugmentedBingSupplementalProviders(): SearchProvider[] {
+export function createAugmentedBingSupplementalProviders(
+  env: EnvironmentReader = processEnvironmentReader
+): SearchProvider[] {
   return [
-    createJsonProvider("Wikipedia", createWikipediaUrl, parseWikipediaResults),
-    createHtmlProvider("Wiby", createWibyUrl, parseWibyResults),
+    createJsonProvider(
+      "Wikipedia",
+      (query, numResults) => createWikipediaUrl(query, numResults, env),
+      parseWikipediaResults
+    ),
+    createHtmlProvider(
+      "Wiby",
+      (query) => createWibyUrl(query, env),
+      parseWibyResults
+    ),
     createJsonProvider(
       "InternetArchive",
-      createInternetArchiveUrl,
+      (query, numResults) => createInternetArchiveUrl(query, numResults, env),
       parseInternetArchiveResults
     ),
   ];
@@ -97,18 +111,23 @@ function toProviderError(
   );
 }
 
-function createWibyUrl(query: string): string {
+function createWibyUrl(query: string, env: EnvironmentReader): string {
   return createSearchUrl(
-    getBaseUrl("OPENSEARCH_WIBY_URL", "https://wiby.me/"),
+    getBaseUrl("OPENSEARCH_WIBY_URL", "https://wiby.me/", env),
     { q: query }
   );
 }
 
-function createWikipediaUrl(query: string, numResults: number): string {
+function createWikipediaUrl(
+  query: string,
+  numResults: number,
+  env: EnvironmentReader
+): string {
   return createSearchUrl(
     getBaseUrl(
       "OPENSEARCH_WIKIPEDIA_URL",
-      "https://en.wikipedia.org/w/api.php"
+      "https://en.wikipedia.org/w/api.php",
+      env
     ),
     {
       action: "query",
@@ -121,11 +140,16 @@ function createWikipediaUrl(query: string, numResults: number): string {
   );
 }
 
-function createInternetArchiveUrl(query: string, numResults: number): string {
+function createInternetArchiveUrl(
+  query: string,
+  numResults: number,
+  env: EnvironmentReader
+): string {
   const url = new URL(
     getBaseUrl(
       "OPENSEARCH_INTERNET_ARCHIVE_URL",
-      "https://archive.org/advancedsearch.php"
+      "https://archive.org/advancedsearch.php",
+      env
     )
   );
   url.searchParams.set("q", query);

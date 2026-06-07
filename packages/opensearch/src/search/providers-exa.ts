@@ -1,5 +1,9 @@
 import { z } from "zod";
 
+import {
+  type EnvironmentReader,
+  processEnvironmentReader,
+} from "../environment.ts";
 import { searchExaMcp } from "../exa-mcp.ts";
 import { getRandomUserAgent } from "../user-agents.ts";
 import { getErrorMessage, SearchEngineError } from "./errors.ts";
@@ -29,12 +33,17 @@ const exaResponseSchema = z.object({
   ),
 });
 
-export function createExaMcpSearchProvider(): SearchProvider {
+export function createExaMcpSearchProvider(
+  env: EnvironmentReader = processEnvironmentReader
+): SearchProvider {
   return {
     name: "Exa",
     async search(query: string, numResults: number) {
       try {
-        const results = await searchExaMcp(query, numResults);
+        const results =
+          env === processEnvironmentReader
+            ? await searchExaMcp(query, numResults)
+            : await searchExaMcp(query, numResults, env);
         if (results.length === 0) {
           throw new SearchEngineError("Exa", "no-results", "No Results");
         }
@@ -53,8 +62,10 @@ export function createExaMcpSearchProvider(): SearchProvider {
   };
 }
 
-export function createExaSearchProvider(): SearchProvider | null {
-  const apiKey = process.env.EXA_API_KEY?.trim();
+export function createExaSearchProvider(
+  env: EnvironmentReader = processEnvironmentReader
+): SearchProvider | null {
+  const apiKey = env.read("EXA_API_KEY")?.trim();
   if (!apiKey) {
     return null;
   }
