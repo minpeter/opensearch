@@ -2,20 +2,20 @@ import {
   type EnvironmentReader,
   processEnvironmentReader,
 } from "../environment.ts";
-import { createAugmentedBingProvider } from "./providers-augmented-bing.ts";
+import { createAugmentedBingProvider } from "./providers/augmented-bing.ts";
 import {
   createBraveSearchProvider,
   createTinyFishSearchProvider,
-} from "./providers-core.ts";
+} from "./providers/core.ts";
 import {
   createExaMcpSearchProvider,
   createExaSearchProvider,
-} from "./providers-exa.ts";
-import { createIndependentProviders } from "./providers-independent.ts";
-import { createLlmNativeProviders } from "./providers-llm.ts";
-import { createParallelMcpSearchProvider } from "./providers-parallel-mcp.ts";
-import { createSerpProviders } from "./providers-serp.ts";
-import { createZeroKeyProviders } from "./providers-zero-key.ts";
+} from "./providers/exa.ts";
+import { createIndependentProviders } from "./providers/independent.ts";
+import { createLlmNativeProviders } from "./providers/llm.ts";
+import { createParallelMcpSearchProvider } from "./providers/parallel-mcp.ts";
+import { createSerpProviders } from "./providers/serp.ts";
+import { createZeroKeyProviders } from "./providers/zero-key.ts";
 import { createScrapeSearchProvider, SCRAPE_SEARCH_ENGINES } from "./scrape.ts";
 import type { SearchProvider } from "./types.ts";
 

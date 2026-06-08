@@ -1,15 +1,18 @@
 import {
   type EnvironmentReader,
   processEnvironmentReader,
-} from "../environment.ts";
+} from "../../environment.ts";
+import {
+  createScrapeSearchProvider,
+  SCRAPE_SEARCH_ENGINES,
+} from "../scrape.ts";
+import type { SearchProvider } from "../types.ts";
 import { createAugmentedBingFailure } from "./augmented-bing/failure.ts";
 import { createAugmentedBingSupplementalProviders } from "./augmented-bing/providers.ts";
 import {
   getOutcomeResults,
   mergeBingFirstResults,
 } from "./augmented-bing/results.ts";
-import { createScrapeSearchProvider, SCRAPE_SEARCH_ENGINES } from "./scrape.ts";
-import type { SearchProvider } from "./types.ts";
 
 export function createAugmentedBingProvider(
   env: EnvironmentReader = processEnvironmentReader

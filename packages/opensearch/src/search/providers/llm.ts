@@ -1,20 +1,20 @@
-import { getApiKeyPool } from "../credentials/api-key-pool.ts";
+import { getApiKeyPool } from "../../credentials/api-key-pool.ts";
 import {
   type EnvironmentReader,
   processEnvironmentReader,
-} from "../environment.ts";
+} from "../../environment.ts";
 import {
   compactProviders,
   createPooledJsonSearchProvider,
-} from "./api-key-provider.ts";
+} from "../api-key-provider.ts";
 import {
   getBaseUrl,
   parseArrayFromAnyPath,
   parseCommonResultArray,
-} from "./api-provider-utils.ts";
-import { createSearchUrl } from "./http.ts";
-import { createJinaProviders } from "./providers-jina.ts";
-import type { SearchProvider } from "./types.ts";
+} from "../api-provider-utils.ts";
+import { createSearchUrl } from "../http.ts";
+import type { SearchProvider } from "../types.ts";
+import { createJinaProviders } from "./jina.ts";
 
 const PERPLEXITY_AUTH_FAILURE_STATUSES = new Set([401, 402, 403]);
 

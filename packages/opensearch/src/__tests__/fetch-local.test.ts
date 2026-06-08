@@ -10,7 +10,7 @@ const { fetchExaMcp, fetchExaMcpBatch } = vi.hoisted(() => ({
   fetchExaMcpBatch: vi.fn(),
 }));
 
-vi.mock("../exa-mcp.ts", () => ({
+vi.mock("../providers/exa-mcp/client.ts", () => ({
   fetchExaMcp,
   fetchExaMcpBatch,
 }));

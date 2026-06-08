@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { SearchEngineError } from "../search/errors.ts";
-import { createAugmentedBingProvider } from "../search/providers-augmented-bing.ts";
+import { createAugmentedBingProvider } from "../search/providers/augmented-bing.ts";
 import { resetSearchEnv } from "./search-test-helpers.ts";
 
 interface PendingFetch {

@@ -1,18 +1,21 @@
 import { randomUUID } from "node:crypto";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import { type ApiKeyPool, getApiKeyPool } from "./credentials/api-key-pool.ts";
+import {
+  type ApiKeyPool,
+  getApiKeyPool,
+} from "../../credentials/api-key-pool.ts";
 import {
   type EnvironmentReader,
   processEnvironmentReader,
-} from "./environment.ts";
+} from "../../environment.ts";
+import { getErrorMessage } from "../shared/error.ts";
 import {
   DEFAULT_PARALLEL_MCP_SEARCH_TOOL,
   DEFAULT_PARALLEL_MCP_SERVER_URL,
   parseParallelMcpContentItems,
   parseParallelMcpPayload,
-} from "./parallel-mcp-provider.ts";
-import { getErrorMessage } from "./search/errors.ts";
+} from "./content.ts";
 
 const PARALLEL_MCP_TIMEOUT_MS = 8000;
 const PARALLEL_MCP_SESSION_ID = `opensearch_${randomUUID().replaceAll("-", "")}`;

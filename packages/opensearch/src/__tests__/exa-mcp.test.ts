@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { createEnvironmentReader } from "../environment.ts";
-import { createExaMcpRequestUrl } from "../exa-mcp.ts";
+import { createExaMcpRequestUrl } from "../providers/exa-mcp/client.ts";
 
 describe("createExaMcpRequestUrl", () => {
   it("rejects remote HTTP endpoint overrides", () => {

@@ -1,8 +1,8 @@
 import { type CheerioAPI, load } from "cheerio";
 import { z } from "zod";
 
-import { dedupeResults, normalizeResult, stripHtmlTags } from "./text.ts";
-import type { ParsedResult } from "./types.ts";
+import { dedupeResults, normalizeResult, stripHtmlTags } from "../../text.ts";
+import type { ParsedResult } from "../../types.ts";
 
 const WIKIPEDIA_RESPONSE_SCHEMA = z.object({
   query: z.object({

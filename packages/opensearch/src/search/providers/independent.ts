@@ -1,21 +1,21 @@
-import { getApiKeyPool } from "../credentials/api-key-pool.ts";
+import { getApiKeyPool } from "../../credentials/api-key-pool.ts";
 import {
   type EnvironmentReader,
   processEnvironmentReader,
-} from "../environment.ts";
+} from "../../environment.ts";
 import {
   compactProviders,
   createPooledJsonSearchProvider,
-} from "./api-key-provider.ts";
+} from "../api-key-provider.ts";
 import {
   createJsonSearchProvider,
   getBaseUrl,
   parseArrayFromAnyPath,
   parseCommonResultArray,
   requireTrustedProviderBaseUrl,
-} from "./api-provider-utils.ts";
-import { createSearchUrl } from "./http.ts";
-import type { SearchProvider } from "./types.ts";
+} from "../api-provider-utils.ts";
+import { createSearchUrl } from "../http.ts";
+import type { SearchProvider } from "../types.ts";
 
 export function createIndependentProviders(
   env: EnvironmentReader = processEnvironmentReader

@@ -1,3 +1,4 @@
+import { getErrorMessage as getSharedErrorMessage } from "../providers/shared/error.ts";
 import type { EngineFailureKind, SearchEngineName } from "./types.ts";
 
 export class SearchExecutionError extends Error {
@@ -32,11 +33,7 @@ export class SearchEngineError extends Error {
 }
 
 export function getErrorMessage(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  return String(error);
+  return getSharedErrorMessage(error);
 }
 
 export function formatFailureSummary(failures: SearchEngineError[]): string {

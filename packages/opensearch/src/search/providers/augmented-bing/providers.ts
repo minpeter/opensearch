@@ -1,26 +1,26 @@
 import {
   type EnvironmentReader,
   processEnvironmentReader,
-} from "../../environment.ts";
-import { getBaseUrl } from "../api-provider-utils.ts";
-import { getErrorMessage, SearchEngineError } from "../errors.ts";
+} from "../../../environment.ts";
+import { getBaseUrl } from "../../api-provider-utils.ts";
+import { getErrorMessage, SearchEngineError } from "../../errors.ts";
 import {
   createSearchRequestInit,
   createSearchUrl,
   fetchSearchText,
   parseJsonResponse,
-} from "../http.ts";
-import { attachEngine } from "../text.ts";
+} from "../../http.ts";
+import { attachEngine } from "../../text.ts";
 import type {
   ParsedResult,
   SearchEngineName,
   SearchProvider,
-} from "../types.ts";
+} from "../../types.ts";
 import {
   parseInternetArchiveResults,
   parseWibyResults,
   parseWikipediaResults,
-} from "../zero-key-parsers.ts";
+} from "../zero-key/parsers.ts";
 
 type HtmlParser = (html: string) => ParsedResult[];
 type JsonParser = (payload: unknown) => ParsedResult[];

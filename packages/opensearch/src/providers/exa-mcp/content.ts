@@ -1,4 +1,4 @@
-import { requireTrustedProviderBaseUrl } from "./search/api-provider-utils.ts";
+import { requireTrustedProviderBaseUrl } from "../shared/base-url.ts";
 
 export const DEFAULT_EXA_MCP_SERVER_URL = "https://mcp.exa.ai/mcp";
 export const DEFAULT_EXA_MCP_FETCH_TOOL = "web_fetch_exa";

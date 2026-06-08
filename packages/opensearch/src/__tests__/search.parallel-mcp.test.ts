@@ -9,7 +9,7 @@ import {
 
 const searchParallelMcp = vi.fn();
 
-vi.mock("../parallel-mcp.ts", () => ({
+vi.mock("../providers/parallel-mcp/client.ts", () => ({
   searchParallelMcp,
 }));
 

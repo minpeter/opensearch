@@ -6,12 +6,12 @@ import {
   type EnvironmentReader,
   processEnvironmentReader,
 } from "../environment.ts";
-import { fetchExaMcp, fetchExaMcpBatch } from "../exa-mcp.ts";
+import { fetchExaMcp, fetchExaMcpBatch } from "../providers/exa-mcp/client.ts";
 import {
   createTinyFishApiKeyPool,
   type TinyFishApiKeyPool,
-} from "../tinyfish/api-key-pool.ts";
-import { fetchTinyFishUrls } from "../tinyfish/fetch.ts";
+} from "../providers/tinyfish/api-key-pool.ts";
+import { fetchTinyFishUrls } from "../providers/tinyfish/fetch.ts";
 import {
   DEFAULT_MAX_CHARACTERS,
   EXA_API_KEY_ENV,

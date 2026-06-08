@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { normalizeResult } from "./search/text.ts";
+import { normalizeProviderResult } from "../shared/result.ts";
 
 export const DEFAULT_PARALLEL_MCP_SERVER_URL = "https://search.parallel.ai/mcp";
 export const DEFAULT_PARALLEL_MCP_SEARCH_TOOL = "web_search";
@@ -45,7 +45,7 @@ export function parseParallelMcpPayload(
       const excerpts = Array.isArray(item.excerpts)
         ? item.excerpts.join(" ")
         : item.excerpts;
-      const normalizedResult = normalizeResult({
+      const normalizedResult = normalizeProviderResult({
         snippet:
           item.snippet ?? item.description ?? item.content ?? excerpts ?? "",
         title: item.title ?? "",

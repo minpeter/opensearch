@@ -1,8 +1,11 @@
-import { type ApiKeyPool, getApiKeyPool } from "../credentials/api-key-pool.ts";
+import {
+  type ApiKeyPool,
+  getApiKeyPool,
+} from "../../credentials/api-key-pool.ts";
 import {
   type EnvironmentReader,
   processEnvironmentReader,
-} from "../environment.ts";
+} from "../../environment.ts";
 
 const TINYFISH_API_KEY_ENV = "TINYFISH_API_KEY";
 

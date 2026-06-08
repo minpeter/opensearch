@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createSerpProviders } from "../search/providers-serp.ts";
+import { createSerpProviders } from "../search/providers/serp.ts";
 import { search } from "../search.ts";
 import { createMockResponse, resetSearchEnv } from "./search-test-helpers.ts";
 

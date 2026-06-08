@@ -1,4 +1,4 @@
-import type { SearchResult } from "../types.ts";
+import type { SearchResult } from "../../types.ts";
 import type { ProviderOutcome } from "./failure.ts";
 
 const BING_HEAD_RESULT_COUNT = 3;

@@ -1,24 +1,24 @@
 import { z } from "zod";
-import { getApiKeyPool } from "../credentials/api-key-pool.ts";
+import { getApiKeyPool } from "../../credentials/api-key-pool.ts";
 import {
   type EnvironmentReader,
   processEnvironmentReader,
-} from "../environment.ts";
-import { searchExaMcp } from "../exa-mcp.ts";
-import { getRandomUserAgent } from "../user-agents.ts";
-import { createPooledSearchProvider } from "./api-key-provider.ts";
-import { getErrorMessage, SearchEngineError } from "./errors.ts";
+} from "../../environment.ts";
+import { searchExaMcp } from "../../providers/exa-mcp/client.ts";
+import { getRandomUserAgent } from "../../user-agents.ts";
+import { createPooledSearchProvider } from "../api-key-provider.ts";
+import { getErrorMessage, SearchEngineError } from "../errors.ts";
 import {
   fetchSearchText,
   parseJsonResponse,
   REQUEST_TIMEOUT_MS,
-} from "./http.ts";
-import { attachEngine, dedupeResults, normalizeResult } from "./text.ts";
+} from "../http.ts";
+import { attachEngine, dedupeResults, normalizeResult } from "../text.ts";
 import type {
   EngineFailureKind,
   ParsedResult,
   SearchProvider,
-} from "./types.ts";
+} from "../types.ts";
 
 const EXA_HIGHLIGHT_MAX_CHARACTERS = 280;
 

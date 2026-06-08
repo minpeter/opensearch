@@ -8,7 +8,7 @@ import {
 
 const searchExaMcp = vi.fn();
 
-vi.mock("../exa-mcp.ts", () => ({
+vi.mock("../providers/exa-mcp/client.ts", () => ({
   searchExaMcp,
 }));
 

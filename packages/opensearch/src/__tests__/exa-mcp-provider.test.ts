@@ -8,7 +8,7 @@ import {
   parseExaMcpFetchContentItems,
   parseExaMcpFetchText,
   parseExaMcpSearchToolText,
-} from "../exa-mcp-provider.ts";
+} from "../providers/exa-mcp/content.ts";
 
 describe("createExaMcpServerUrl", () => {
   it("targets the hosted Exa MCP endpoint with only the requested tools", () => {

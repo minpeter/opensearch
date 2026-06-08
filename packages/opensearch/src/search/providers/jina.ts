@@ -1,18 +1,18 @@
-import { getApiKeyPool } from "../credentials/api-key-pool.ts";
+import { getApiKeyPool } from "../../credentials/api-key-pool.ts";
 import {
   type EnvironmentReader,
   processEnvironmentReader,
-} from "../environment.ts";
-import { getRandomUserAgent } from "../user-agents.ts";
+} from "../../environment.ts";
+import { getRandomUserAgent } from "../../user-agents.ts";
 import {
   compactProviders,
   createPooledSearchProvider,
-} from "./api-key-provider.ts";
-import { getBaseUrl } from "./api-provider-utils.ts";
-import { SearchEngineError } from "./errors.ts";
-import { fetchSearchText, REQUEST_TIMEOUT_MS } from "./http.ts";
-import { attachEngine, dedupeResults, normalizeResult } from "./text.ts";
-import type { ParsedResult, SearchProvider } from "./types.ts";
+} from "../api-key-provider.ts";
+import { getBaseUrl } from "../api-provider-utils.ts";
+import { SearchEngineError } from "../errors.ts";
+import { fetchSearchText, REQUEST_TIMEOUT_MS } from "../http.ts";
+import { attachEngine, dedupeResults, normalizeResult } from "../text.ts";
+import type { ParsedResult, SearchProvider } from "../types.ts";
 
 const JINA_SEARCH_FIELD_PATTERN =
   /^\[(?<index>\d+)\]\s+(?<field>Title|URL Source|Description|Markdown Content):\s*(?<value>.*)$/u;

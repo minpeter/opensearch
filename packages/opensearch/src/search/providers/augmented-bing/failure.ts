@@ -1,5 +1,5 @@
-import { getErrorMessage, SearchEngineError } from "../errors.ts";
-import type { SearchResult } from "../types.ts";
+import { getErrorMessage, SearchEngineError } from "../../errors.ts";
+import type { SearchResult } from "../../types.ts";
 
 export type ProviderOutcome = PromiseSettledResult<SearchResult[]>;
 

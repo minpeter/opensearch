@@ -4,7 +4,7 @@ import {
   DEFAULT_PARALLEL_MCP_SERVER_URL,
   parseParallelMcpContentItems,
   parseParallelMcpToolText,
-} from "../parallel-mcp-provider.ts";
+} from "../providers/parallel-mcp/content.ts";
 
 describe("Parallel MCP provider parsing", () => {
   it("targets the anonymous hosted Parallel Search MCP endpoint", () => {

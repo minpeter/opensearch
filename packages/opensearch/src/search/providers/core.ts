@@ -1,25 +1,25 @@
 import { z } from "zod";
-import { getApiKeyPool } from "../credentials/api-key-pool.ts";
+import { getApiKeyPool } from "../../credentials/api-key-pool.ts";
 import {
   type EnvironmentReader,
   processEnvironmentReader,
-} from "../environment.ts";
+} from "../../environment.ts";
 import {
   createTinyFishApiKeyPool,
   type TinyFishApiKeyPool,
-} from "../tinyfish/api-key-pool.ts";
-import { searchTinyFish } from "../tinyfish/search.ts";
-import { getRandomUserAgent } from "../user-agents.ts";
-import { createPooledSearchProvider } from "./api-key-provider.ts";
-import { getErrorMessage, SearchEngineError } from "./errors.ts";
+} from "../../providers/tinyfish/api-key-pool.ts";
+import { searchTinyFish } from "../../providers/tinyfish/search.ts";
+import { getRandomUserAgent } from "../../user-agents.ts";
+import { createPooledSearchProvider } from "../api-key-provider.ts";
+import { getErrorMessage, SearchEngineError } from "../errors.ts";
 import {
   createSearchUrl,
   fetchSearchText,
   parseJsonResponse,
   REQUEST_TIMEOUT_MS,
-} from "./http.ts";
-import { attachEngine, dedupeResults, normalizeResult } from "./text.ts";
-import type { ParsedResult, SearchProvider } from "./types.ts";
+} from "../http.ts";
+import { attachEngine, dedupeResults, normalizeResult } from "../text.ts";
+import type { ParsedResult, SearchProvider } from "../types.ts";
 
 const braveResponseSchema = z.object({
   web: z

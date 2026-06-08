@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createZeroKeyProviders } from "../search/providers-zero-key.ts";
 import {
   parseStartpageResults,
   parseWebcrawlerResults,
-} from "../search/zero-key-parsers.ts";
+} from "../search/providers/zero-key/parsers.ts";
+import { createZeroKeyProviders } from "../search/providers/zero-key.ts";
 import { search } from "../search.ts";
 import { createMockResponse, resetSearchEnv } from "./search-test-helpers.ts";
 

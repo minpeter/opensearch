@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createParallelMcpRequestInit,
   fetchParallelMcp,
-} from "../parallel-mcp.ts";
+} from "../providers/parallel-mcp/client.ts";
 
 const ORIGINAL_PARALLEL_API_KEY = process.env.PARALLEL_API_KEY;
 

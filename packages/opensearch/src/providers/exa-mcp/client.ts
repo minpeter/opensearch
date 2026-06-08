@@ -4,7 +4,8 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import {
   type EnvironmentReader,
   processEnvironmentReader,
-} from "./environment.ts";
+} from "../../environment.ts";
+import { getBaseUrl } from "../shared/base-url.ts";
 import {
   createExaMcpServerUrl,
   DEFAULT_EXA_MCP_FETCH_TOOL,
@@ -13,8 +14,7 @@ import {
   type ExaMcpContentItem,
   parseExaMcpContentItems,
   parseExaMcpFetchContentItems,
-} from "./exa-mcp-provider.ts";
-import { getBaseUrl } from "./search/api-provider-utils.ts";
+} from "./content.ts";
 
 const EXA_MCP_TIMEOUT_MS = 8000;
 const EXA_MCP_FETCH_MAX_CHARACTERS = 12_000;
@@ -60,19 +60,17 @@ export function searchExaMcp(
   );
 }
 
-export function fetchExaMcp(
+export async function fetchExaMcp(
   url: string,
   env: EnvironmentReader = processEnvironmentReader
 ): Promise<ExaMcpFetchResult> {
-  return fetchExaMcpBatch([url], undefined, env).then((results) => {
-    const [result] = results;
+  const [result] = await fetchExaMcpBatch([url], undefined, env);
 
-    if (!result) {
-      throw new Error("Exa MCP fetch returned an unexpected response shape");
-    }
+  if (!result) {
+    throw new Error("Exa MCP fetch returned an unexpected response shape");
+  }
 
-    return result;
-  });
+  return result;
 }
 
 export function fetchExaMcpBatch(

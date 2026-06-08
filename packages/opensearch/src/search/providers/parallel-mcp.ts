@@ -1,11 +1,11 @@
 import {
   type EnvironmentReader,
   processEnvironmentReader,
-} from "../environment.ts";
-import { searchParallelMcp } from "../parallel-mcp.ts";
-import { getErrorMessage, SearchEngineError } from "./errors.ts";
-import { attachEngine } from "./text.ts";
-import type { EngineFailureKind, SearchProvider } from "./types.ts";
+} from "../../environment.ts";
+import { searchParallelMcp } from "../../providers/parallel-mcp/client.ts";
+import { getErrorMessage, SearchEngineError } from "../errors.ts";
+import { attachEngine } from "../text.ts";
+import type { EngineFailureKind, SearchProvider } from "../types.ts";
 
 export function createParallelMcpSearchProvider(
   env: EnvironmentReader = processEnvironmentReader
