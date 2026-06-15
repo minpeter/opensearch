@@ -26,7 +26,7 @@ what a keyless live run measures:
 
 | Engine | Limit mechanism | Count param | 429 | Timeout |
 | --- | --- | --- | --- | --- |
-| DuckDuckGo | none (scrape) | — | blocked | 8000 |
+| DuckDuckGo | none (scrape) → JSON API on block | — | blocked | 8000 |
 | Bing | none (scrape) / both (augmented) | — | blocked | 8000 |
 | Startpage | slice | — | — | 8000 |
 | Webcrawler | slice | — | — | 8000 |
@@ -64,6 +64,16 @@ is config-gated rather than always-on.
 | Exa (API) | `numResults` | status | yes | — | 8000 |
 | Parallel (API) | — (objective) | status | yes | — | 8000 |
 | TinyFish | — (slice only) | flattened to `transient` | own pool | — | own constant |
+
+### DuckDuckGo anti-bot bypass
+
+DuckDuckGo serves an HTTP 202 JavaScript proof-of-work challenge
+(`DDG.deep.initialize(...)`) to flagged IPs instead of results. The provider
+tries the lightweight `html.duckduckgo.com` scrape first; when that is
+bot-blocked it escalates to the `links.duckduckgo.com` JSON API, solving the
+proof-of-work headlessly (jsdom + a locked-down `node:vm` sandbox: eval disabled,
+body size-capped, time-boxed) and resubmitting with the computed token. Opt out
+with `OPENSEARCH_ENABLE_DUCKDUCKGO_POW=false`.
 
 ## Notes that affect the live metrics
 

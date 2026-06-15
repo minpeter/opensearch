@@ -26,6 +26,7 @@ const SEARCH_ENV_KEYS = [
   "OPENSEARCH_BRIGHT_DATA_SERP_URL",
   "OPENSEARCH_BRIGHT_DATA_SERP_ZONE",
   "OPENSEARCH_DATAFORSEO_URL",
+  "OPENSEARCH_ENABLE_DUCKDUCKGO_POW",
   "OPENSEARCH_ENABLE_EXA_MCP",
   "OPENSEARCH_ENABLE_GOOGLE_SCRAPE",
   "OPENSEARCH_ENABLE_PARALLEL_MCP",
@@ -91,4 +92,7 @@ export function resetSearchEnv(): void {
   process.env.OPENSEARCH_ENABLE_EXA_MCP = "false";
   process.env.OPENSEARCH_ENABLE_PARALLEL_MCP = "false";
   process.env.OPENSEARCH_ENABLE_ZERO_KEY_PROVIDERS = "false";
+  // Keep the DuckDuckGo proof-of-work escalation out of the deterministic chain
+  // tests; it is exercised explicitly in duckduckgo.test.ts.
+  process.env.OPENSEARCH_ENABLE_DUCKDUCKGO_POW = "false";
 }

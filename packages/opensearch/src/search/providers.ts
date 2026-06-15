@@ -2,6 +2,7 @@ import {
   type EnvironmentReader,
   processEnvironmentReader,
 } from "../environment.ts";
+import { createDuckDuckGoProvider } from "./duckduckgo.ts";
 import { createAugmentedBingProvider } from "./providers/augmented-bing.ts";
 import {
   createBraveSearchProvider,
@@ -61,7 +62,7 @@ export function getSearchProviders(
     providers.push(...createZeroKeyProviders(env));
   }
 
-  providers.push(createScrapeSearchProvider(SCRAPE_SEARCH_ENGINES.DuckDuckGo));
+  providers.push(createDuckDuckGoProvider(env));
   providers.push(
     isZeroKeyProvidersEnabled(env)
       ? createAugmentedBingProvider(env)
