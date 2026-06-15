@@ -101,8 +101,6 @@ describe("search provider security guardrails", () => {
     process.env.OPENSEARCH_ENABLE_ZERO_KEY_PROVIDERS = "true";
     process.env.OPENSEARCH_STARTPAGE_URL = "http://evil.example/startpage";
     process.env.OPENSEARCH_WEBCRAWLER_URL = "http://evil.example/webcrawler";
-    process.env.OPENSEARCH_INTERNET_ARCHIVE_URL = "http://localhost/archive";
-    process.env.OPENSEARCH_WIBY_URL = "http://localhost/wiby";
     process.env.OPENSEARCH_WIKIPEDIA_URL = "http://localhost/wikipedia";
 
     const mockFetch = vi.fn((url: string | URL) => {
@@ -114,14 +112,6 @@ describe("search provider security guardrails", () => {
       }
       if (requestUrl.includes("bing.com/search")) {
         return Promise.resolve(createMockResponse('<div class="b_no" />'));
-      }
-      if (requestUrl.includes("localhost/archive")) {
-        return Promise.resolve(
-          createMockJsonResponse({ response: { docs: [] } })
-        );
-      }
-      if (requestUrl.includes("localhost/wiby")) {
-        return Promise.resolve(createMockResponse("<html></html>"));
       }
       if (!requestUrl.includes("localhost/wikipedia")) {
         return Promise.resolve(createMockResponse("<html></html>"));
@@ -157,8 +147,6 @@ describe("search provider security guardrails", () => {
         expect.stringContaining("https://html.duckduckgo.com/html/"),
         expect.stringContaining("https://www.bing.com/search"),
         expect.stringContaining("http://localhost/wikipedia"),
-        expect.stringContaining("http://localhost/archive"),
-        expect.stringContaining("http://localhost/wiby"),
       ])
     );
     expect(requestedUrls.join("\n")).not.toContain("evil.example");

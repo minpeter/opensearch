@@ -12,8 +12,6 @@ interface PendingFetch {
 describe("augmented Bing zero-key provider", () => {
   beforeEach(() => {
     resetSearchEnv();
-    process.env.OPENSEARCH_INTERNET_ARCHIVE_URL = "http://localhost/archive";
-    process.env.OPENSEARCH_WIBY_URL = "http://localhost/wiby";
     process.env.OPENSEARCH_WIKIPEDIA_URL = "http://localhost/wikipedia";
   });
 
@@ -22,7 +20,7 @@ describe("augmented Bing zero-key provider", () => {
     resetSearchEnv();
   });
 
-  it("runs Bing with niche zero-key sources in parallel and merges Bing-first results", async () => {
+  it("runs Bing with the Wikipedia supplement in parallel and merges Bing-first results", async () => {
     const pendingFetches: PendingFetch[] = [];
     const mockFetch = vi.fn((url: URL | RequestInfo) => {
       const requestUrl = String(url);
@@ -35,7 +33,7 @@ describe("augmented Bing zero-key provider", () => {
     const searchPromise = createAugmentedBingProvider().search("github", 6);
 
     await vi.waitFor(() => {
-      expect(mockFetch).toHaveBeenCalledTimes(4);
+      expect(mockFetch).toHaveBeenCalledTimes(2);
     });
     const pendingUrls = pendingFetches.map((pending) => pending.url);
     expect(pendingUrls).toContain(
@@ -44,10 +42,9 @@ describe("augmented Bing zero-key provider", () => {
     expect(pendingUrls).toContain(
       "http://localhost/wikipedia?action=query&format=json&list=search&origin=*&srlimit=6&srsearch=github"
     );
-    expect(pendingUrls).toContain("http://localhost/wiby?q=github");
-    expect(
-      pendingUrls.some((url) => url.startsWith("http://localhost/archive?"))
-    ).toBe(true);
+    // Wiby and Internet Archive supplements were removed.
+    expect(pendingUrls.some((url) => url.includes("wiby"))).toBe(false);
+    expect(pendingUrls.some((url) => url.includes("archive"))).toBe(false);
 
     resolvePendingFetch(
       pendingFetches,
@@ -61,10 +58,6 @@ describe("augmented Bing zero-key provider", () => {
           <li class="b_algo">
             <h2><a href="https://docs.github.com/">GitHub Docs</a></h2>
             <div class="b_caption"><p>Bing docs result.</p></div>
-          </li>
-          <li class="b_algo">
-            <h2><a href="https://github.blog/">GitHub Blog</a></h2>
-            <div class="b_caption"><p>Bing blog result.</p></div>
           </li>
         </ol>
       `)
@@ -84,32 +77,6 @@ describe("augmented Bing zero-key provider", () => {
         },
       })
     );
-    resolvePendingFetch(
-      pendingFetches,
-      "localhost/archive",
-      createJsonResponse({
-        response: {
-          docs: [
-            {
-              description: "Internet Archive historical supplement.",
-              identifier: "github-archive",
-              title: "GitHub Archive",
-            },
-          ],
-        },
-      })
-    );
-    resolvePendingFetch(
-      pendingFetches,
-      "localhost/wiby",
-      createHtmlResponse(`
-        <blockquote>
-          <a class="tlink" href="https://example.com/small-web">Small GitHub Guide</a>
-          <p class="url">https://example.com/small-web</p>
-          <p>Wiby small-web supplement.</p>
-        </blockquote>
-      `)
-    );
 
     await expect(searchPromise).resolves.toEqual([
       {
@@ -125,57 +92,21 @@ describe("augmented Bing zero-key provider", () => {
         url: "https://docs.github.com/",
       },
       {
-        engine: "Bing",
-        snippet: "Bing blog result.",
-        title: "GitHub Blog",
-        url: "https://github.blog/",
-      },
-      {
         engine: "Wikipedia",
         snippet: "Wikipedia factual supplement.",
         title: "GitHub",
         url: "https://en.wikipedia.org/?curid=123",
       },
-      {
-        engine: "Wiby",
-        snippet: "Wiby small-web supplement.",
-        title: "Small GitHub Guide",
-        url: "https://example.com/small-web",
-      },
-      {
-        engine: "InternetArchive",
-        snippet: "Internet Archive historical supplement.",
-        title: "GitHub Archive",
-        url: "https://archive.org/details/github-archive",
-      },
     ]);
   });
 
-  it("reports a transient failure when all merged results are empty and a supplement fails", async () => {
+  it("reports a transient failure when Bing is empty and the Wikipedia supplement fails", async () => {
     const mockFetch = vi.fn((url: URL | RequestInfo) => {
       const requestUrl = String(url);
-
       if (requestUrl.includes("bing.com/search")) {
         return Promise.resolve(createHtmlResponse("<ol></ol>"));
       }
-
-      if (requestUrl.includes("localhost/wiby")) {
-        return Promise.resolve(createHtmlResponse("blocked", 503));
-      }
-
-      if (requestUrl.includes("localhost/archive")) {
-        return Promise.resolve(
-          createJsonResponse({
-            response: { docs: [] },
-          })
-        );
-      }
-
-      return Promise.resolve(
-        createJsonResponse({
-          query: { search: [] },
-        })
-      );
+      return Promise.resolve(createHtmlResponse("blocked", 503));
     });
     vi.stubGlobal("fetch", mockFetch);
 

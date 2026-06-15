@@ -33,10 +33,11 @@ what a keyless live run measures:
 | Exa (MCP) | request-param | `numResults` | blocked | 8000 |
 | Parallel (MCP) | slice | — | blocked | 8000 |
 
-**Augmented-Bing supplemental sources** — when zero-key providers are enabled,
-the Bing provider additionally queries keyless **Wikipedia** (`srlimit`),
-**Wiby** (slice), and **InternetArchive** (`rows`). Their results surface under
-the `Bing` engine, so they are not benchmarked as standalone rows.
+**Augmented-Bing supplemental source** — when zero-key providers are enabled, the
+Bing provider additionally queries keyless **Wikipedia** (`srlimit`); its results
+surface under the `Bing` engine, so it is not benchmarked as a standalone row.
+(Wiby and InternetArchive supplements were removed — the bench's answer-page
+audit found their results were almost always off-topic noise in the top spots.)
 
 **SearxNG** is keyless but only added when `OPENSEARCH_SEARXNG_URLS` is set, so it
 is config-gated rather than always-on.

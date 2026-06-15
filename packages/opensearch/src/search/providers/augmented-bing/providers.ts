@@ -16,17 +16,13 @@ import type {
   SearchEngineName,
   SearchProvider,
 } from "../../types.ts";
-import {
-  parseInternetArchiveResults,
-  parseWibyResults,
-  parseWikipediaResults,
-} from "../zero-key/parsers.ts";
+import { parseWikipediaResults } from "../zero-key/parsers.ts";
 
-type HtmlParser = (html: string) => ParsedResult[];
 type JsonParser = (payload: unknown) => ParsedResult[];
 
-const INTERNET_ARCHIVE_FIELDS = ["identifier", "title", "description"] as const;
-
+// Bing is augmented only with Wikipedia. Wiby (old-web) and Internet Archive
+// were dropped: their results (small-web pages, repo snapshots) were almost
+// always off-topic noise in the top results — see the bench answer-page audit.
 export function createAugmentedBingSupplementalProviders(
   env: EnvironmentReader = processEnvironmentReader
 ): SearchProvider[] {
@@ -36,42 +32,7 @@ export function createAugmentedBingSupplementalProviders(
       (query, numResults) => createWikipediaUrl(query, numResults, env),
       parseWikipediaResults
     ),
-    createHtmlProvider(
-      "Wiby",
-      (query) => createWibyUrl(query, env),
-      parseWibyResults
-    ),
-    createJsonProvider(
-      "InternetArchive",
-      (query, numResults) => createInternetArchiveUrl(query, numResults, env),
-      parseInternetArchiveResults
-    ),
   ];
-}
-
-function createHtmlProvider(
-  name: SearchEngineName,
-  createUrl: (query: string) => string,
-  parse: HtmlParser
-): SearchProvider {
-  return {
-    name,
-    async search(query: string, numResults: number) {
-      try {
-        const body = await fetchSearchText({
-          engine: name,
-          init: createSearchRequestInit("GET"),
-          url: createUrl(query),
-        });
-        return attachEngine(name, parse(body).slice(0, numResults));
-      } catch (error) {
-        if (error instanceof SearchEngineError) {
-          throw error;
-        }
-        throw toProviderError(name, error);
-      }
-    },
-  };
 }
 
 function createJsonProvider(
@@ -113,13 +74,6 @@ function toProviderError(
   );
 }
 
-function createWibyUrl(query: string, env: EnvironmentReader): string {
-  return createSearchUrl(
-    getBaseUrl("OPENSEARCH_WIBY_URL", "https://wiby.me/", env),
-    { q: query }
-  );
-}
-
 function createWikipediaUrl(
   query: string,
   numResults: number,
@@ -140,28 +94,4 @@ function createWikipediaUrl(
       srsearch: query,
     }
   );
-}
-
-function createInternetArchiveUrl(
-  query: string,
-  numResults: number,
-  env: EnvironmentReader
-): string {
-  const url = new URL(
-    getBaseUrl(
-      "OPENSEARCH_INTERNET_ARCHIVE_URL",
-      "https://archive.org/advancedsearch.php",
-      env
-    )
-  );
-  url.searchParams.set("q", query);
-  url.searchParams.set("rows", String(numResults));
-  url.searchParams.set("page", "1");
-  url.searchParams.set("output", "json");
-
-  for (const field of INTERNET_ARCHIVE_FIELDS) {
-    url.searchParams.append("fl[]", field);
-  }
-
-  return url.toString();
 }
