@@ -35,7 +35,10 @@
     "check": "ultracite check",
     "fix": "ultracite fix",
     "test": "vitest run",
-    "test:coverage": "vitest run --coverage --coverage.reporter=text --coverage.reporter=json-summary --exclude 'src/__tests__/integration.test.ts'"
+    "test:coverage": "vitest run --coverage --coverage.reporter=text --coverage.reporter=json-summary --exclude 'src/__tests__/integration.test.ts'",
+    "bench": "node --experimental-strip-types src/bench/cli.ts",
+    "bench:offline": "node --experimental-strip-types src/bench/cli.ts --offline",
+    "bench:live": "node --experimental-strip-types src/bench/cli.ts --live"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",

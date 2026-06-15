@@ -79,6 +79,17 @@ jobs:
           grep -A 20 '% Coverage report' coverage-output.txt >> "$GITHUB_STEP_SUMMARY" || echo 'No coverage data' >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
 
+      # The offline metric gate is the deterministic golden-file vitest test above
+      # (src/bench/__tests__/golden.test.ts). This step only renders the same
+      # deterministic table into the run summary, so it is best-effort.
+      - name: Offline provider metrics (best-effort)
+        if: always()
+        continue-on-error: true
+        run: |
+          pnpm --filter @minpeter/opensearch bench:offline -- --markdown bench-offline.md
+          echo '' >> "$GITHUB_STEP_SUMMARY"
+          cat packages/opensearch/bench-offline.md >> "$GITHUB_STEP_SUMMARY" || echo 'No offline metrics' >> "$GITHUB_STEP_SUMMARY"
+
   build:
     name: Build
     runs-on: ubuntu-latest

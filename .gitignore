@@ -10,6 +10,10 @@ dist
 coverage
 *.lcov
 
+# bench output (live monitor / local runs); committed fixtures live in src/bench/fixtures
+packages/opensearch/provider-metrics.*
+packages/opensearch/bench-offline.md
+
 # logs
 logs
 *.log

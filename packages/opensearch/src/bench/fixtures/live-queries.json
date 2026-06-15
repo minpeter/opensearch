@@ -1,0 +1,10 @@
+[
+  { "query": "rust async runtime tokio", "relevant": ["tokio.rs", "docs.rs"] },
+  { "query": "typescript handbook", "relevant": ["typescriptlang.org"] },
+  { "query": "react useEffect documentation", "relevant": ["react.dev", "legacy.reactjs.org"] },
+  { "query": "postgresql official documentation", "relevant": ["postgresql.org"] },
+  { "query": "kubernetes pod lifecycle", "relevant": ["kubernetes.io"] },
+  { "query": "python requests library docs", "relevant": ["requests.readthedocs.io", "pypi.org"] },
+  { "query": "docker compose tutorial", "relevant": ["docs.docker.com"] },
+  { "query": "git rebase guide", "relevant": ["git-scm.com"] }
+]

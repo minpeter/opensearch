@@ -1,0 +1,230 @@
+[
+  {
+    "engine": "Brave",
+    "query": "rust async runtime",
+    "ok": true,
+    "latencyMs": 120,
+    "timedOut": false,
+    "results": [
+      {
+        "engine": "Brave",
+        "title": "Tokio - An asynchronous Rust runtime",
+        "url": "https://tokio.rs",
+        "snippet": "Tokio is an asynchronous runtime for the Rust programming language."
+      },
+      {
+        "engine": "Brave",
+        "title": "tokio - Rust",
+        "url": "https://docs.rs/tokio",
+        "snippet": "API documentation for the tokio crate."
+      },
+      {
+        "engine": "Brave",
+        "title": "r/rust",
+        "url": "https://www.reddit.com/r/rust",
+        "snippet": "A place for Rust discussion."
+      },
+      {
+        "engine": "Brave",
+        "title": "Rust Blog",
+        "url": "https://blog.rust-lang.org",
+        "snippet": "News from the Rust project."
+      },
+      {
+        "engine": "Brave",
+        "title": "Tokio Tutorial",
+        "url": "https://tokio.rs/tokio/tutorial",
+        "snippet": "Learn the tokio async runtime step by step."
+      }
+    ]
+  },
+  {
+    "engine": "Exa",
+    "query": "rust async runtime",
+    "ok": true,
+    "latencyMs": 300,
+    "timedOut": false,
+    "results": [
+      {
+        "engine": "Exa",
+        "title": "Tokio",
+        "url": "https://tokio.rs/",
+        "snippet": "The asynchronous runtime for Rust."
+      },
+      {
+        "engine": "Exa",
+        "title": "tokio crate docs",
+        "url": "https://docs.rs/tokio/latest",
+        "snippet": "Documentation for the tokio runtime crate."
+      },
+      {
+        "engine": "Exa",
+        "title": "crates.io: tokio",
+        "url": "https://crates.io/crates/tokio",
+        "snippet": "The tokio crate on crates.io."
+      }
+    ]
+  },
+  {
+    "engine": "DuckDuckGo",
+    "query": "rust async runtime",
+    "ok": true,
+    "latencyMs": 800,
+    "timedOut": false,
+    "results": [
+      {
+        "engine": "DuckDuckGo",
+        "title": "Tokio",
+        "url": "https://tokio.rs/",
+        "snippet": "Asynchronous runtime for Rust applications."
+      },
+      {
+        "engine": "DuckDuckGo",
+        "title": "Tokio (duplicate listing)",
+        "url": "https://tokio.rs",
+        "snippet": "Tokio homepage."
+      },
+      {
+        "engine": "DuckDuckGo",
+        "title": "Async example",
+        "url": "http://example.com/async",
+        "snippet": ""
+      },
+      {
+        "engine": "DuckDuckGo",
+        "title": "Mirror download",
+        "url": "ftp://files.example.com/rust",
+        "snippet": "Non-web mirror link."
+      }
+    ]
+  },
+  {
+    "engine": "Tavily",
+    "query": "rust async runtime",
+    "ok": false,
+    "latencyMs": 50,
+    "timedOut": false,
+    "errorKind": "blocked",
+    "status": 429,
+    "results": [],
+    "message": "Tavily fetch failed with status 429"
+  },
+  {
+    "engine": "Brave",
+    "query": "typescript handbook",
+    "ok": true,
+    "latencyMs": 100,
+    "timedOut": false,
+    "results": [
+      {
+        "engine": "Brave",
+        "title": "The TypeScript Handbook",
+        "url": "https://www.typescriptlang.org/docs/handbook",
+        "snippet": "The TypeScript handbook is the official guide to the language."
+      },
+      {
+        "engine": "Brave",
+        "title": "microsoft/TypeScript",
+        "url": "https://github.com/microsoft/TypeScript",
+        "snippet": "TypeScript is a superset of JavaScript."
+      }
+    ]
+  },
+  {
+    "engine": "Exa",
+    "query": "typescript handbook",
+    "ok": true,
+    "latencyMs": 250,
+    "timedOut": false,
+    "results": [
+      {
+        "engine": "Exa",
+        "title": "TypeScript",
+        "url": "https://typescriptlang.org/",
+        "snippet": "Typed JavaScript at any scale."
+      }
+    ]
+  },
+  {
+    "engine": "DuckDuckGo",
+    "query": "typescript handbook",
+    "ok": false,
+    "latencyMs": 400,
+    "timedOut": false,
+    "errorKind": "no-results",
+    "results": [],
+    "message": "No Results"
+  },
+  {
+    "engine": "Tavily",
+    "query": "typescript handbook",
+    "ok": false,
+    "latencyMs": 8000,
+    "timedOut": true,
+    "errorKind": "transient",
+    "results": [],
+    "message": "Tavily fetch failed: The operation was aborted due to timeout"
+  },
+  {
+    "engine": "Brave",
+    "query": "weather today",
+    "ok": true,
+    "latencyMs": 90,
+    "timedOut": false,
+    "results": [
+      {
+        "engine": "Brave",
+        "title": "Weather.com",
+        "url": "https://weather.com",
+        "snippet": "Today's weather forecast and conditions."
+      },
+      {
+        "engine": "Brave",
+        "title": "AccuWeather",
+        "url": "https://www.accuweather.com",
+        "snippet": "Local and national weather today."
+      }
+    ]
+  },
+  {
+    "engine": "Exa",
+    "query": "weather today",
+    "ok": true,
+    "latencyMs": 280,
+    "timedOut": false,
+    "results": [
+      {
+        "engine": "Exa",
+        "title": "Weather today",
+        "url": "https://weather.com/today",
+        "snippet": "Hourly forecast for today."
+      }
+    ]
+  },
+  {
+    "engine": "DuckDuckGo",
+    "query": "weather today",
+    "ok": true,
+    "latencyMs": 750,
+    "timedOut": false,
+    "results": [
+      {
+        "engine": "DuckDuckGo",
+        "title": "Weather",
+        "url": "https://weather.com",
+        "snippet": "Current weather and today's forecast."
+      }
+    ]
+  },
+  {
+    "engine": "Tavily",
+    "query": "weather today",
+    "ok": false,
+    "latencyMs": 10,
+    "timedOut": false,
+    "errorKind": "misconfigured",
+    "status": 401,
+    "results": [],
+    "message": "Tavily API key is not configured"
+  }
+]

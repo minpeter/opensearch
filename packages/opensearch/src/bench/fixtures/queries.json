@@ -1,0 +1,5 @@
+[
+  { "query": "rust async runtime", "relevant": ["tokio.rs", "docs.rs"] },
+  { "query": "typescript handbook", "relevant": ["typescriptlang.org"] },
+  { "query": "weather today" }
+]

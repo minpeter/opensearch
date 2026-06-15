@@ -237,6 +237,28 @@ pnpm run build
 pnpm --filter opensearch-mcp start
 ```
 
+## Provider metrics
+
+Quantitative, side-by-side comparison of each provider's **limit** (fill-rate,
+429/blocked, timeout, latency) and **search quality** (intrinsic heuristics,
+cross-engine consensus, labeled golden queries).
+
+```bash
+# Deterministic, no network — runs as a gated test on every PR
+pnpm --filter @minpeter/opensearch bench:offline -- --markdown /tmp/metrics.md
+
+# Live — measures only the providers whose keys are present
+pnpm --filter @minpeter/opensearch bench:live -- --out provider-metrics.json
+```
+
+- Metric definitions, formulas, and the composite score:
+  [`packages/opensearch/src/bench/README.md`](packages/opensearch/src/bench/README.md)
+- Per-provider limit/rate-limit contract:
+  [`packages/opensearch/PROVIDERS.md`](packages/opensearch/PROVIDERS.md)
+- The live monitor runs weekly via
+  [`.github/workflows/monitor.yml`](.github/workflows/monitor.yml) and uploads a
+  report artifact; the deterministic offline gate runs in `ci.yml`.
+
 ## Release
 
 This repo publishes through Changesets.
