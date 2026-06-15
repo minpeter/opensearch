@@ -109,7 +109,12 @@ async function searchWithScrapeEngine(
 
 function parseDuckDuckGoResults(html: string): ParsedResult[] {
   return parseEngineResults(html, {
-    blockedMessage: "Too many requests (Bot detected)",
+    // DuckDuckGo serves an HTTP 202 anti-bot challenge page (a `challenge-form`)
+    // rather than an HTTP 429. Keep rate-limit keywords ("too many requests",
+    // "rate limit", "429") OUT of this message so the bench classifies it as a
+    // bot block, not a rate limit (the bench infers rate limiting from the
+    // message when no 429 status is present).
+    blockedMessage: "Bot challenge / anomaly page",
     detectBlocked: ($) => $(".challenge-form, #challenge-form").length > 0,
     detectNoResults: ($) => $(".no-results").length > 0,
     engine: "DuckDuckGo",

@@ -8,9 +8,9 @@ const BODY_TAG_PATTERN = /<body/i;
 const DIV_TAG_PATTERN = /<div/i;
 const BLOCKED_OR_RATE_LIMIT_PATTERNS = [
   /All search engines failed/i,
-  /Bot detected/i,
   /Search failed across all engines/i,
-  /Too many requests/i,
+  /bot challenge/i,
+  /anomaly/i,
   /unusual traffic/i,
 ] as const;
 

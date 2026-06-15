@@ -74,6 +74,27 @@ describe("aggregateProbes rate-limit and failure rates", () => {
     expect(exa?.blockedRate).toBe(1);
   });
 
+  it("counts a bot-challenge block as blocked but NOT rate-limited", () => {
+    // Regression: DuckDuckGo's 202 anti-bot challenge has no 429 status; its
+    // message must not be mistaken for a rate limit.
+    const probes: ProbeOutcome[] = [
+      {
+        engine: "DuckDuckGo",
+        errorKind: "blocked",
+        latencyMs: 5,
+        message: "Bot challenge / anomaly page",
+        ok: false,
+        query: "q1",
+        results: [],
+        timedOut: false,
+      },
+    ];
+    const [ddg] = aggregateProbes(probes, [{ query: "q1" }], 10);
+    expect(ddg?.blockedRate).toBe(1);
+    expect(ddg?.rate429Rate).toBe(0);
+    expect(ddg?.rateLimitRate).toBe(0);
+  });
+
   it("computes fillRate over all probes, scoring failures as 0", () => {
     const probes: ProbeOutcome[] = [
       okProbe("Brave", "q1", ["https://a.com", "https://b.com"], 100),
