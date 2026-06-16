@@ -1,5 +1,5 @@
 ---
-"@minpeter/opensearch": major
+"@minpeter/opensearch": patch
 "opensearch-mcp": patch
 ---
 
