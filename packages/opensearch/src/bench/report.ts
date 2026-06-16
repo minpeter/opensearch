@@ -1,4 +1,7 @@
-import { QUALITY_SCORE_VERSION, QUALITY_SCORE_WEIGHTS } from "./aggregate.ts";
+import {
+  QUALITY_SCORE_VERSION,
+  QUALITY_SCORE_WEIGHTS,
+} from "./quality-score.ts";
 import type { BenchReport, BenchReportMeta, ProviderReport } from "./types.ts";
 
 const DEFAULT_PRECISION = 4;
@@ -45,10 +48,6 @@ export function roundProviderReport(
   };
 }
 
-function engineNames(reports: readonly ProviderReport[]): Set<string> {
-  return new Set(reports.map((report) => report.engine));
-}
-
 /**
  * Engines that were expected but produced no probes (e.g. no key configured, or
  * explicitly excluded). Empty when no expectation is supplied — "skipped" only
@@ -58,7 +57,7 @@ export function computeSkipped(
   reports: readonly ProviderReport[],
   expectedEngines: readonly string[] = []
 ): string[] {
-  const present = engineNames(reports);
+  const present = new Set<string>(reports.map((report) => report.engine));
   return expectedEngines.filter((name) => !present.has(name));
 }
 

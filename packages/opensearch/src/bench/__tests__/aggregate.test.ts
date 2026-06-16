@@ -1,10 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { SearchEngineName } from "../../search/types.ts";
-import {
-  aggregateProbes,
-  percentile,
-  QUALITY_SCORE_WEIGHTS,
-} from "../aggregate.ts";
+import { aggregateProbes, percentile } from "../aggregate.ts";
+import { QUALITY_SCORE_WEIGHTS } from "../quality-score.ts";
 import type { BenchQuery, ProbeOutcome } from "../types.ts";
 
 function okProbe(

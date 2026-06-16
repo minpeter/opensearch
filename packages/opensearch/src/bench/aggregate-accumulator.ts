@@ -1,6 +1,9 @@
 import type { SearchEngineName } from "../search/types.ts";
-import { QUALITY_SCORE_VERSION, QUALITY_SCORE_WEIGHTS } from "./aggregate.ts";
 import { computeGolden, computeIntrinsic, consensusScore } from "./metrics.ts";
+import {
+  QUALITY_SCORE_VERSION,
+  QUALITY_SCORE_WEIGHTS,
+} from "./quality-score.ts";
 import type {
   IntrinsicMetrics,
   ProbeOutcome,

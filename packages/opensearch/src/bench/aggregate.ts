@@ -8,14 +8,6 @@ import {
 import { buildConsensus, otherParticipatingEngines } from "./metrics.ts";
 import type { BenchQuery, ProbeOutcome, ProviderReport } from "./types.ts";
 
-export const QUALITY_SCORE_VERSION = "1.0.0";
-
-export const QUALITY_SCORE_WEIGHTS = {
-  consensus: 0.2,
-  heuristic: 0.3,
-  relevance: 0.5,
-} as const;
-
 export function percentile(
   samples: readonly number[],
   quantile: number
