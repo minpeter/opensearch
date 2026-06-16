@@ -76,6 +76,40 @@ describe("DataForSEO credential pair pools", () => {
     ]);
   });
 
+  it("encodes non-ASCII credential pairs as UTF-8 Basic auth", async () => {
+    process.env.DATAFORSEO_LOGIN = "데이터-login";
+    process.env.DATAFORSEO_PASSWORD = "pässword";
+    const mockFetch = vi.fn().mockResolvedValueOnce(
+      createMockJsonResponse({
+        tasks: [
+          {
+            result: [
+              {
+                items: [
+                  {
+                    description: "DataForSEO unicode credential result.",
+                    title: "DataForSEO unicode",
+                    url: "https://example.com/dataforseo-unicode",
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      })
+    );
+    vi.stubGlobal("fetch", mockFetch);
+
+    const results = await search("dataforseo unicode", 1);
+
+    expect(results[0]?.engine).toBe("DataForSEO");
+    expect(mockFetch.mock.calls[0]?.[1]?.headers).toEqual(
+      expect.objectContaining({
+        Authorization: basicAuth("데이터-login", "pässword"),
+      })
+    );
+  });
+
   it("does not try the next pair for malformed payloads", async () => {
     process.env.DATAFORSEO_LOGIN = "malformed-login-a;malformed-login-b";
     process.env.DATAFORSEO_PASSWORD =

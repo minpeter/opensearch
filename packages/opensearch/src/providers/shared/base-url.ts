@@ -33,7 +33,9 @@ export function createBasicAuthHeader(
   username: string,
   password: string
 ): string {
-  return `Basic ${Buffer.from(`${username}:${password}`).toString("base64")}`;
+  return `Basic ${Buffer.from(`${username}:${password}`, "utf8").toString(
+    "base64"
+  )}`;
 }
 
 function isTrustedProviderBaseUrl(value: string): boolean {
