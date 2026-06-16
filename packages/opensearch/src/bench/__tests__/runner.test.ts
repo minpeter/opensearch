@@ -159,4 +159,35 @@ describe("runBenchmark", () => {
     });
     expect(maxActive).toBe(2);
   });
+
+  it("treats a non-finite deadline as no deadline instead of an instant timeout", async () => {
+    const provider: SearchProvider = {
+      name: "Exa",
+      search: () => Promise.resolve(results("Exa", 1)),
+    };
+    const probes = await runBenchmark({
+      concurrency: 1,
+      deadlineMs: Number.NaN,
+      numResults: 5,
+      providers: [provider],
+      queries: [{ query: "q1" }],
+    });
+    expect(probes[0]?.ok).toBe(true);
+    expect(probes[0]?.timedOut).toBe(false);
+  });
+
+  it("falls back to default concurrency for a non-finite value (no empty run)", async () => {
+    const make = (name: SearchEngineName): SearchProvider => ({
+      name,
+      search: () => Promise.resolve(results(name, 1)),
+    });
+    const probes = await runBenchmark({
+      concurrency: Number.NaN,
+      numResults: 5,
+      providers: [make("Brave"), make("Exa"), make("Tavily")],
+      queries: [{ query: "q1" }],
+    });
+    expect(probes).toHaveLength(3);
+    expect(probes.every((p) => p.ok)).toBe(true);
+  });
 });

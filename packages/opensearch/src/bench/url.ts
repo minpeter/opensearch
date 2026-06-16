@@ -38,7 +38,11 @@ function stripTrackingParams(url: URL): string {
   if (kept.length === 0) {
     return "";
   }
-  return `?${kept.map(([key, value]) => `${key}=${value}`).join("&")}`;
+  const params = new URLSearchParams();
+  for (const [key, value] of kept) {
+    params.append(key, value);
+  }
+  return `?${params.toString()}`;
 }
 
 /**
@@ -86,6 +90,12 @@ function labelPath(label: string): string {
  * When the label carries a path, the result's canonical path must start with it.
  */
 export function matchesLabel(resultUrl: string, label: string): boolean {
+  // A result only counts as relevant if it is a real http(s) URL — the same bar
+  // urlValidity and canonicalUrl apply. Otherwise a host-only label could match
+  // e.g. "ftp://example.com" and inflate golden relevance.
+  if (!isHttpUrl(resultUrl)) {
+    return false;
+  }
   const labelHost = hostKey(label);
   const resultHost = hostKey(resultUrl);
   if (labelHost === null || resultHost === null) {

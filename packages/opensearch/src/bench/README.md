@@ -14,7 +14,7 @@ split into a LIMIT section and a QUALITY section.
 ```
 pnpm --filter @minpeter/opensearch bench:offline -- --markdown /tmp/metrics.md
 pnpm --filter @minpeter/opensearch bench:live -- \
-  --num-results 10 --exclude DuckDuckGo,Bing \
+  --num-results 10 --exclude DuckDuckGo \
   --out provider-metrics.json --markdown provider-metrics.md
 ```
 

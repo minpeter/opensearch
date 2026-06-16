@@ -39,6 +39,17 @@ describe("canonicalUrl", () => {
     expect(canonicalUrl("ftp://example.com")).toBeNull();
     expect(canonicalUrl("garbage")).toBeNull();
   });
+
+  it("re-encodes kept query params so values cannot collapse or corrupt the key", () => {
+    // "a&b" as a single value must stay one param, not split into two.
+    expect(canonicalUrl("https://example.com/s?q=a%26b")).toBe(
+      "example.com/s?q=a%26b"
+    );
+    // A space in a value stays encoded rather than producing a raw space.
+    expect(canonicalUrl("https://example.com/s?q=x y")).toBe(
+      "example.com/s?q=x+y"
+    );
+  });
 });
 
 describe("hostKey", () => {
@@ -103,5 +114,10 @@ describe("matchesLabel", () => {
 
   it("returns false for unparseable result URLs", () => {
     expect(matchesLabel("garbage", "example.com")).toBe(false);
+  });
+
+  it("rejects non-http(s) result URLs even when the host matches", () => {
+    expect(matchesLabel("ftp://example.com", "example.com")).toBe(false);
+    expect(matchesLabel("mailto:hi@example.com", "example.com")).toBe(false);
   });
 });

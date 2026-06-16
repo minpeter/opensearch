@@ -11,11 +11,11 @@ describe("parseArgs", () => {
       "--num-results",
       "5",
       "--exclude",
-      "DuckDuckGo,Bing",
+      "DuckDuckGo,Parallel",
     ]);
     expect(options.mode).toBe("live");
     expect(options.numResults).toBe(5);
-    expect([...options.exclude].sort()).toEqual(["Bing", "DuckDuckGo"]);
+    expect([...options.exclude].sort()).toEqual(["DuckDuckGo", "Parallel"]);
   });
 
   it("defaults to offline mode with no flags", () => {
@@ -45,5 +45,20 @@ describe("parseArgs", () => {
     expect(() => parseArgs(["--num-results", "0"])).toThrow();
     expect(() => parseArgs(["--num-results", "-3"])).toThrow();
     expect(() => parseArgs(["--num-results", "abc"])).toThrow();
+  });
+
+  it("rejects a value-flag whose value is missing or is another flag", () => {
+    // Regression (cubic P1): `--out --markdown r.md` must NOT store "--markdown"
+    // as the out path and silently drop --markdown.
+    expect(() => parseArgs(["--out", "--markdown", "r.md"])).toThrow();
+    expect(() => parseArgs(["--out"])).toThrow();
+    expect(() => parseArgs(["--queries"])).toThrow();
+  });
+
+  it("rejects non-integer count flags", () => {
+    // Regression (cubic P2): count flags are integers, not fractions.
+    expect(() => parseArgs(["--num-results", "2.5"])).toThrow();
+    expect(() => parseArgs(["--top-k", "1.5"])).toThrow();
+    expect(() => parseArgs(["--concurrency", "0.5"])).toThrow();
   });
 });

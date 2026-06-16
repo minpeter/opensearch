@@ -32,7 +32,14 @@ function withDeadline<T>(
   engine: string,
   deadlineMs: number | undefined
 ): Promise<T> {
-  if (deadlineMs === undefined) {
+  // An invalid deadline (NaN, 0, negative) would otherwise fire setTimeout
+  // immediately and record every probe as a spurious timeout. Treat it as
+  // "no deadline", matching the undefined case.
+  if (
+    deadlineMs === undefined ||
+    !Number.isFinite(deadlineMs) ||
+    deadlineMs <= 0
+  ) {
     return promise;
   }
   return new Promise<T>((resolve, reject) => {
@@ -153,7 +160,11 @@ export async function runBenchmark(
   options: RunBenchmarkOptions
 ): Promise<ProbeOutcome[]> {
   const clock = options.clock ?? defaultClock;
-  const concurrency = Math.max(1, options.concurrency ?? DEFAULT_CONCURRENCY);
+  const requestedConcurrency = options.concurrency;
+  const concurrency =
+    requestedConcurrency !== undefined && Number.isFinite(requestedConcurrency)
+      ? Math.max(1, Math.floor(requestedConcurrency))
+      : DEFAULT_CONCURRENCY;
   const providers = options.providers;
   const results: ProbeOutcome[][] = new Array(providers.length);
   let cursor = 0;

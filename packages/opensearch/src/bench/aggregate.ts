@@ -342,15 +342,14 @@ export function aggregateProbes(
     consensusByQuery.set(query, buildConsensus(bucket));
   }
 
+  // A Map preserves first-seen insertion order, so it doubles as the emit order.
   const accumulators = new Map<SearchEngineName, Accumulator>();
-  const order: SearchEngineName[] = [];
 
   for (const probe of probes) {
     let acc = accumulators.get(probe.engine);
     if (acc === undefined) {
       acc = newAccumulator();
       accumulators.set(probe.engine, acc);
-      order.push(probe.engine);
     }
     const bucket = probesByQuery.get(probe.query) ?? [];
     const consensus =
@@ -368,11 +367,5 @@ export function aggregateProbes(
     );
   }
 
-  return order.map((engine) => {
-    const acc = accumulators.get(engine);
-    if (acc === undefined) {
-      return finalize(engine, newAccumulator());
-    }
-    return finalize(engine, acc);
-  });
+  return [...accumulators].map(([engine, acc]) => finalize(engine, acc));
 }

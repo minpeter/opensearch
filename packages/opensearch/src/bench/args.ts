@@ -13,13 +13,20 @@ export interface CliOptions {
   readonly topK?: number;
 }
 
-function parseNumber(value: string | undefined, flag: string): number {
-  if (value === undefined || value.trim() === "") {
-    throw new Error(`Flag ${flag} requires a numeric value`);
-  }
+/** Positive finite number, e.g. a deadline in milliseconds. */
+function parsePositiveNumber(value: string, flag: string): number {
   const parsed = Number(value);
   if (!(Number.isFinite(parsed) && parsed > 0)) {
     throw new Error(`Flag ${flag} requires a positive finite number`);
+  }
+  return parsed;
+}
+
+/** Positive integer for count flags (--num-results / --top-k / --concurrency). */
+function parseCount(value: string, flag: string): number {
+  const parsed = Number(value);
+  if (!(Number.isInteger(parsed) && parsed > 0)) {
+    throw new Error(`Flag ${flag} requires a positive integer`);
   }
   return parsed;
 }
@@ -42,7 +49,16 @@ export function parseArgs(argv: readonly string[]): CliOptions {
   let charts: string | undefined;
   const exclude = new Set<string>();
 
-  const next = (index: number): string | undefined => argv[index + 1];
+  // A value-taking flag must be followed by a real value, never another flag or
+  // the end of argv. Without this, `--out --markdown r.md` would silently store
+  // "--markdown" as the out path and drop --markdown entirely.
+  const requireValue = (index: number, flag: string): string => {
+    const value = argv[index + 1];
+    if (value === undefined || value.startsWith("--")) {
+      throw new Error(`Flag ${flag} requires a value`);
+    }
+    return value;
+  };
 
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
@@ -56,53 +72,51 @@ export function parseArgs(argv: readonly string[]): CliOptions {
         mode = "offline";
         break;
       case "--num-results":
-        numResults = parseNumber(next(i), arg);
+        numResults = parseCount(requireValue(i, arg), arg);
         i += 1;
         break;
       case "--top-k":
-        topK = parseNumber(next(i), arg);
+        topK = parseCount(requireValue(i, arg), arg);
         i += 1;
         break;
       case "--queries":
-        queries = next(i);
+        queries = requireValue(i, arg);
         i += 1;
         break;
       case "--out":
-        outPath = next(i);
+        outPath = requireValue(i, arg);
         i += 1;
         break;
       case "--markdown":
-        markdown = next(i);
+        markdown = requireValue(i, arg);
         i += 1;
         break;
       case "--deadline":
-        deadlineMs = parseNumber(next(i), arg);
+        deadlineMs = parsePositiveNumber(requireValue(i, arg), arg);
         i += 1;
         break;
       case "--concurrency":
-        concurrency = parseNumber(next(i), arg);
+        concurrency = parseCount(requireValue(i, arg), arg);
         i += 1;
         break;
       case "--history":
-        history = next(i);
+        history = requireValue(i, arg);
         i += 1;
         break;
       case "--baseline":
-        baseline = next(i);
+        baseline = requireValue(i, arg);
         i += 1;
         break;
       case "--charts":
-        charts = next(i);
+        charts = requireValue(i, arg);
         i += 1;
         break;
       case "--exclude": {
-        const value = next(i);
-        if (value !== undefined) {
-          for (const name of value.split(",")) {
-            const trimmed = name.trim();
-            if (trimmed !== "") {
-              exclude.add(trimmed);
-            }
+        const value = requireValue(i, arg);
+        for (const name of value.split(",")) {
+          const trimmed = name.trim();
+          if (trimmed !== "") {
+            exclude.add(trimmed);
           }
         }
         i += 1;
