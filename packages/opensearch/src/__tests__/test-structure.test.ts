@@ -14,6 +14,7 @@ const TESTS_DIRECTORY = fileURLToPath(new URL(".", import.meta.url));
 const EXPECTED_SEARCH_PROVIDER_REGISTRY_FILES = [
   "core.ts",
   "exa.ts",
+  "firecrawl.ts",
   "independent.ts",
   "jina.ts",
   "llm.ts",
@@ -36,6 +37,7 @@ const EXPECTED_TINYFISH_PROVIDER_FILES = [
   "search.ts",
 ] as const;
 const EXPECTED_EXA_MCP_PROVIDER_FILES = ["client.ts", "content.ts"] as const;
+const EXPECTED_FIRECRAWL_PROVIDER_FILES = ["client.ts"] as const;
 const EXPECTED_PARALLEL_MCP_PROVIDER_FILES = [
   "client.ts",
   "content.ts",
@@ -78,6 +80,9 @@ describe("test structure", () => {
     );
     expect(listTsFiles(join(commonProviderDirectory, "exa-mcp"))).toEqual([
       ...EXPECTED_EXA_MCP_PROVIDER_FILES,
+    ]);
+    expect(listTsFiles(join(commonProviderDirectory, "firecrawl"))).toEqual([
+      ...EXPECTED_FIRECRAWL_PROVIDER_FILES,
     ]);
     expect(listTsFiles(join(commonProviderDirectory, "parallel-mcp"))).toEqual([
       ...EXPECTED_PARALLEL_MCP_PROVIDER_FILES,

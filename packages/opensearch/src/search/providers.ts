@@ -10,6 +10,7 @@ import {
   createExaMcpSearchProvider,
   createExaSearchProvider,
 } from "./providers/exa.ts";
+import { createFirecrawlSearchProvider } from "./providers/firecrawl.ts";
 import { createIndependentProviders } from "./providers/independent.ts";
 import { createLlmNativeProviders } from "./providers/llm.ts";
 import { createParallelMcpSearchProvider } from "./providers/parallel-mcp.ts";
@@ -59,6 +60,7 @@ export function getSearchProviders(
 
   pushProvider(providers, createExaSearchProvider(env));
   providers.push(...createIndependentProviders(env));
+  pushProvider(providers, createFirecrawlSearchProvider(env));
 
   if (options.duckDuckGoFactory) {
     providers.push(options.duckDuckGoFactory(env));

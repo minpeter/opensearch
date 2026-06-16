@@ -6,6 +6,13 @@ import {
   resetSearchEnv,
 } from "./search-test-helpers.ts";
 
+function getRequestBody(mockFetch: ReturnType<typeof vi.fn>): unknown {
+  const init = mockFetch.mock.calls[0]?.[1];
+  const body = init?.body;
+
+  return typeof body === "string" ? JSON.parse(body) : undefined;
+}
+
 describe("search provider routing", () => {
   beforeEach(() => {
     resetSearchEnv();
@@ -191,5 +198,55 @@ describe("search provider routing", () => {
       "https://searx.example/search"
     );
     expect(searxUrl.searchParams.get("q")).toBe("zero config search");
+  });
+
+  it("routes zero-config search through Firecrawl before DuckDuckGo", async () => {
+    process.env.OPENSEARCH_ENABLE_FIRECRAWL = "true";
+    const mockFetch = vi.fn().mockResolvedValueOnce(
+      createMockJsonResponse({
+        data: {
+          web: [
+            {
+              description: "Firecrawl no-key search result.",
+              title: "Firecrawl Search",
+              url: "https://www.firecrawl.dev/",
+            },
+          ],
+        },
+        success: true,
+      })
+    );
+    vi.stubGlobal("fetch", mockFetch);
+
+    const results = await search("firecrawl no key", 1);
+
+    expect(results).toEqual([
+      {
+        engine: "Firecrawl",
+        snippet: "Firecrawl no-key search result.",
+        title: "Firecrawl Search",
+        url: "https://www.firecrawl.dev/",
+      },
+    ]);
+    expect(mockFetch).toHaveBeenCalledWith(
+      "https://api.firecrawl.dev/v2/search",
+      expect.objectContaining({
+        headers: expect.not.objectContaining({
+          Authorization: expect.any(String),
+        }),
+        method: "POST",
+      })
+    );
+    expect(getRequestBody(mockFetch)).toEqual({
+      limit: 1,
+      query: "firecrawl no key",
+      scrapeOptions: {
+        formats: ["markdown"],
+        onlyMainContent: true,
+        parsers: ["pdf"],
+        removeBase64Images: true,
+      },
+      sources: ["web"],
+    });
   });
 });

@@ -28,6 +28,7 @@ const SEARCH_ENV_KEYS = [
   "OPENSEARCH_DATAFORSEO_URL",
   "OPENSEARCH_ENABLE_DUCKDUCKGO_POW",
   "OPENSEARCH_ENABLE_EXA_MCP",
+  "OPENSEARCH_ENABLE_FIRECRAWL",
   "OPENSEARCH_ENABLE_GOOGLE_SCRAPE",
   "OPENSEARCH_ENABLE_PARALLEL_MCP",
   "OPENSEARCH_EXA_MCP_URL",
@@ -84,6 +85,7 @@ export function resetSearchEnv(): void {
     delete process.env[key];
   }
   process.env.OPENSEARCH_ENABLE_EXA_MCP = "false";
+  process.env.OPENSEARCH_ENABLE_FIRECRAWL = "false";
   process.env.OPENSEARCH_ENABLE_PARALLEL_MCP = "false";
   // Keep the DuckDuckGo proof-of-work escalation out of the deterministic chain
   // tests; it is exercised explicitly in duckduckgo.test.ts.
