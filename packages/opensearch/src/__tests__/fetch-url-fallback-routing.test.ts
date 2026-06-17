@@ -18,13 +18,26 @@ vi.mock("../providers/exa-mcp/client.ts", () => ({
 import { stubHtmlFetch } from "./fetch-test-helpers.ts";
 import { fetchUrl, fetchUrls } from "./full-runtime.ts";
 
+function getRequestBody(mockFetch: ReturnType<typeof vi.fn>): unknown {
+  const init = mockFetch.mock.calls[0]?.[1];
+  const body = init?.body;
+
+  return typeof body === "string" ? JSON.parse(body) : undefined;
+}
+
 afterEach(() => {
   vi.restoreAllMocks();
+  delete process.env.OPENSEARCH_ENABLE_FIRECRAWL;
+  delete process.env.FIRECRAWL_API_KEY;
+  delete process.env.OPENSEARCH_FIRECRAWL_URL;
 });
 
 beforeEach(() => {
   process.env.OPENSEARCH_ENABLE_EXA_MCP = "true";
+  process.env.OPENSEARCH_ENABLE_FIRECRAWL = "false";
   delete process.env.EXA_API_KEY;
+  delete process.env.FIRECRAWL_API_KEY;
+  delete process.env.OPENSEARCH_FIRECRAWL_URL;
   delete process.env.TINYFISH_API_KEY;
   fetchExaMcp.mockReset();
   fetchExaMcp.mockRejectedValue(new Error("Exa MCP unavailable"));
@@ -173,6 +186,56 @@ describe("fetchUrl fallback routing", () => {
 
     expect(fetchExaMcp).not.toHaveBeenCalled();
     expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("routes zero-config page fetch through Firecrawl before local HTML parsing", async () => {
+    process.env.OPENSEARCH_ENABLE_EXA_MCP = "false";
+    process.env.OPENSEARCH_ENABLE_FIRECRAWL = "true";
+    const mockFetch = vi.fn().mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          data: {
+            markdown: "# Firecrawl body",
+            metadata: null,
+          },
+          success: true,
+        }),
+        {
+          headers: { "Content-Type": "application/json" },
+          status: 200,
+        }
+      )
+    );
+    vi.stubGlobal("fetch", mockFetch);
+
+    const result = await fetchUrl("https://example.com/article");
+
+    expect(result).toEqual({
+      content: "# Firecrawl body",
+      length: "# Firecrawl body".length,
+      title: "",
+      url: "https://example.com/article",
+    });
+    expect(mockFetch).toHaveBeenCalledWith(
+      "https://api.firecrawl.dev/v2/scrape",
+      expect.objectContaining({
+        headers: expect.not.objectContaining({
+          Authorization: expect.any(String),
+        }),
+        method: "POST",
+      })
+    );
+    expect(getRequestBody(mockFetch)).toEqual({
+      blockAds: true,
+      formats: ["markdown"],
+      onlyCleanContent: true,
+      onlyMainContent: true,
+      parsers: ["pdf"],
+      proxy: "auto",
+      removeBase64Images: true,
+      timeout: 30_000,
+      url: "https://example.com/article",
+    });
   });
 
   it("routes a batch URL through Phase-0 public API before the providers", async () => {

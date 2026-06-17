@@ -10,6 +10,10 @@ import {
 } from "./config.ts";
 import { NoFetchProviderError } from "./errors.ts";
 import { fetchExaApiBatchWithPool } from "./exa-api.ts";
+import {
+  tryFetchUrlsViaFirecrawl,
+  tryFetchUrlViaFirecrawl,
+} from "./firecrawl-provider.ts";
 import { createFetchResult, type FetchResult } from "./result.ts";
 
 export type LocalFetch = (url: string) => Promise<FetchResult>;
@@ -25,15 +29,9 @@ export async function fetchUrlViaProviders(
   url: string,
   context: FetchPipelineContext
 ): Promise<FetchResult> {
-  if (isExaMcpEnabled(context.env)) {
-    try {
-      const exaResult = await fetchExaMcpForEnv(url, context.env);
-      return createFetchResult(url, exaResult.content, exaResult.title);
-    } catch (error) {
-      if (!(error instanceof Error)) {
-        throw error;
-      }
-    }
+  const exaMcpResult = await tryFetchUrlViaExaMcp(url, context.env);
+  if (exaMcpResult) {
+    return exaMcpResult;
   }
 
   if (context.tinyFishApiKeyPool.hasApiKeys()) {
@@ -68,7 +66,8 @@ export async function fetchUrlViaProviders(
     }
   }
 
-  return runLocalFetch(url, context);
+  const firecrawlResult = await tryFetchUrlViaFirecrawl(url, context.env);
+  return firecrawlResult ?? runLocalFetch(url, context);
 }
 
 export async function fetchUrlsViaProviders(
@@ -139,7 +138,16 @@ export async function fetchUrlsViaProviders(
     }
   }
 
-  return Promise.all(urls.map((url) => fetchUrlViaProviders(url, context)));
+  const firecrawlResults = await tryFetchUrlsViaFirecrawl(
+    urls,
+    maxCharacters,
+    context.env,
+    (url) => runLocalFetch(url, context)
+  );
+  return (
+    firecrawlResults ??
+    Promise.all(urls.map((url) => fetchUrlViaProviders(url, context)))
+  );
 }
 
 async function fetchUrlWithoutTinyFish(
@@ -157,7 +165,8 @@ async function fetchUrlWithoutTinyFish(
     }
   }
 
-  return runLocalFetch(url, context);
+  const firecrawlResult = await tryFetchUrlViaFirecrawl(url, context.env);
+  return firecrawlResult ?? runLocalFetch(url, context);
 }
 
 async function fetchUrlsWithoutTinyFish(
@@ -180,7 +189,16 @@ async function fetchUrlsWithoutTinyFish(
     }
   }
 
-  return Promise.all(urls.map((url) => runLocalFetch(url, context)));
+  const firecrawlResults = await tryFetchUrlsViaFirecrawl(
+    urls,
+    maxCharacters,
+    context.env,
+    (url) => runLocalFetch(url, context)
+  );
+  return (
+    firecrawlResults ??
+    Promise.all(urls.map((url) => runLocalFetch(url, context)))
+  );
 }
 
 function runLocalFetch(
@@ -228,6 +246,25 @@ function fetchExaMcpBatchForEnv(
   return env === processEnvironmentReader
     ? fetchExaMcpBatch(urls, maxCharacters)
     : fetchExaMcpBatch(urls, maxCharacters, env);
+}
+
+async function tryFetchUrlViaExaMcp(
+  url: string,
+  env: EnvironmentReader
+): Promise<FetchResult | null> {
+  if (!isExaMcpEnabled(env)) {
+    return null;
+  }
+
+  try {
+    const result = await fetchExaMcpForEnv(url, env);
+    return createFetchResult(url, result.content, result.title);
+  } catch (error) {
+    if (!(error instanceof Error)) {
+      throw error;
+    }
+    return null;
+  }
 }
 
 function isExaMcpEnabled(env: EnvironmentReader): boolean {

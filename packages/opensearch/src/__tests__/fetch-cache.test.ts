@@ -19,6 +19,7 @@ import { fetchUrlsWithCache, fetchUrlWithCache } from "./full-runtime.ts";
 
 beforeEach(() => {
   process.env.OPENSEARCH_ENABLE_EXA_MCP = "true";
+  process.env.OPENSEARCH_ENABLE_FIRECRAWL = "false";
   delete process.env.EXA_API_KEY;
   delete process.env.TINYFISH_API_KEY;
   fetchExaMcp.mockReset();

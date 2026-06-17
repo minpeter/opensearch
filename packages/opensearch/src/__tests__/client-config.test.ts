@@ -8,6 +8,7 @@ import {
 
 const DISABLE_HOSTED_ENV = {
   OPENSEARCH_ENABLE_EXA_MCP: "false",
+  OPENSEARCH_ENABLE_FIRECRAWL: "false",
   OPENSEARCH_ENABLE_PARALLEL_MCP: "false",
 } as const;
 

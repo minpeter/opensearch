@@ -3,6 +3,7 @@ import {
   type EnvironmentReader,
   processEnvironmentReader,
 } from "../../environment.ts";
+import { isFirecrawlEnabled } from "../../providers/firecrawl/client.ts";
 import {
   compactProviders,
   createPooledJsonSearchProvider,
@@ -56,6 +57,10 @@ function createTavilyProvider(env: EnvironmentReader): SearchProvider | null {
 function createFirecrawlProvider(
   env: EnvironmentReader
 ): SearchProvider | null {
+  if (!isFirecrawlEnabled(env)) {
+    return null;
+  }
+
   return createPooledJsonSearchProvider({
     apiKeyPool: getApiKeyPool("FIRECRAWL_API_KEY", env),
     name: "Firecrawl",

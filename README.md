@@ -122,25 +122,29 @@ Current search order:
 5. Hosted MCP providers: Parallel Search MCP, then Exa MCP.
 6. Exa Search API.
 7. Independent providers: Kagi, Mojeek, and configured SearxNG instances.
-8. DuckDuckGo public page fallback in the Node/full-runtime entry. Edge imports
+8. Firecrawl no-key Search API.
+9. DuckDuckGo public page fallback in the Node/full-runtime entry. Edge imports
    omit DuckDuckGo.
 
-`web_fetch` tries Exa hosted MCP first, then TinyFish, Exa contents API, the
-local HTML/PDF extraction pipeline, and Jina Reader for sparse content.
+`web_fetch` tries Exa hosted MCP first, then TinyFish, Exa contents API,
+Firecrawl no-key Scrape API, the local HTML/PDF extraction pipeline, and Jina
+Reader for sparse content.
 
 ### No-key operation
 
-The default install can search without user-supplied API keys through hosted
-Parallel MCP and hosted Exa MCP. The Node/full-runtime entry also adds
-DuckDuckGo as the final public-page fallback. Public and hosted limits can
-change without notice, so use API keys or a self-hosted SearxNG instance when
-you need predictable production capacity.
+The default install can search and fetch pages without user-supplied API keys
+through hosted Parallel MCP, hosted Exa MCP, and Firecrawl's no-key Search and
+Scrape APIs. The Node/full-runtime entry also adds DuckDuckGo as the final
+public-page fallback. Public and hosted limits can change without notice, so use
+API keys or a self-hosted SearxNG instance when you need predictable production
+capacity.
 
 Set these flags to remove fallback groups:
 
 ```sh
 OPENSEARCH_ENABLE_PARALLEL_MCP=false
 OPENSEARCH_ENABLE_EXA_MCP=false
+OPENSEARCH_ENABLE_FIRECRAWL=false
 ```
 
 ### API key pools
@@ -185,7 +189,7 @@ values.
 |---|---|
 | TinyFish | `TINYFISH_API_KEY` |
 | Tavily | `TAVILY_API_KEY` |
-| Firecrawl | `FIRECRAWL_API_KEY` |
+| Firecrawl | optional `FIRECRAWL_API_KEY` for higher limits |
 | Parallel API | `PARALLEL_API_KEY` |
 | You.com | `YOU_API_KEY` |
 | Perplexity | `PERPLEXITY_API_KEY` |
@@ -220,6 +224,10 @@ deployments:
 
 Credentialed endpoint overrides must use HTTPS. Plain HTTP is accepted only for
 `localhost`, `127.0.0.1`, or `::1` test servers.
+
+`OPENSEARCH_FIRECRAWL_URL` may point at a Firecrawl-compatible base URL such as
+`https://api.firecrawl.dev/v2` or at an endpoint URL ending in `/search` or
+`/scrape`; the runtime selects the matching endpoint for each operation.
 
 Retired paths are intentionally ignored: `BING_SEARCH_API_KEY`,
 `OPENSEARCH_BING_API_URL`, `OPENSEARCH_ENABLE_GOOGLE_SCRAPE`,
