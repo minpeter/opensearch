@@ -1,0 +1,55 @@
+import {
+  type EnvironmentReader,
+  processEnvironmentReader,
+} from "../../environment.ts";
+import { searchExaMcp } from "../../providers/exa-mcp/client.ts";
+import { getErrorMessage, SearchEngineError } from "../errors.ts";
+import { attachEngine } from "../text.ts";
+import type { EngineFailureKind, SearchProvider } from "../types.ts";
+
+export function createExaMcpSearchProvider(
+  env: EnvironmentReader = processEnvironmentReader
+): SearchProvider {
+  return {
+    name: "Exa",
+    async search(query: string, numResults: number) {
+      try {
+        const results =
+          env === processEnvironmentReader
+            ? await searchExaMcp(query, numResults)
+            : await searchExaMcp(query, numResults, env);
+        if (results.length === 0) {
+          throw new SearchEngineError("Exa", "no-results", "No Results");
+        }
+        return attachEngine("Exa", results);
+      } catch (error) {
+        if (error instanceof SearchEngineError) {
+          throw error;
+        }
+        throw new SearchEngineError(
+          "Exa",
+          classifyExaMcpFailure(error),
+          `Exa MCP search failed: ${getErrorMessage(error)}`
+        );
+      }
+    },
+  };
+}
+
+function classifyExaMcpFailure(error: unknown): EngineFailureKind {
+  const message = getErrorMessage(error).toLowerCase();
+
+  if (
+    message.includes("payment required") ||
+    message.includes("invalid api key") ||
+    message.includes("unauthorized")
+  ) {
+    return "misconfigured";
+  }
+
+  if (message.includes("429") || message.includes("rate limit")) {
+    return "blocked";
+  }
+
+  return "transient";
+}

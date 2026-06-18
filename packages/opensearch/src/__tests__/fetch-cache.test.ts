@@ -15,6 +15,7 @@ vi.mock("../providers/exa-mcp/client.ts", () => ({
   fetchExaMcpBatch,
 }));
 
+import { ARTICLE_HTML, createMockResponse } from "./fetch-test-helpers.ts";
 import { fetchUrlsWithCache, fetchUrlWithCache } from "./full-runtime.ts";
 
 beforeEach(() => {
@@ -104,5 +105,65 @@ describe("fetchUrlWithCache", () => {
     await fetchUrlWithCache("https://example.com/cached-batch");
 
     expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("preserves public API telemetry after mixed batched cache warmup", async () => {
+    fetchExaMcpBatch.mockRejectedValueOnce(new Error("Exa timeout"));
+    const redditUrl = "https://www.reddit.com/r/rust/hot/";
+    const localUrl = "https://example.com/local";
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              children: [
+                {
+                  data: {
+                    author: "ferris",
+                    num_comments: 7,
+                    score: 42,
+                    title: "Rust 1.99 Released",
+                    url: "https://blog.rust-lang.org/release",
+                  },
+                },
+              ],
+            },
+          }),
+          { status: 200 }
+        )
+      )
+      .mockResolvedValue(createMockResponse(ARTICLE_HTML));
+    vi.stubGlobal("fetch", mockFetch);
+
+    const [publicApiResult, localResult] = await fetchUrlsWithCache([
+      redditUrl,
+      localUrl,
+    ]);
+    const cachedPublicApiResult = await fetchUrlWithCache(redditUrl);
+
+    expect(publicApiResult?.url).toBe(redditUrl);
+    expect(localResult?.url).toBe(localUrl);
+    expect(cachedPublicApiResult).toEqual(publicApiResult);
+    expect(
+      mockFetch.mock.calls.filter(([url]) =>
+        String(url).includes("reddit.com/r/rust/hot.json")
+      )
+    ).toHaveLength(1);
+  });
+
+  it("bypasses the per-url cache when maxCharacters is provided", async () => {
+    fetchExaMcpBatch.mockRejectedValue(new Error("Exa timeout"));
+    const mockFetch = vi
+      .fn()
+      .mockImplementation(() =>
+        Promise.resolve(createMockResponse(ARTICLE_HTML))
+      );
+    vi.stubGlobal("fetch", mockFetch);
+
+    await fetchUrlWithCache("https://example.com/max-characters");
+    await fetchUrlsWithCache(["https://example.com/max-characters"], 100);
+
+    expect(mockFetch).toHaveBeenCalledTimes(2);
   });
 });

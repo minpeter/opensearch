@@ -7,6 +7,7 @@ import {
   type EnvironmentReader,
   processEnvironmentReader,
 } from "./environment.ts";
+import { exaMcpFetchProvider } from "./fetch/exa-mcp-provider.ts";
 import { fetchLocalUrl } from "./fetch/local.ts";
 import {
   createFetchService,
@@ -14,6 +15,8 @@ import {
   type FetchResult,
 } from "./fetch.ts";
 import { createDuckDuckGoProvider } from "./search/duckduckgo.ts";
+import { createExaMcpSearchProvider } from "./search/providers/exa-mcp.ts";
+import { createParallelMcpSearchProvider } from "./search/providers/parallel-mcp.ts";
 import { getSearchProviders } from "./search/providers.ts";
 import type { SearchProvider, SearchResult } from "./search/types.ts";
 import { createSearchService } from "./search.ts";
@@ -28,6 +31,11 @@ export type {
 export { NoFetchProviderError } from "./fetch/errors.ts";
 export type { FetchOptions, FetchResult } from "./fetch.ts";
 export { fetchResultSchema } from "./fetch.ts";
+export {
+  type ExtractMediaMetadataOptions,
+  extractMediaMetadata,
+  type YtDlpRunner,
+} from "./node/media.ts";
 export { SearchEngineError, SearchExecutionError } from "./search/errors.ts";
 export type {
   EngineFailureKind,
@@ -47,10 +55,13 @@ function getNodeSearchProviders(
 ): SearchProvider[] {
   return getSearchProviders(env, {
     duckDuckGoFactory: createDuckDuckGoProvider,
+    exaMcpFactory: createExaMcpSearchProvider,
+    parallelMcpFactory: createParallelMcpSearchProvider,
   });
 }
 
 const nodeFetchService = createFetchService(processEnvironmentReader, {
+  exaMcpFetchProvider,
   localFetch: fetchLocalUrl,
 });
 const nodeSearchService = createSearchService(processEnvironmentReader, {
@@ -87,6 +98,7 @@ export function createOpenSearch(
   options: OpenSearchOptions = {}
 ): OpenSearchClient {
   return createOpenSearchWithRuntime(options, {
+    exaMcpFetchProvider,
     localFetch: fetchLocalUrl,
     searchProviders: getNodeSearchProviders,
   });

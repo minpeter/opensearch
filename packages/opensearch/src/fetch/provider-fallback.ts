@@ -1,13 +1,8 @@
 import type { ApiKeyPool } from "../credentials/api-key-pool.ts";
 import type { EnvironmentReader } from "../environment.ts";
-import { processEnvironmentReader } from "../environment.ts";
-import { fetchExaMcp, fetchExaMcpBatch } from "../providers/exa-mcp/client.ts";
 import type { TinyFishApiKeyPool } from "../providers/tinyfish/api-key-pool.ts";
 import { fetchTinyFishUrls } from "../providers/tinyfish/fetch.ts";
-import {
-  DEFAULT_MAX_CHARACTERS,
-  OPENSEARCH_ENABLE_EXA_MCP_ENV,
-} from "./config.ts";
+import { DEFAULT_MAX_CHARACTERS } from "./config.ts";
 import { NoFetchProviderError } from "./errors.ts";
 import { fetchExaApiBatchWithPool } from "./exa-api.ts";
 import {
@@ -18,9 +13,26 @@ import { createFetchResult, type FetchResult } from "./result.ts";
 
 export type LocalFetch = (url: string) => Promise<FetchResult>;
 
+export interface ExaMcpFetchBatchResult {
+  readonly content: string;
+  readonly title: string;
+  readonly url: string;
+}
+
+export interface ExaMcpFetchProvider {
+  fetchBatch(
+    urls: string[],
+    maxCharacters: number,
+    env: EnvironmentReader
+  ): Promise<readonly ExaMcpFetchBatchResult[]>;
+  fetchUrl(url: string, env: EnvironmentReader): Promise<FetchResult | null>;
+  isEnabled(env: EnvironmentReader): boolean;
+}
+
 export interface FetchPipelineContext {
   readonly env: EnvironmentReader;
   readonly exaApiKeyPool: ApiKeyPool;
+  readonly exaMcpFetchProvider?: ExaMcpFetchProvider;
   readonly localFetch?: LocalFetch;
   readonly tinyFishApiKeyPool: TinyFishApiKeyPool;
 }
@@ -29,7 +41,7 @@ export async function fetchUrlViaProviders(
   url: string,
   context: FetchPipelineContext
 ): Promise<FetchResult> {
-  const exaMcpResult = await tryFetchUrlViaExaMcp(url, context.env);
+  const exaMcpResult = await tryFetchUrlViaExaMcp(url, context);
   if (exaMcpResult) {
     return exaMcpResult;
   }
@@ -75,9 +87,9 @@ export async function fetchUrlsViaProviders(
   maxCharacters: number,
   context: FetchPipelineContext
 ): Promise<FetchResult[]> {
-  if (isExaMcpEnabled(context.env)) {
+  if (context.exaMcpFetchProvider?.isEnabled(context.env)) {
     try {
-      const exaResults = await fetchExaMcpBatchForEnv(
+      const exaResults = await context.exaMcpFetchProvider.fetchBatch(
         urls,
         maxCharacters,
         context.env
@@ -85,13 +97,11 @@ export async function fetchUrlsViaProviders(
       return urls.map((url, index) => {
         const exaResult =
           exaResults.find((result) => result.url === url) ?? exaResults[index];
-
         if (!exaResult) {
           throw new Error(
             "Exa MCP fetch returned an unexpected response shape"
           );
         }
-
         return createFetchResult(url, exaResult.content, exaResult.title);
       });
     } catch (error) {
@@ -212,6 +222,17 @@ function runLocalFetch(
   return context.localFetch(url);
 }
 
+function tryFetchUrlViaExaMcp(
+  url: string,
+  context: FetchPipelineContext
+): Promise<FetchResult | null> {
+  const provider = context.exaMcpFetchProvider;
+  if (!provider?.isEnabled(context.env)) {
+    return Promise.resolve(null);
+  }
+  return provider.fetchUrl(url, context.env);
+}
+
 async function fetchExaApiForContext(
   url: string,
   context: FetchPipelineContext
@@ -225,48 +246,5 @@ async function fetchExaApiForContext(
   if (!result) {
     throw new Error("Exa API fetch returned no text content");
   }
-
   return result;
-}
-
-function fetchExaMcpForEnv(
-  url: string,
-  env: EnvironmentReader
-): ReturnType<typeof fetchExaMcp> {
-  return env === processEnvironmentReader
-    ? fetchExaMcp(url)
-    : fetchExaMcp(url, env);
-}
-
-function fetchExaMcpBatchForEnv(
-  urls: string[],
-  maxCharacters: number,
-  env: EnvironmentReader
-): ReturnType<typeof fetchExaMcpBatch> {
-  return env === processEnvironmentReader
-    ? fetchExaMcpBatch(urls, maxCharacters)
-    : fetchExaMcpBatch(urls, maxCharacters, env);
-}
-
-async function tryFetchUrlViaExaMcp(
-  url: string,
-  env: EnvironmentReader
-): Promise<FetchResult | null> {
-  if (!isExaMcpEnabled(env)) {
-    return null;
-  }
-
-  try {
-    const result = await fetchExaMcpForEnv(url, env);
-    return createFetchResult(url, result.content, result.title);
-  } catch (error) {
-    if (!(error instanceof Error)) {
-      throw error;
-    }
-    return null;
-  }
-}
-
-function isExaMcpEnabled(env: EnvironmentReader): boolean {
-  return env.read(OPENSEARCH_ENABLE_EXA_MCP_ENV) !== "false";
 }

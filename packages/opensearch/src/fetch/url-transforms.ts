@@ -8,6 +8,27 @@
 
 const HTTP_PROTOCOLS = new Set(["http:", "https:"]);
 const WWW_PREFIX = "www.";
+const ASSET_EXTENSION_REGEX =
+  /\.(?:avif|css|csv|gif|gz|ico|jpe?g|js|json|mjs|mp[34]|pdf|png|svg|txt|webp|xml|zip)$/iu;
+
+export const URL_TRANSFORM_NAMES = [
+  "mobile_subdomain",
+  "drop_www",
+  "am_prefix",
+  "json_suffix",
+  "rss_path",
+  "feed_path",
+  "atom_xml_path",
+  "rss_xml_path",
+  "index_xml_path",
+] as const;
+
+export type UrlTransformName = (typeof URL_TRANSFORM_NAMES)[number];
+
+export interface UrlTransformAttempt {
+  readonly name: UrlTransformName;
+  readonly url: string;
+}
 
 // Two-label public suffixes where `b.c` is the registry, so `a.b.c` is an apex
 // (e.g. example.co.uk), not a subdomain. Without this, the bare `parts === 2`
@@ -64,11 +85,44 @@ function withHost(url: URL, host: string): string {
   return next.toString();
 }
 
+function withoutCredentials(url: URL): URL {
+  const next = new URL(url.toString());
+  next.username = "";
+  next.password = "";
+  return next;
+}
+
+function isTransformablePath(url: URL): boolean {
+  const path = url.pathname;
+  if (path.endsWith("/")) {
+    return true;
+  }
+
+  const segment = path.split("/").at(-1) ?? "";
+  return !ASSET_EXTENSION_REGEX.test(segment);
+}
+
+function pathWithoutTrailingSlash(path: string): string {
+  if (path === "/") {
+    return "";
+  }
+  return path.endsWith("/") ? path.slice(0, -1) : path;
+}
+
+function withPathSuffix(url: URL, suffix: string): string {
+  const next = withoutCredentials(url);
+  next.hash = "";
+  next.search = "";
+  next.pathname = `${pathWithoutTrailingSlash(next.pathname)}${suffix}`;
+  return next.toString();
+}
+
 /**
- * Variant URLs to try when the original is blocked, in priority order, excluding
- * the original and deduped. Empty for non-http(s) or unparseable URLs.
+ * Named variant URLs to try when the original is blocked, in priority order,
+ * excluding the original and deduped. Empty for non-http(s), unparseable URLs,
+ * deep subdomains, mobile hosts, or obvious asset URLs.
  */
-export function transformedUrls(rawUrl: string): string[] {
+export function transformedUrlAttempts(rawUrl: string): UrlTransformAttempt[] {
   let url: URL;
   try {
     url = new URL(rawUrl);
@@ -80,26 +134,49 @@ export function transformedUrls(rawUrl: string): string[] {
   }
 
   const host = url.hostname.toLowerCase();
-  const out: string[] = [];
-  const seen = new Set([url.toString()]);
-  const add = (candidateHost: string): void => {
+  const isWwwHost = host.startsWith(WWW_PREFIX);
+  const allowTransforms = isWwwHost || isApexHost(host);
+  if (!allowTransforms) {
+    return [];
+  }
+
+  const out: UrlTransformAttempt[] = [];
+  const cleanOriginal = withoutCredentials(url).toString();
+  const seen = new Set([url.toString(), cleanOriginal]);
+  const add = (name: UrlTransformName, candidate: string): void => {
+    if (!seen.has(candidate)) {
+      seen.add(candidate);
+      out.push({ name, url: candidate });
+    }
+  };
+  const addHost = (name: UrlTransformName, candidateHost: string): void => {
     if (candidateHost === "" || candidateHost === host) {
       return;
     }
     const candidate = withHost(url, candidateHost);
-    if (!seen.has(candidate)) {
-      seen.add(candidate);
-      out.push(candidate);
-    }
+    add(name, candidate);
   };
 
-  if (host.startsWith(WWW_PREFIX)) {
+  if (isWwwHost) {
     const apex = host.slice(WWW_PREFIX.length);
-    add(`m.${apex}`); // mobile_subdomain
-    add(apex); // drop_www
-  } else if (!host.startsWith("m.") && isApexHost(host)) {
-    add(`m.${host}`); // am_prefix (apex hosts only)
+    addHost("mobile_subdomain", `m.${apex}`);
+    addHost("drop_www", apex);
+  } else {
+    addHost("am_prefix", `m.${host}`);
+  }
+
+  if (isTransformablePath(url)) {
+    add("json_suffix", withPathSuffix(url, ".json"));
+    add("rss_path", withPathSuffix(url, "/rss"));
+    add("feed_path", withPathSuffix(url, "/feed"));
+    add("atom_xml_path", withPathSuffix(url, "/atom.xml"));
+    add("rss_xml_path", withPathSuffix(url, "/rss.xml"));
+    add("index_xml_path", withPathSuffix(url, "/index.xml"));
   }
 
   return out;
+}
+
+export function transformedUrls(rawUrl: string): string[] {
+  return transformedUrlAttempts(rawUrl).map((attempt) => attempt.url);
 }

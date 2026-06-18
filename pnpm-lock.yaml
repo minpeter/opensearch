@@ -82,6 +82,10 @@ importers:
       esbuild:
         specifier: 0.28.1
         version: 0.28.1
+    optionalDependencies:
+      wreq-js:
+        specifier: 2.3.1
+        version: 2.3.1
 
   packages/opensearch-ai-sdk:
     dependencies:
@@ -2024,6 +2028,11 @@ packages:
   wrappy@1.0.2:
     resolution: {integrity: sha512-l4Sp/DRseor9wL6EvV2+TuQn63dMkPjZ/sp9XkghTEbV9KlPS1xUsZ3u7/IQO4wxtcFB4bgpQPRcR3QCvezPcQ==}
 
+  wreq-js@2.3.1:
+    resolution: {integrity: sha512-vaKasaKeskrDKEuuO5Q5uamEG9a6FrF5ZSicH7TCvYS4RxF7/gzaU/vYqwJzcs+uydyJPVWY1KCvfVCgp0tiGA==}
+    cpu: [x64, arm64]
+    os: [darwin, linux, win32]
+
   xml-name-validator@5.0.0:
     resolution: {integrity: sha512-EvGK8EJ3DhaHfbRlETOWAS5pO9MZITeauHKJyb8wyajUfQUenkIg2MvLDTZ4T/TgIcm3HU0TFBgWWboAZ30UHg==}
     engines: {node: '>=18'}
@@ -3859,6 +3868,9 @@ snapshots:
       stackback: 0.0.2
 
   wrappy@1.0.2: {}
+
+  wreq-js@2.3.1:
+    optional: true
 
   xml-name-validator@5.0.0: {}
 

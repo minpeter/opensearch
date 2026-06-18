@@ -6,14 +6,10 @@ import {
   createBraveSearchProvider,
   createTinyFishSearchProvider,
 } from "./providers/core.ts";
-import {
-  createExaMcpSearchProvider,
-  createExaSearchProvider,
-} from "./providers/exa.ts";
+import { createExaSearchProvider } from "./providers/exa.ts";
 import { createFirecrawlSearchProvider } from "./providers/firecrawl.ts";
 import { createIndependentProviders } from "./providers/independent.ts";
 import { createLlmNativeProviders } from "./providers/llm.ts";
-import { createParallelMcpSearchProvider } from "./providers/parallel-mcp.ts";
 import { createSerpProviders } from "./providers/serp.ts";
 import type { SearchProvider } from "./types.ts";
 
@@ -36,6 +32,8 @@ export interface GetSearchProvidersOptions {
    * keyless fallback in the chain.
    */
   readonly duckDuckGoFactory?: (env: EnvironmentReader) => SearchProvider;
+  readonly exaMcpFactory?: (env: EnvironmentReader) => SearchProvider;
+  readonly parallelMcpFactory?: (env: EnvironmentReader) => SearchProvider;
 }
 
 export function getSearchProviders(
@@ -50,12 +48,12 @@ export function getSearchProviders(
 
   pushProvider(providers, createBraveSearchProvider(env));
 
-  if (isParallelMcpEnabled(env)) {
-    providers.push(createParallelMcpSearchProvider(env));
+  if (options.parallelMcpFactory && isParallelMcpEnabled(env)) {
+    providers.push(options.parallelMcpFactory(env));
   }
 
-  if (isExaMcpEnabled(env)) {
-    providers.push(createExaMcpSearchProvider(env));
+  if (options.exaMcpFactory && isExaMcpEnabled(env)) {
+    providers.push(options.exaMcpFactory(env));
   }
 
   pushProvider(providers, createExaSearchProvider(env));
