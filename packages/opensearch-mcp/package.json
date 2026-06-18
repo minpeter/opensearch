@@ -13,7 +13,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/minpeter/opensearch-mcp.git",
+    "url": "https://github.com/minpeter/opensearch",
     "directory": "packages/opensearch-mcp"
   },
   "type": "module",

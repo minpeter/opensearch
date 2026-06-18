@@ -7,7 +7,7 @@
   "packageManager": "pnpm@11.3.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/minpeter/opensearch-mcp.git"
+    "url": "https://github.com/minpeter/opensearch"
   },
   "type": "module",
   "scripts": {
