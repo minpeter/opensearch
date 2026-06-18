@@ -1,5 +1,13 @@
 # opensearch-mcp
 
+## 0.2.3
+
+### Patch Changes
+
+- 3e25c40: docs: add minimal READMEs to all packages, slim root README
+- Updated dependencies [3e25c40]
+  - @minpeter/opensearch@0.0.3
+
 ## 0.2.2
 
 ### Patch Changes

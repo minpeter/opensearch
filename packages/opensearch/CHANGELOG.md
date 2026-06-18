@@ -1,5 +1,11 @@
 # @minpeter/opensearch
 
+## 0.0.3
+
+### Patch Changes
+
+- 3e25c40: docs: add minimal READMEs to all packages, slim root README
+
 ## 0.0.2
 
 ### Patch Changes
