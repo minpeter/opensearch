@@ -1,5 +1,13 @@
 # opensearch-mcp
 
+## 0.2.2
+
+### Patch Changes
+
+- 6e19a13: Add Firecrawl no-key search and scrape fallbacks for zero-config web search and page fetch.
+- Updated dependencies [6e19a13]
+  - @minpeter/opensearch@0.0.2
+
 ## 0.2.1
 
 ### Patch Changes

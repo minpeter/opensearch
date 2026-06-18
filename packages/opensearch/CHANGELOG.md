@@ -1,5 +1,11 @@
 # @minpeter/opensearch
 
+## 0.0.2
+
+### Patch Changes
+
+- 6e19a13: Add Firecrawl no-key search and scrape fallbacks for zero-config web search and page fetch.
+
 ## 0.0.1
 
 ### Patch Changes
