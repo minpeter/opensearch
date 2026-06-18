@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/banner.png" alt="opensearch banner" width="100%" />
+</p>
+
 # opensearch
 
 Web search and page fetch for agents and TypeScript apps.
