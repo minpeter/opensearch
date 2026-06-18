@@ -5,7 +5,8 @@ Zero-config web search and page fetch for MCP clients, backed by the reusable
 
 Use the MCP package when you want `web_search` and `web_fetch` in an agent. Use
 the library package when you want the same routing and extraction behavior
-directly from TypeScript.
+directly from TypeScript. Use the AI SDK package when you want those capabilities
+as Vercel AI SDK tools.
 
 ## Install
 
@@ -26,6 +27,12 @@ For application code:
 
 ```bash
 pnpm add @minpeter/opensearch
+```
+
+For AI SDK applications:
+
+```bash
+pnpm add opensearch-ai-sdk ai
 ```
 
 ## MCP Server
@@ -103,6 +110,42 @@ manage configuration outside `process.env`.
 
 `fetch(url)` returns one `FetchResult`. `fetch([urlA, urlB])` returns
 `FetchResult[]`. `search(query, count)` returns `SearchResult[]`.
+
+## AI SDK Tools
+
+`opensearch-ai-sdk` exposes the same search and fetch runtime as AI SDK
+tools named `web_search` and `web_fetch`. The root entry is edge-safe. Use
+`/node` when you want DuckDuckGo search and local page-fetch fallbacks.
+
+```ts
+import { generateText } from "ai";
+import { createOpenSearchTools } from "opensearch-ai-sdk";
+import { createOpenSearchTools as createNodeOpenSearchTools } from "opensearch-ai-sdk/node";
+
+const tools = createOpenSearchTools({
+  openSearchOptions: {
+    env: {
+      OPENSEARCH_ENABLE_EXA_MCP: "false",
+      OPENSEARCH_SEARXNG_URLS: "https://searx.example",
+      TAVILY_API_KEY: process.env.TAVILY_API_KEY,
+    },
+  },
+});
+
+const nodeTools = createNodeOpenSearchTools();
+
+// Use the model instance already configured by your host application.
+const answer = await generateText({
+  model: hostAppModel,
+  tools,
+  prompt:
+    "Search for current agent search API docs with web_search using numResults: 5, then fetch the most useful page with web_fetch.",
+});
+```
+
+Pass `tools` or `nodeTools` to AI SDK calls that accept a tool set. The AI SDK
+invokes `web_search` and `web_fetch` with its own execution options and returns
+the model response with any tool results attached.
 
 ## Providers
 

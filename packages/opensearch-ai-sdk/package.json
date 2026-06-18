@@ -1,0 +1,57 @@
+{
+  "$schema": "http://json.schemastore.org/package.json",
+  "name": "opensearch-ai-sdk",
+  "version": "0.0.0",
+  "description": "AI SDK tools for OpenSearch web search and page fetch",
+  "keywords": [
+    "ai",
+    "ai-sdk",
+    "fetch",
+    "search",
+    "websearch"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/minpeter/opensearch-mcp.git",
+    "directory": "packages/opensearch-ai-sdk"
+  },
+  "type": "module",
+  "types": "./out/index.d.ts",
+  "sideEffects": false,
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "types": "./out/index.d.ts",
+      "import": "./out/index.js"
+    },
+    "./node": {
+      "types": "./out/node.d.ts",
+      "import": "./out/node.js"
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "out"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "check": "ultracite check",
+    "fix": "ultracite fix",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage --coverage.reporter=text --coverage.reporter=json-summary"
+  },
+  "peerDependencies": {
+    "ai": "^6.0.0"
+  },
+  "dependencies": {
+    "@minpeter/opensearch": "workspace:*",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "ai": "6.0.207"
+  }
+}
