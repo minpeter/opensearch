@@ -24,67 +24,24 @@ const aiSdkPackageJson = readFileSync(
 );
 
 describe("README client interface", () => {
-  it("leads with install, MCP setup, and the public client API", () => {
-    const installIndex = readme.indexOf("## Install");
-    const mcpIndex = readme.indexOf("## MCP Server");
-    const clientIndex = readme.indexOf("## Client API");
-    const aiSdkToolsIndex = readme.indexOf("## AI SDK Tools");
-    const providerIndex = readme.indexOf("## Providers");
-
-    expect(installIndex).toBeGreaterThan(0);
-    expect(mcpIndex).toBeGreaterThan(installIndex);
-    expect(clientIndex).toBeGreaterThan(mcpIndex);
-    expect(aiSdkToolsIndex).toBeGreaterThan(clientIndex);
-    expect(providerIndex).toBeGreaterThan(aiSdkToolsIndex);
+  it("keeps the README concise and package-focused", () => {
+    expect(readme).toContain("# opensearch");
+    expect(readme).toContain(
+      "Web search and page fetch for agents and TypeScript apps"
+    );
+    expect(readme).toContain("@minpeter/opensearch");
+    expect(readme).toContain("opensearch-mcp");
+    expect(readme).toContain("opensearch-ai-sdk");
+    expect(readme).toContain("## License");
   });
 
-  it("documents only the stable library entry points in examples", () => {
-    expect(readme).toContain(
-      'import { createOpenSearch, fetch, search } from "@minpeter/opensearch";'
-    );
-    expect(readme).toContain(
-      'import { fetch as nodeFetch } from "@minpeter/opensearch/node";'
-    );
-    expect(readme).toContain("root entry is edge-safe");
-    expect(readme).toContain("Use the `/node` entry");
-    expect(readme).toContain("const openSearch = createOpenSearch({");
-    expect(readme).toContain("await search(");
-    expect(readme).toContain("await nodeFetch(");
-
+  it("does not document internal helper entry points or telemetry fields", () => {
     expect(readme).not.toContain("fetchUrlsWithCache");
     expect(readme).not.toContain("searchWithRetryAndCache");
     expect(readme).not.toContain("searchOnce");
-  });
-
-  it("documents the MCP fetch defaults that clients actually see", () => {
-    expect(readme).toContain("| `maxCharacters` | number | `12_000` |");
-  });
-
-  it("documents the AI SDK tools package surface", () => {
-    expect(readme).toContain("pnpm add opensearch-ai-sdk ai");
-    expect(readme).toContain('import { generateText } from "ai";');
-    expect(readme).toContain(
-      'import { createOpenSearchTools } from "opensearch-ai-sdk";'
-    );
-    expect(readme).toContain(
-      'import { createOpenSearchTools as createNodeOpenSearchTools } from "opensearch-ai-sdk/node";'
-    );
-    expect(readme).toContain("const tools = createOpenSearchTools({");
-    expect(readme).toContain("  openSearchOptions: {");
-    expect(readme).toContain("    env: {");
-    expect(readme).toContain("const nodeTools = createNodeOpenSearchTools();");
-    expect(readme).toContain("await generateText({");
-    expect(readme).toContain("  tools,");
-    expect(readme).toContain("`web_search` and `web_fetch`");
-    expect(readme).toContain("numResults: 5");
-
-    expect(readme).not.toContain("@minpeter/opensearch-ai-sdk");
-    expect(readme).not.toContain("createOpenSearchTools({\n  env:");
-    expect(readme).not.toContain("  max_results: 5,");
-    expect(readme).not.toContain("tools.web_search.execute(");
-    expect(readme).not.toContain("tools.web_fetch.execute(");
-    expect(readme).not.toContain("contextSchema");
-    expect(readme).not.toContain("toolsContext");
+    expect(readme).not.toContain("profileUsed");
+    expect(readme).not.toContain("sidecars");
+    expect(readme).not.toContain("verdict");
   });
 
   it("keeps README prose direct instead of generated-feature-list copy", () => {
@@ -94,7 +51,7 @@ describe("README client interface", () => {
     expect(readme).not.toContain("Reviewed but not routed candidates");
   });
 
-  it("keeps package descriptions aligned with the polished client interface", () => {
+  it("keeps package descriptions aligned with the client interface", () => {
     expect(rootPackageJson).toContain(
       '"description": "Zero-config web search and page fetch for MCP clients"'
     );

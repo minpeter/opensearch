@@ -64,6 +64,22 @@ describe("public API", () => {
     expect(nodeApi).not.toHaveProperty("searchWithRetryAndCache");
   });
 
+  it("keeps fetch result schema at the public result shape", () => {
+    const parsedFetchResult = fetchResultSchema.parse({
+      content: "# Hacker News\nReadable content.",
+      length: 31,
+      title: "Hacker News",
+      url: "https://news.ycombinator.com/item?id=1",
+    });
+
+    expect(parsedFetchResult).toEqual({
+      content: "# Hacker News\nReadable content.",
+      length: 31,
+      title: "Hacker News",
+      url: "https://news.ycombinator.com/item?id=1",
+    });
+  });
+
   it("exports typed search errors for library consumers", () => {
     const executionError = new SearchExecutionError("No Results", false);
     const engineError = new SearchEngineError(

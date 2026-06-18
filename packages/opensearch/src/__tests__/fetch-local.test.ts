@@ -55,6 +55,19 @@ describe("fetchUrl local HTML extraction", () => {
     expect(result.length).toBeGreaterThan(0);
   });
 
+  it("returns clean fetch result shape", async () => {
+    stubHtmlFetch();
+
+    const result = await fetchUrl("https://example.com/article");
+
+    expect(result).toEqual({
+      content: expect.any(String),
+      length: expect.any(Number),
+      title: "Test Article",
+      url: "https://example.com/article",
+    });
+  });
+
   it("content is markdown with no raw HTML tags", async () => {
     stubHtmlFetch();
 

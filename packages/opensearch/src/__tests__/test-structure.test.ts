@@ -13,6 +13,7 @@ const SOURCE_DIRECTORY = fileURLToPath(new URL("..", import.meta.url));
 const TESTS_DIRECTORY = fileURLToPath(new URL(".", import.meta.url));
 const EXPECTED_SEARCH_PROVIDER_REGISTRY_FILES = [
   "core.ts",
+  "exa-mcp.ts",
   "exa.ts",
   "firecrawl.ts",
   "independent.ts",

@@ -6,6 +6,7 @@ import {
 import { createTinyFishApiKeyPool } from "../providers/tinyfish/api-key-pool.ts";
 import { DEFAULT_MAX_CHARACTERS, EXA_API_KEY_ENV } from "./config.ts";
 import {
+  type ExaMcpFetchProvider,
   type FetchPipelineContext,
   fetchUrlsViaProviders,
   fetchUrlViaProviders,
@@ -14,7 +15,7 @@ import {
 import { fetchViaPublicApi } from "./public-api.ts";
 import type { FetchResult } from "./result.ts";
 
-export type { LocalFetch } from "./provider-fallback.ts";
+export type { ExaMcpFetchProvider, LocalFetch } from "./provider-fallback.ts";
 
 export interface FetchOperations {
   fetchUrl(url: string): Promise<FetchResult>;
@@ -22,6 +23,7 @@ export interface FetchOperations {
 }
 
 export interface CreateFetchOperationsOptions {
+  readonly exaMcpFetchProvider?: ExaMcpFetchProvider;
   /**
    * Terminal local page-fetch fallback (jsdom/readability/turndown/unpdf). The
    * edge build leaves this undefined so the entry never reaches Node-only deps;
@@ -38,6 +40,7 @@ export function createFetchOperations(
 ): FetchOperations {
   const context: FetchPipelineContext = {
     exaApiKeyPool: createApiKeyPool(EXA_API_KEY_ENV, env),
+    exaMcpFetchProvider: options.exaMcpFetchProvider,
     env,
     localFetch: options.localFetch,
     tinyFishApiKeyPool: createTinyFishApiKeyPool(env),

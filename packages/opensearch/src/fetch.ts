@@ -4,9 +4,9 @@ import {
   processEnvironmentReader,
 } from "./environment.ts";
 import {
+  type CreateFetchOperationsOptions,
   createFetchOperations,
   type FetchOperations,
-  type LocalFetch,
 } from "./fetch/orchestration.ts";
 import {
   type FetchResult,
@@ -37,7 +37,8 @@ export interface FetchService {
 }
 
 export interface CreateFetchServiceOptions {
-  readonly localFetch?: LocalFetch;
+  readonly exaMcpFetchProvider?: CreateFetchOperationsOptions["exaMcpFetchProvider"];
+  readonly localFetch?: CreateFetchOperationsOptions["localFetch"];
 }
 
 const defaultFetchService = createFetchService(processEnvironmentReader);

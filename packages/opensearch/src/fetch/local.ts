@@ -3,24 +3,26 @@ import { JSDOM } from "jsdom";
 import TurndownService from "turndown";
 import { gfm } from "turndown-plugin-gfm";
 import { extractText, getDocumentProxy } from "unpdf";
-
+import { fetchViaPlaywrightFallback } from "../node/playwright-executor.ts";
+import { fetchViaTlsImpersonation } from "../node/tls-executor.ts";
 import { BROWSER_HEADERS } from "../search/http.ts";
 import { getRandomUserAgent } from "../user-agents.ts";
+import { fetchViaArchiveFallback } from "./archive-result.ts";
+import {
+  type AttemptExecutorInput,
+  runAttemptPlan,
+} from "./attempt-planner.ts";
 import { isChallengePage } from "./challenge.ts";
+import { fetchDiscoveredFeed, isFeedResponse, parseFeed } from "./feed.ts";
+import { fetchJinaReader } from "./jina.ts";
 import { extractMetadata, metadataToMarkdown } from "./metadata.ts";
 import { createFetchResult, type FetchResult } from "./result.ts";
-import { transformedUrls } from "./url-transforms.ts";
 
 type PdfDocument = Awaited<ReturnType<typeof getDocumentProxy>>;
 
 const FETCH_TIMEOUT_MS = 30_000;
 const IMG_TAG_REGEX = /<img[^>]*>/g;
-const JINA_TIMEOUT_MS = 10_000;
 const SPARSE_CONTENT_THRESHOLD = 50;
-// Statuses that signal a soft block/throttle worth a URL-variant + reader
-// fallback before giving up. 451 (Unavailable For Legal Reasons) is deliberately
-// excluded: a legal takedown should surface as an error, not be routed around
-// via the third-party reader.
 const BLOCK_STATUSES = new Set([403, 429, 503]);
 
 function buildRequestHeaders(url: string): Record<string, string> {
@@ -45,45 +47,38 @@ function fetchPage(url: string): Promise<Response> {
   });
 }
 
+async function fetchAttemptResponse(input: AttemptExecutorInput) {
+  const response = await fetchPage(input.url);
+  return {
+    body: await response.clone().text(),
+    headers: response.headers,
+    response,
+    status: response.status,
+    url: response.url || input.url,
+  };
+}
+
 async function extractPdfContent(buffer: ArrayBuffer): Promise<string> {
   const pdf: PdfDocument = await getDocumentProxy(new Uint8Array(buffer));
   const { text } = await extractText(pdf, { mergePages: true });
   return text;
 }
 
-/** The Jina reader renders via a real browser, so it often clears soft blocks. */
-async function fetchJina(url: string): Promise<string | null> {
-  try {
-    const response = await fetch(`https://r.jina.ai/${url}`, {
-      headers: { "User-Agent": getRandomUserAgent() },
-      signal: AbortSignal.timeout(JINA_TIMEOUT_MS),
-    });
-    if (response.ok) {
-      const text = await response.text();
-      return text.length > 0 ? text : null;
-    }
-  } catch {
-    // Reader unavailable — caller decides what to do.
-  }
-  return null;
-}
-
-/** Retry a blocked origin on its mobile/apex host variants; null if all fail. */
 function isPdf(url: string, contentType: string): boolean {
   return url.endsWith(".pdf") || contentType.includes("application/pdf");
 }
 
-/**
- * Turn a successful (2xx) response into a result. PDFs (by extension or
- * Content-Type) are text-extracted; HTML is parsed. Returns null when the body
- * is a WAF challenge so the caller escalates. `url` is the identity to report,
- * which may differ from the variant the body came from.
- */
 async function resultFromResponse(
   url: string,
   response: Response
 ): Promise<FetchResult | null> {
   const contentType = response.headers.get("Content-Type") ?? "";
+  if (isFeedResponse(contentType)) {
+    const feed = parseFeed(url, await response.text(), "feed:direct");
+    if (feed) {
+      return feed;
+    }
+  }
   if (isPdf(url, contentType)) {
     return createFetchResult(
       url,
@@ -95,24 +90,6 @@ async function resultFromResponse(
     return null;
   }
   return buildResultFromHtml(url, raw);
-}
-
-/** Retry a blocked origin on its mobile/apex host variants. */
-async function fetchViaVariants(url: string): Promise<FetchResult | null> {
-  for (const variant of transformedUrls(url)) {
-    try {
-      const response = await fetchPage(variant);
-      if (response.ok) {
-        const result = await resultFromResponse(url, response);
-        if (result) {
-          return result;
-        }
-      }
-    } catch {
-      // Try the next variant.
-    }
-  }
-  return null;
 }
 
 function createTurndown(): TurndownService {
@@ -133,19 +110,24 @@ function createTurndown(): TurndownService {
 async function resolveContent(
   url: string,
   markdown: string,
-  metadataMarkdown: string
+  metadataMarkdown: string,
+  feedContent: () => Promise<string | null> = () => Promise.resolve(null)
 ): Promise<string> {
   if (markdown.length >= SPARSE_CONTENT_THRESHOLD) {
     return markdown;
   }
-  const reader = await fetchJina(url);
+  const reader = (await fetchJinaReader(url))?.content ?? null;
   if (reader && reader.length >= SPARSE_CONTENT_THRESHOLD) {
     return reader;
+  }
+  const feed = await feedContent();
+  if (feed && feed.length >= SPARSE_CONTENT_THRESHOLD) {
+    return feed;
   }
   if (metadataMarkdown.length >= SPARSE_CONTENT_THRESHOLD) {
     return metadataMarkdown;
   }
-  return markdown || reader || metadataMarkdown;
+  return markdown || reader || feed || metadataMarkdown;
 }
 
 async function buildResultFromHtml(
@@ -160,38 +142,64 @@ async function buildResultFromHtml(
   const content = await resolveContent(
     url,
     markdown,
-    metadataToMarkdown(metadata)
+    metadataToMarkdown(metadata),
+    async () => {
+      const feed = await fetchDiscoveredFeed(url, {
+        html,
+        includeTransforms: false,
+      });
+      return feed?.content ?? null;
+    }
   );
   return createFetchResult(url, content, title);
 }
 
 export async function fetchLocalUrl(url: string): Promise<FetchResult> {
-  const response = await fetchPage(url);
+  const planned = await runAttemptPlan(url, {
+    executor: fetchAttemptResponse,
+  });
 
-  if (response.ok) {
-    // HTTP 200 is not success: resultFromResponse returns null for a WAF
-    // challenge body so we escalate instead of ingesting the interstitial.
-    const result = await resultFromResponse(url, response);
+  if (planned.response) {
+    const result = await resultFromResponse(url, planned.response);
     if (result) {
       return result;
     }
-  } else if (!BLOCK_STATUSES.has(response.status)) {
-    throw new Error(`Fetch failed with status ${response.status}`);
   }
 
-  // Blocked or challenged — try URL variants, then the reader.
-  const variantResult = await fetchViaVariants(url);
-  if (variantResult) {
-    return variantResult;
+  const firstStatus = planned.trace[0]?.status;
+  if (
+    typeof firstStatus === "number" &&
+    firstStatus >= 400 &&
+    !BLOCK_STATUSES.has(firstStatus)
+  ) {
+    throw new Error(`Fetch failed with status ${firstStatus}`);
   }
 
-  const reader = await fetchJina(url);
+  const reader = (await fetchJinaReader(url))?.content ?? null;
   if (
     reader &&
     reader.length >= SPARSE_CONTENT_THRESHOLD &&
     !isChallengePage(reader)
   ) {
     return createFetchResult(url, reader);
+  }
+  const tlsResult = await fetchViaTlsImpersonation(url);
+  if (tlsResult.response) {
+    const result = await resultFromResponse(url, tlsResult.response);
+    if (result) {
+      return result;
+    }
+  }
+  const playwrightResult = await fetchViaPlaywrightFallback(url);
+  if (playwrightResult.response) {
+    const result = await resultFromResponse(url, playwrightResult.response);
+    if (result) {
+      return result;
+    }
+  }
+  const archiveResult = await fetchViaArchiveFallback(url, resultFromResponse);
+  if (archiveResult) {
+    return archiveResult;
   }
   throw new Error("Fetch blocked by an anti-bot challenge");
 }

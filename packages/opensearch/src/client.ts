@@ -28,6 +28,7 @@ export interface OpenSearchOptions {
  * and the DuckDuckGo-inclusive provider list here; the edge entry passes none.
  */
 export interface OpenSearchRuntime {
+  readonly exaMcpFetchProvider?: CreateFetchServiceOptions["exaMcpFetchProvider"];
   readonly localFetch?: CreateFetchServiceOptions["localFetch"];
   readonly searchProviders?: CreateSearchServiceOptions["providers"];
 }
@@ -48,6 +49,7 @@ class ConfiguredOpenSearchClient implements OpenSearchClient {
   constructor(options: OpenSearchOptions, runtime: OpenSearchRuntime) {
     const env = createEnvironmentReader(options.env);
     this.#fetchService = createFetchService(env, {
+      exaMcpFetchProvider: runtime.exaMcpFetchProvider,
       localFetch: runtime.localFetch,
     });
     this.#searchService = createSearchService(env, {
