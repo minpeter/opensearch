@@ -1,7 +1,7 @@
 ---
-"opensearch": patch
+"@minpeter/opensearch": patch
 "opensearch-mcp": patch
 "opensearch-ai-sdk": patch
 ---
 
-docs: split READMEs across packages, slim root, and fix MCP provider/env docs
+docs: add minimal READMEs to all packages, slim root README
