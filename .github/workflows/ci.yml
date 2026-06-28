@@ -67,6 +67,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Validate release tooling
+        run: pnpm run test:release
+
       - name: Test with coverage (unit only — skip integration)
         run: pnpm run test:coverage 2>&1 | tee coverage-output.txt
 

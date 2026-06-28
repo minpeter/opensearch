@@ -33,14 +33,17 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Update npm CLI for trusted publishing
+        run: npm install -g npm@latest
+
+      - name: Validate release tooling
+        run: pnpm run test:release
+
       - name: Build
         run: pnpm run build
 
-      - name: Create Release PR or Publish
-        uses: changesets/action@v1
-        with:
-          publish: pnpm changeset publish
-          title: 'chore: release'
-          commit: 'chore: release'
+      - name: Version or publish packages
+        run: pnpm tegami ci
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_CONFIG_PROVENANCE: "true"

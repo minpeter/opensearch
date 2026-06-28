@@ -17,18 +17,19 @@
     "fix": "turbo run fix",
     "test": "turbo run test",
     "test:coverage": "turbo run test:coverage",
+    "test:release": "node --test scripts/tegami-config.test.mjs",
     "start": "pnpm --filter opensearch-mcp start",
-    "changeset": "changeset",
-    "version": "changeset version",
-    "release": "pnpm build && changeset publish"
+    "tegami": "node scripts/tegami.mts",
+    "version": "pnpm tegami version",
+    "release": "pnpm build && pnpm tegami publish"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.16",
-    "@changesets/cli": "^2.31.0",
     "@types/jsdom": "^28.0.3",
     "@types/node": "^25.9.2",
     "@types/turndown": "^5.0.6",
     "@vitest/coverage-v8": "^4.1.8",
+    "tegami": "^0.2.1",
     "turbo": "^2.6.1",
     "tsup": "^8.5.1",
     "typescript": "^6.0.3",

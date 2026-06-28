@@ -17,6 +17,26 @@ search, fetch, routing, and page extraction.
 [`opensearch-ai-sdk`](packages/opensearch-ai-sdk/README.md) wraps the same
 search and fetch surface for the Vercel AI SDK.
 
+## Release Notes
+
+This repository uses Tegami for package versioning and publishing. Changes that
+affect published packages should include a `.tegami/*.md` changelog file before
+merge.
+
+```md
+---
+packages:
+  "npm:@minpeter/opensearch": patch
+---
+
+## Add provider fallback
+
+Describe the user-visible package change.
+```
+
+Use package ids `npm:@minpeter/opensearch`, `npm:opensearch-ai-sdk`, and
+`npm:opensearch-mcp`. Run `pnpm tegami` to create a changelog interactively.
+
 ## Special Thanks
 
 Thanks to [fivetaku/insane-search](https://github.com/fivetaku/insane-search)
