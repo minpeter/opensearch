@@ -11,6 +11,9 @@
     "websearch"
   ],
   "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/minpeter/opensearch",
@@ -23,13 +26,18 @@
   "files": [
     "out"
   ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "scripts": {
-    "build": "tsup",
+    "build": "tsdown",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "check": "ultracite check",
     "fix": "ultracite fix",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage --coverage.reporter=text --coverage.reporter=json-summary",
+    "attw": "attw --pack . --profile esm-only",
     "start": "node out/index.js"
   },
   "dependencies": {

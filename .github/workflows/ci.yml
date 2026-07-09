@@ -113,3 +113,9 @@ jobs:
 
       - name: Build
         run: pnpm run build
+
+      - name: Package checks
+        run: pnpm run attw
+
+      - name: Edge runtime safety gate
+        run: pnpm run verify:edge

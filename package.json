@@ -5,6 +5,9 @@
   "description": "Zero-config web search and page fetch for MCP clients",
   "license": "MIT",
   "packageManager": "pnpm@11.3.0",
+  "engines": {
+    "node": ">=22"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/minpeter/opensearch"
@@ -18,21 +21,24 @@
     "test": "turbo run test",
     "test:coverage": "turbo run test:coverage",
     "test:release": "node --test scripts/tegami-config.test.mjs",
+    "attw": "turbo run attw",
+    "verify:edge": "turbo run verify:edge",
     "start": "pnpm --filter opensearch-mcp start",
     "tegami": "node scripts/tegami.mts",
     "version": "pnpm tegami version",
     "release": "pnpm build && pnpm tegami publish"
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.3",
     "@biomejs/biome": "2.4.16",
     "@types/jsdom": "^28.0.3",
     "@types/node": "^25.9.2",
     "@types/turndown": "^5.0.6",
     "@vitest/coverage-v8": "^4.1.8",
     "tegami": "^0.2.1",
+    "tsdown": "^0.22.4",
     "turbo": "^2.6.1",
-    "tsup": "^8.5.1",
-    "typescript": "^6.0.3",
+    "typescript": "^7.0.2",
     "ultracite": "7.8.1",
     "vitest": "^4.1.8"
   }
