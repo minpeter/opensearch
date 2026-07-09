@@ -10,6 +10,9 @@
     "websearch"
   ],
   "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/minpeter/opensearch",
@@ -30,18 +33,20 @@
     }
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "provenance": true
   },
   "files": [
     "out"
   ],
   "scripts": {
-    "build": "tsup",
+    "build": "tsdown",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "check": "ultracite check",
     "fix": "ultracite fix",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage --coverage.reporter=text --coverage.reporter=json-summary --exclude 'src/__tests__/integration.test.ts'",
+    "attw": "attw --pack . --profile esm-only",
     "bench": "node --experimental-strip-types src/bench/cli.ts",
     "bench:offline": "node --experimental-strip-types src/bench/cli.ts --offline",
     "bench:live": "node --experimental-strip-types src/bench/cli.ts --live",
@@ -49,6 +54,14 @@
   },
   "devDependencies": {
     "esbuild": "^0.28.1"
+  },
+  "peerDependencies": {
+    "playwright": ">=1.56.0"
+  },
+  "peerDependenciesMeta": {
+    "playwright": {
+      "optional": true
+    }
   },
   "dependencies": {
     "@cfworker/json-schema": "^4.1.1",

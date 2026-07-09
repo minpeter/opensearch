@@ -6,8 +6,14 @@ const packageJsonPath = join(import.meta.dirname, "../../package.json");
 
 function packageJson(): {
   readonly dependencies?: Readonly<Record<string, string>>;
+  readonly engines?: Readonly<Record<string, string>>;
   readonly exports?: Readonly<Record<string, unknown>>;
   readonly optionalDependencies?: Readonly<Record<string, string>>;
+  readonly peerDependencies?: Readonly<Record<string, string>>;
+  readonly peerDependenciesMeta?: Readonly<
+    Record<string, { readonly optional?: boolean }>
+  >;
+  readonly publishConfig?: Readonly<Record<string, unknown>>;
 } {
   return JSON.parse(readFileSync(packageJsonPath, "utf8"));
 }
@@ -20,6 +26,15 @@ describe("runtime package boundaries", () => {
     expect(pkg.dependencies).not.toHaveProperty("wreq-js");
     expect(pkg.dependencies).not.toHaveProperty("playwright");
     expect(pkg.optionalDependencies).not.toHaveProperty("playwright");
+    expect(pkg.peerDependencies?.playwright).toBeDefined();
+    expect(pkg.peerDependenciesMeta?.playwright?.optional).toBe(true);
+  });
+
+  it("declares the package runtime and trusted publishing contract", () => {
+    const pkg = packageJson();
+
+    expect(pkg.engines?.node).toBe(">=22");
+    expect(pkg.publishConfig?.provenance).toBe(true);
   });
 
   it("publishes only the root, node, and package metadata subpaths", () => {

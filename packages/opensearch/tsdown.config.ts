@@ -1,13 +1,16 @@
-import { defineConfig } from "tsup";
+import { defineConfig } from "tsdown";
 
 export default defineConfig({
   clean: true,
+  deps: {
+    neverBundle: ["playwright", "wreq-js"],
+  },
   dts: true,
   entry: ["src/index.ts", "src/node.ts"],
-  external: ["playwright", "wreq-js"],
+  fixedExtension: false,
   format: ["esm"],
   minify: false,
   outDir: "out",
-  splitting: false,
   sourcemap: true,
+  tsconfig: "tsconfig.build.json",
 });

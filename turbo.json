@@ -22,6 +22,14 @@
     "test:coverage": {
       "dependsOn": ["^build"],
       "outputs": ["coverage/**"]
+    },
+    "attw": {
+      "dependsOn": ["build"],
+      "outputs": []
+    },
+    "verify:edge": {
+      "dependsOn": ["build"],
+      "outputs": []
     }
   }
 }
