@@ -8,6 +8,25 @@ const results = await search("node release", 5);
 const pages = await fetch(["https://nodejs.org"]);
 ```
 
+Batch fetches deduplicate repeated URLs and start at most eight per-URL provider
+operations at once by default. Configure a client-wide limit, or override it for
+one call:
+
+```ts
+import { createOpenSearch } from "@minpeter/opensearch";
+
+const client = createOpenSearch({ fetch: { maxConcurrency: 4 } });
+const pages = await client.fetch(
+  ["https://nodejs.org", "https://www.typescriptlang.org"],
+  { maxConcurrency: 2 },
+);
+```
+
+The limit applies to per-URL work such as public API, Firecrawl, and local
+fallbacks. A provider's native batch endpoint remains one scheduled operation.
+Code that intentionally relied on the previous all-at-once behavior can set
+`maxConcurrency` to its known batch size.
+
 Use the root entrypoint for edge-compatible API-backed search and fetch. Use the
 Node entrypoint when you want local scraping, DuckDuckGo fallback, media metadata,
 or other Node-only fetch behavior:

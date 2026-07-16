@@ -4,7 +4,12 @@ import {
   processEnvironmentReader,
 } from "../environment.ts";
 import { createTinyFishApiKeyPool } from "../providers/tinyfish/api-key-pool.ts";
-import { DEFAULT_MAX_CHARACTERS, EXA_API_KEY_ENV } from "./config.ts";
+import { mapWithConcurrency } from "./concurrency.ts";
+import {
+  DEFAULT_MAX_CHARACTERS,
+  DEFAULT_MAX_CONCURRENCY,
+  EXA_API_KEY_ENV,
+} from "./config.ts";
 import {
   type ExaMcpFetchProvider,
   type FetchPipelineContext,
@@ -19,7 +24,11 @@ export type { ExaMcpFetchProvider, LocalFetch } from "./provider-fallback.ts";
 
 export interface FetchOperations {
   fetchUrl(url: string): Promise<FetchResult>;
-  fetchUrls(urls: string[], maxCharacters?: number): Promise<FetchResult[]>;
+  fetchUrls(
+    urls: string[],
+    maxCharacters?: number,
+    maxConcurrency?: number
+  ): Promise<FetchResult[]>;
 }
 
 export interface CreateFetchOperationsOptions {
@@ -50,8 +59,12 @@ export function createFetchOperations(
     fetchUrl(url: string) {
       return fetchUrlDirect(url, context);
     },
-    fetchUrls(urls: string[], maxCharacters = DEFAULT_MAX_CHARACTERS) {
-      return fetchUrlsDirect(urls, maxCharacters, context);
+    fetchUrls(
+      urls: string[],
+      maxCharacters = DEFAULT_MAX_CHARACTERS,
+      maxConcurrency = DEFAULT_MAX_CONCURRENCY
+    ) {
+      return fetchUrlsDirect(urls, maxCharacters, maxConcurrency, context);
     },
   };
 }
@@ -75,33 +88,72 @@ async function fetchUrlDirect(
 
 export function fetchUrls(
   urls: string[],
-  maxCharacters = DEFAULT_MAX_CHARACTERS
+  maxCharacters = DEFAULT_MAX_CHARACTERS,
+  maxConcurrency = DEFAULT_MAX_CONCURRENCY
 ): Promise<FetchResult[]> {
-  return defaultFetchOperations.fetchUrls(urls, maxCharacters);
+  return defaultFetchOperations.fetchUrls(urls, maxCharacters, maxConcurrency);
 }
 
 async function fetchUrlsDirect(
   urls: string[],
   maxCharacters: number,
+  maxConcurrency: number,
   context: FetchPipelineContext
 ): Promise<FetchResult[]> {
   if (urls.length === 0) {
     return [];
   }
 
+  const uniqueUrls = [...new Set(urls)];
+  const uniqueResults = await fetchUniqueUrlsDirect(
+    uniqueUrls,
+    maxCharacters,
+    maxConcurrency,
+    context
+  );
+  const resultsByUrl = new Map<string, FetchResult>();
+
+  for (const [index, url] of uniqueUrls.entries()) {
+    const result = uniqueResults[index];
+    if (!result) {
+      throw new Error(`Fetch returned no result for input at index ${index}.`);
+    }
+    resultsByUrl.set(url, result);
+  }
+
+  return urls.map((url, index) => {
+    const result = resultsByUrl.get(url);
+    if (!result) {
+      throw new Error(`Fetch result mapping failed at input index ${index}.`);
+    }
+    return result;
+  });
+}
+
+async function fetchUniqueUrlsDirect(
+  urls: string[],
+  maxCharacters: number,
+  maxConcurrency: number,
+  context: FetchPipelineContext
+): Promise<FetchResult[]> {
   // Phase 0 (parity with single fetch): route official-API URLs first, send the
   // rest through the provider batch, then reassemble in the original order.
-  const apiResults = await Promise.all(
-    urls.map((url) => fetchViaPublicApi(url))
+  const apiResults = await mapWithConcurrency(urls, maxConcurrency, (url) =>
+    fetchViaPublicApi(url)
   );
   const remaining = urls.filter((_url, index) => apiResults[index] === null);
   if (remaining.length === urls.length) {
-    return fetchUrlsViaProviders(urls, maxCharacters, context);
+    return fetchUrlsViaProviders(urls, maxCharacters, context, maxConcurrency);
   }
 
   const remainingResults =
     remaining.length > 0
-      ? await fetchUrlsViaProviders(remaining, maxCharacters, context)
+      ? await fetchUrlsViaProviders(
+          remaining,
+          maxCharacters,
+          context,
+          maxConcurrency
+        )
       : [];
   const merged: FetchResult[] = [];
   let cursor = 0;

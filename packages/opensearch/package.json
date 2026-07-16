@@ -48,6 +48,7 @@
     "test:coverage": "vitest run --coverage --coverage.reporter=text --coverage.reporter=json-summary --exclude 'src/__tests__/integration.test.ts'",
     "attw": "attw --pack . --profile esm-only",
     "bench": "node --experimental-strip-types src/bench/cli.ts",
+    "bench:fetch-batch": "node --experimental-strip-types src/bench/fetch-batch.ts",
     "bench:offline": "node --experimental-strip-types src/bench/cli.ts --offline",
     "bench:live": "node --experimental-strip-types src/bench/cli.ts --live",
     "verify:edge": "node scripts/verify-edge.mjs"

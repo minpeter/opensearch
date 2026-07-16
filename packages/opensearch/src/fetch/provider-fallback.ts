@@ -2,6 +2,7 @@ import type { ApiKeyPool } from "../credentials/api-key-pool.ts";
 import type { EnvironmentReader } from "../environment.ts";
 import type { TinyFishApiKeyPool } from "../providers/tinyfish/api-key-pool.ts";
 import { fetchTinyFishUrls } from "../providers/tinyfish/fetch.ts";
+import { mapWithConcurrency } from "./concurrency.ts";
 import { DEFAULT_MAX_CHARACTERS } from "./config.ts";
 import { NoFetchProviderError } from "./errors.ts";
 import { fetchExaApiBatchWithPool } from "./exa-api.ts";
@@ -85,7 +86,8 @@ export async function fetchUrlViaProviders(
 export async function fetchUrlsViaProviders(
   urls: string[],
   maxCharacters: number,
-  context: FetchPipelineContext
+  context: FetchPipelineContext,
+  maxConcurrency: number
 ): Promise<FetchResult[]> {
   if (context.exaMcpFetchProvider?.isEnabled(context.env)) {
     try {
@@ -130,7 +132,12 @@ export async function fetchUrlsViaProviders(
       if (!(error instanceof Error)) {
         throw error;
       }
-      return fetchUrlsWithoutTinyFish(urls, maxCharacters, context);
+      return fetchUrlsWithoutTinyFish(
+        urls,
+        maxCharacters,
+        context,
+        maxConcurrency
+      );
     }
   }
 
@@ -152,11 +159,14 @@ export async function fetchUrlsViaProviders(
     urls,
     maxCharacters,
     context.env,
-    (url) => runLocalFetch(url, context)
+    (url) => runLocalFetch(url, context),
+    maxConcurrency
   );
   return (
     firecrawlResults ??
-    Promise.all(urls.map((url) => fetchUrlViaProviders(url, context)))
+    mapWithConcurrency(urls, maxConcurrency, (url) =>
+      fetchUrlViaProviders(url, context)
+    )
   );
 }
 
@@ -182,7 +192,8 @@ async function fetchUrlWithoutTinyFish(
 async function fetchUrlsWithoutTinyFish(
   urls: string[],
   maxCharacters: number,
-  context: FetchPipelineContext
+  context: FetchPipelineContext,
+  maxConcurrency: number
 ): Promise<FetchResult[]> {
   if (context.exaApiKeyPool.hasApiKeys()) {
     try {
@@ -195,7 +206,9 @@ async function fetchUrlsWithoutTinyFish(
       if (!(error instanceof Error)) {
         throw error;
       }
-      return Promise.all(urls.map((url) => runLocalFetch(url, context)));
+      return mapWithConcurrency(urls, maxConcurrency, (url) =>
+        runLocalFetch(url, context)
+      );
     }
   }
 
@@ -203,11 +216,14 @@ async function fetchUrlsWithoutTinyFish(
     urls,
     maxCharacters,
     context.env,
-    (url) => runLocalFetch(url, context)
+    (url) => runLocalFetch(url, context),
+    maxConcurrency
   );
   return (
     firecrawlResults ??
-    Promise.all(urls.map((url) => runLocalFetch(url, context)))
+    mapWithConcurrency(urls, maxConcurrency, (url) =>
+      runLocalFetch(url, context)
+    )
   );
 }
 
