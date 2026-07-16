@@ -3,9 +3,14 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createSmokeTest, PACKAGE_SPECS } from "./package-smoke.mjs";
+import {
+  createSmokeTest,
+  PACKAGE_SPECS,
+  retryOperation,
+} from "./package-smoke.mjs";
 
 const DEFAULT_ATTEMPTS = 30;
+const DEFAULT_INSTALL_ATTEMPTS = 6;
 const DEFAULT_RETRY_DELAY_MS = 10_000;
 const FETCH_TIMEOUT_MS = 15_000;
 const rootDirectory = fileURLToPath(new URL("..", import.meta.url));
@@ -26,6 +31,10 @@ const attempts = parsePositiveInteger(
 const retryDelayMs = parsePositiveInteger(
   process.env.PUBLISHED_VERIFY_RETRY_MS,
   DEFAULT_RETRY_DELAY_MS
+);
+const installAttempts = parsePositiveInteger(
+  process.env.PUBLISHED_VERIFY_INSTALL_ATTEMPTS,
+  DEFAULT_INSTALL_ATTEMPTS
 );
 const registry = (
   process.env.NPM_CONFIG_REGISTRY ?? "https://registry.npmjs.org"
@@ -59,22 +68,26 @@ const run = async (command, args, options = {}) => {
   });
 };
 
-const publishedMetadataUrl = (name, version) =>
-  `${registry}/${encodeURIComponent(name)}/${encodeURIComponent(version)}`;
+const publishedMetadataUrl = (name) =>
+  `${registry}/${encodeURIComponent(name)}`;
 
 const waitForPublishedVersion = async ({ name, version }) => {
   let lastFailure = "not found";
 
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {
-      const response = await fetch(publishedMetadataUrl(name, version), {
+      const response = await fetch(publishedMetadataUrl(name), {
         cache: "no-store",
         signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
       });
 
       if (response.ok) {
         const metadata = await response.json();
-        if (metadata.version === version && metadata.dist?.integrity) {
+        const publishedVersion = metadata.versions?.[version];
+        if (
+          publishedVersion?.version === version &&
+          publishedVersion.dist?.integrity
+        ) {
           process.stdout.write(`Registry contains ${name}@${version}.\n`);
           return;
         }
@@ -124,17 +137,36 @@ const main = async () => {
       createSmokeTest(packages)
     );
 
-    await run(
-      "npm",
-      [
-        "install",
-        "--ignore-scripts",
-        "--no-audit",
-        "--no-fund",
-        ...packages.map(({ name, version }) => `${name}@${version}`),
-      ],
-      { cwd: temporaryDirectory }
-    );
+    await retryOperation({
+      attempts: installAttempts,
+      delayMs: retryDelayMs,
+      operation: async () => {
+        await Promise.all([
+          rm(join(temporaryDirectory, "node_modules"), {
+            force: true,
+            recursive: true,
+          }),
+          rm(join(temporaryDirectory, "package-lock.json"), { force: true }),
+        ]);
+        await run(
+          "npm",
+          [
+            "install",
+            "--ignore-scripts",
+            "--no-audit",
+            "--no-fund",
+            "--prefer-online",
+            ...packages.map(({ name, version }) => `${name}@${version}`),
+          ],
+          { cwd: temporaryDirectory }
+        );
+      },
+      onRetry: ({ attempt, error }) => {
+        process.stdout.write(
+          `Retrying clean registry install after attempt ${attempt}/${installAttempts}: ${error.message}\n`
+        );
+      },
+    });
     await run("node", ["verify.mjs"], { cwd: temporaryDirectory });
   } finally {
     await rm(temporaryDirectory, { force: true, recursive: true });
