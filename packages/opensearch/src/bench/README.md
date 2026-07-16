@@ -3,6 +3,8 @@
 For the deterministic fetch output-limit experiment, see
 [`FETCH_LIMITS.md`](./FETCH_LIMITS.md). It measures the core postcondition that
 every provider and fallback must honor the requested page-content budget.
+For bounded cache, SSRF, response-byte, and edge bundle measurements, see
+[`RUNTIME_HARDENING.md`](./RUNTIME_HARDENING.md).
 
 Quantitative comparison of every search provider's **limit** and **search
 quality**, in two modes:
@@ -113,9 +115,27 @@ pnpm --filter @minpeter/opensearch bench:offline -- --out src/bench/fixtures/gol
 
 `.github/workflows/monitor.yml` runs `bench:live` weekly (and on demand). Only
 providers whose secrets are present are measured; the rest appear under
-`skipped`. Output is uploaded as the `provider-metrics` artifact (JSON + an
-NDJSON history line) and rendered into the run summary. Pass `--baseline <json>`
-to flag drift (`diffBaseline`) against a previous run.
+`skipped`. It restores the previous artifact, keeps an NDJSON history, compares
+against the last healthy baseline, renders SVG charts, and promotes a new
+baseline only after the run passes. `--health-gate` requires at least one
+provider to succeed on 50% of queries; `--fail-on-regression` also fails when a
+previously meaningful provider disappears or crosses the configured drift
+tolerance.
+
+```sh
+pnpm --filter @minpeter/opensearch bench:live -- \
+  --num-results 10 --exclude DuckDuckGo \
+  --out provider-metrics.json --markdown provider-metrics.md \
+  --charts provider-metrics-charts --history history.ndjson \
+  --baseline baseline.json --health-gate --fail-on-regression
+```
+
+In a 2026-07-17 Node 24 smoke run using the three checked-in queries under the
+same invocation, Parallel and Exa succeeded on 3/3 queries and Firecrawl on 1/3.
+The health gate passed because two providers exceeded its 50% floor. This is an
+availability smoke result, not a provider-quality ranking: it has only three
+queries, uses the credentials and network region of that run, and can vary with
+quota, blocks, and upstream changes.
 
 ## Fetch batch fan-out microbenchmark
 
@@ -156,14 +176,14 @@ iterations, and timeout were otherwise identical.
 | --- | ---: | ---: | ---: |
 | 10 unique repeated / provider calls | 100 | 10 | -90 (-90%) |
 | 10 unique repeated / peak concurrency | 100 | 8 | -92 (-92%) |
-| 10 unique repeated / latency mean | 5.55 ms | 10.38 ms | +4.83 ms |
-| 10 unique repeated / latency p50 / p95 | 5.58 / 5.74 ms | 10.32 / 10.45 ms | +4.74 / +4.71 ms |
-| 10 unique repeated / min / max | 5.31 / 5.86 ms | 10.25 / 11.40 ms | — |
+| 10 unique repeated / latency mean | 5.55 ms | 10.34 ms | +4.79 ms |
+| 10 unique repeated / latency p50 / p95 | 5.58 / 5.74 ms | 10.33 / 10.43 ms | +4.75 / +4.69 ms |
+| 10 unique repeated / min / max | 5.31 / 5.86 ms | 10.28 / 10.44 ms | — |
 | 100 unique / provider calls | 100 | 100 | 0 |
 | 100 unique / peak concurrency | 100 | 8 | -92 (-92%) |
-| 100 unique / latency mean | 5.42 ms | 66.68 ms | +61.26 ms |
-| 100 unique / latency p50 / p95 | 5.34 / 5.65 ms | 66.76 / 67.69 ms | +61.42 / +62.04 ms |
-| 100 unique / min / max | 5.27 / 5.87 ms | 65.34 / 67.96 ms | — |
+| 100 unique / latency mean | 5.42 ms | 67.11 ms | +61.69 ms |
+| 100 unique / latency p50 / p95 | 5.34 / 5.65 ms | 67.07 / 68.21 ms | +61.73 / +62.56 ms |
+| 100 unique / min / max | 5.27 / 5.87 ms | 66.06 / 68.21 ms | — |
 
 Both before and after returned all 100 results in input order in every measured
 iteration. The added latency is expected: the synthetic 5 ms operations now run

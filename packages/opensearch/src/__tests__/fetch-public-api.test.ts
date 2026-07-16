@@ -242,4 +242,15 @@ describe("fetchViaPublicApi", () => {
       await fetchViaPublicApi("https://news.ycombinator.com/item?id=1")
     ).toBeNull();
   });
+
+  it("propagates HTTP 451 instead of bypassing the legal restriction", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response("restricted", { status: 451 }))
+    );
+
+    await expect(
+      fetchViaPublicApi("https://news.ycombinator.com/item?id=1")
+    ).rejects.toMatchObject({ status: 451 });
+  });
 });

@@ -27,6 +27,18 @@ describe("edge runtime entry", () => {
     );
   });
 
+  it.each([
+    ["file:///etc/passwd", "HTTP or HTTPS"],
+    ["https://user:secret@example.com/", "userinfo"],
+    ["not a URL", "absolute URL"],
+  ])("rejects unsafe provider URL %s before routing", async (url, message) => {
+    const mockFetch = vi.fn();
+    vi.stubGlobal("fetch", mockFetch);
+
+    await expect(fetch(url)).rejects.toThrow(message);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
   it("omits DuckDuckGo from the edge provider list but adds it through the node seam", () => {
     const env = createEnvironmentReader({
       OPENSEARCH_ENABLE_EXA_MCP: "false",

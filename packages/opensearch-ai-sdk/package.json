@@ -53,7 +53,7 @@
     "ai": "^6.0.0"
   },
   "dependencies": {
-    "@minpeter/opensearch": "workspace:*",
+    "@minpeter/opensearch": "^0.0.6",
     "zod": "^4.4.3"
   },
   "devDependencies": {

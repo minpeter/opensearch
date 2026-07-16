@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { cancelResponseBody, readResponseText } from "../response-body.ts";
 import { getRandomUserAgent } from "../user-agents.ts";
 import { SearchEngineError } from "./errors.ts";
 import type { EngineFailureKind, SearchEngineName } from "./types.ts";
@@ -47,7 +48,7 @@ export function createSearchUrl(
 }
 
 export function classifyStatusFailure(status: number): EngineFailureKind {
-  if (status === 403 || status === 429) {
+  if (status === 403 || status === 429 || status === 451) {
     return "blocked";
   }
 
@@ -92,6 +93,7 @@ export async function fetchSearchText({
   }
 
   if (!response.ok) {
+    await cancelResponseBody(response);
     throw new SearchEngineError(
       engine,
       classifyApiStatusFailure(response.status, authFailureStatuses),
@@ -100,7 +102,17 @@ export async function fetchSearchText({
     );
   }
 
-  return response.text();
+  try {
+    return await readResponseText(response);
+  } catch (error) {
+    throw new SearchEngineError(
+      engine,
+      "transient",
+      `${engine} response body could not be read: ${
+        error instanceof Error ? error.message : String(error)
+      }`
+    );
+  }
 }
 
 export function parseJsonResponse(

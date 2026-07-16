@@ -30,6 +30,7 @@ const SEARCH_ENV_KEYS = [
   "OPENSEARCH_ENABLE_EXA_MCP",
   "OPENSEARCH_ENABLE_FIRECRAWL",
   "OPENSEARCH_ENABLE_GOOGLE_SCRAPE",
+  "OPENSEARCH_ENABLE_OLLAMA",
   "OPENSEARCH_ENABLE_PARALLEL_MCP",
   "OPENSEARCH_EXA_MCP_URL",
   "OPENSEARCH_FIRECRAWL_URL",
@@ -49,6 +50,9 @@ const SEARCH_ENV_KEYS = [
   "OPENSEARCH_VALYU_URL",
   "OPENSEARCH_WIKIPEDIA_URL",
   "OPENSEARCH_YOU_URL",
+  "OLLAMA_API_KEY",
+  "OLLAMA_HOST",
+  "OPENSEARCH_DISABLE_OLLAMA_LOCAL",
   "PARALLEL_API_KEY",
   "PERPLEXITY_API_KEY",
   "SCRAPINGBEE_API_KEY",
@@ -86,6 +90,7 @@ export function resetSearchEnv(): void {
   }
   process.env.OPENSEARCH_ENABLE_EXA_MCP = "false";
   process.env.OPENSEARCH_ENABLE_FIRECRAWL = "false";
+  process.env.OPENSEARCH_ENABLE_OLLAMA = "false";
   process.env.OPENSEARCH_ENABLE_PARALLEL_MCP = "false";
   // Keep the DuckDuckGo proof-of-work escalation out of the deterministic chain
   // tests; it is exercised explicitly in duckduckgo.test.ts.

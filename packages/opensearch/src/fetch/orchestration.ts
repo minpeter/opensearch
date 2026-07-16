@@ -3,6 +3,12 @@ import {
   type EnvironmentReader,
   processEnvironmentReader,
 } from "../environment.ts";
+import {
+  createOpenSearchObserver,
+  emitFallbackEvent,
+  type OpenSearchObserver,
+  observeProviderAttempt,
+} from "../observability.ts";
 import { createTinyFishApiKeyPool } from "../providers/tinyfish/api-key-pool.ts";
 import { mapWithConcurrency } from "./concurrency.ts";
 import {
@@ -14,21 +20,29 @@ import {
 import {
   type ExaMcpFetchProvider,
   type FetchPipelineContext,
+  type FetchUrlValidator,
   fetchUrlsViaProviders,
   fetchUrlViaProviders,
+  getFirstFetchProviderName,
   type LocalFetch,
 } from "./provider-fallback.ts";
 import { fetchViaPublicApi } from "./public-api.ts";
 import { type FetchResult, limitFetchResult } from "./result.ts";
+import { assertProviderSafeUrl } from "./url-policy.ts";
 
-export type { ExaMcpFetchProvider, LocalFetch } from "./provider-fallback.ts";
+export type {
+  ExaMcpFetchProvider,
+  FetchUrlValidator,
+  LocalFetch,
+} from "./provider-fallback.ts";
 
 export interface FetchOperations {
-  fetchUrl(url: string): Promise<FetchResult>;
+  fetchUrl(url: string, operationId?: string): Promise<FetchResult>;
   fetchUrls(
     urls: string[],
     maxCharacters?: number,
-    maxConcurrency?: number
+    maxConcurrency?: number,
+    operationId?: string
   ): Promise<FetchResult[]>;
 }
 
@@ -40,6 +54,9 @@ export interface CreateFetchOperationsOptions {
    * the @minpeter/opensearch/node entry injects the real pipeline.
    */
   readonly localFetch?: LocalFetch;
+  readonly observer?: OpenSearchObserver;
+  /** Optional runtime policy evaluated before any public API or provider call. */
+  readonly validateUrl?: FetchUrlValidator;
 }
 
 const defaultFetchOperations = createFetchOperations(processEnvironmentReader);
@@ -48,30 +65,39 @@ export function createFetchOperations(
   env: EnvironmentReader = processEnvironmentReader,
   options: CreateFetchOperationsOptions = {}
 ): FetchOperations {
+  const observer = options.observer ?? createOpenSearchObserver();
   const context: FetchPipelineContext = {
     exaApiKeyPool: createApiKeyPool(EXA_API_KEY_ENV, env),
     exaMcpFetchProvider: options.exaMcpFetchProvider,
     env,
     localFetch: options.localFetch,
+    observer,
     tinyFishApiKeyPool: createTinyFishApiKeyPool(env),
+    validateUrl: options.validateUrl,
   };
 
   return {
-    async fetchUrl(url: string) {
-      const result = await fetchUrlDirect(url, context);
+    async fetchUrl(url: string, operationId) {
+      const result = await fetchUrlDirect(
+        url,
+        context,
+        operationId ?? observer.createOperationId("fetch")
+      );
       return limitFetchResult(result, DEFAULT_MAX_CHARACTERS);
     },
     async fetchUrls(
       urls: string[],
       maxCharacters = DEFAULT_MAX_CHARACTERS,
-      maxConcurrency = DEFAULT_MAX_CONCURRENCY
+      maxConcurrency = DEFAULT_MAX_CONCURRENCY,
+      operationId?: string
     ) {
       const characterLimit = requireMaxCharacters(maxCharacters);
       const results = await fetchUrlsDirect(
         urls,
         characterLimit,
         maxConcurrency,
-        context
+        context,
+        operationId ?? observer.createOperationId("fetch")
       );
       return results.map((result) => limitFetchResult(result, characterLimit));
     },
@@ -84,15 +110,29 @@ export function fetchUrl(url: string): Promise<FetchResult> {
 
 async function fetchUrlDirect(
   url: string,
-  context: FetchPipelineContext
+  context: FetchPipelineContext,
+  operationId: string
 ): Promise<FetchResult> {
+  context.validateUrl?.(url);
+  assertProviderSafeUrl(url);
   // Phase 0: official keyless APIs for platforms generic fetch handles poorly
   // (matches only specific URLs; non-matching URLs cost nothing).
-  const apiResult = await fetchViaPublicApi(url);
+  const apiResult = await observeProviderAttempt(
+    context.observer,
+    { operation: "fetch", operationId, provider: "public-api" },
+    () => fetchViaPublicApi(url)
+  );
   if (apiResult) {
     return apiResult;
   }
-  return fetchUrlViaProviders(url, context);
+  emitFallbackEvent(context.observer, {
+    fromProvider: "public-api",
+    operation: "fetch",
+    operationId,
+    reason: "empty",
+    toProvider: getFirstFetchProviderName(context),
+  });
+  return fetchUrlViaProviders(url, context, operationId);
 }
 
 export function fetchUrls(
@@ -107,7 +147,8 @@ async function fetchUrlsDirect(
   urls: string[],
   maxCharacters: number,
   maxConcurrency: number,
-  context: FetchPipelineContext
+  context: FetchPipelineContext,
+  operationId: string
 ): Promise<FetchResult[]> {
   if (urls.length === 0) {
     return [];
@@ -118,7 +159,8 @@ async function fetchUrlsDirect(
     uniqueUrls,
     maxCharacters,
     maxConcurrency,
-    context
+    context,
+    operationId
   );
   const resultsByUrl = new Map<string, FetchResult>();
 
@@ -143,16 +185,41 @@ async function fetchUniqueUrlsDirect(
   urls: string[],
   maxCharacters: number,
   maxConcurrency: number,
-  context: FetchPipelineContext
+  context: FetchPipelineContext,
+  operationId: string
 ): Promise<FetchResult[]> {
+  for (const url of urls) {
+    context.validateUrl?.(url);
+    assertProviderSafeUrl(url);
+  }
+
   // Phase 0 (parity with single fetch): route official-API URLs first, send the
   // rest through the provider batch, then reassemble in the original order.
   const apiResults = await mapWithConcurrency(urls, maxConcurrency, (url) =>
-    fetchViaPublicApi(url)
+    observeProviderAttempt(
+      context.observer,
+      { operation: "fetch", operationId, provider: "public-api" },
+      () => fetchViaPublicApi(url)
+    )
   );
   const remaining = urls.filter((_url, index) => apiResults[index] === null);
+  if (remaining.length > 0) {
+    emitFallbackEvent(context.observer, {
+      fromProvider: "public-api",
+      operation: "fetch",
+      operationId,
+      reason: "empty",
+      toProvider: getFirstFetchProviderName(context),
+    });
+  }
   if (remaining.length === urls.length) {
-    return fetchUrlsViaProviders(urls, maxCharacters, context, maxConcurrency);
+    return fetchUrlsViaProviders(
+      urls,
+      maxCharacters,
+      context,
+      maxConcurrency,
+      operationId
+    );
   }
 
   const remainingResults =
@@ -161,7 +228,8 @@ async function fetchUniqueUrlsDirect(
           remaining,
           maxCharacters,
           context,
-          maxConcurrency
+          maxConcurrency,
+          operationId
         )
       : [];
   const merged: FetchResult[] = [];

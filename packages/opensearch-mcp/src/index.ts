@@ -1,8 +1,9 @@
-import { fetch, search } from "@minpeter/opensearch/node";
+import { createOpenSearch } from "@minpeter/opensearch/node";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 
 import pkg from "../package.json" with { type: "json" };
+import { createMcpEventSink } from "./observability.ts";
 import {
   webFetchDescription,
   webSearchDescription,
@@ -20,6 +21,10 @@ const server = new McpServer({
   name: "opensearch",
   version: pkg.version,
 });
+const eventSink = createMcpEventSink();
+const client = createOpenSearch(
+  eventSink ? { observability: { onEvent: eventSink } } : {}
+);
 
 const textContentType = "text" as const;
 
@@ -49,7 +54,7 @@ server.registerTool(
     try {
       return createSearchToolResult(
         input.query,
-        await search(input.query, getSearchResultCount(input))
+        await client.search(input.query, getSearchResultCount(input))
       );
     } catch (error) {
       const toolError =
@@ -67,7 +72,7 @@ server.registerTool(
   },
   async (input) => {
     try {
-      const results = await fetch(input.urls, {
+      const results = await client.fetch(input.urls, {
         maxCharacters: getFetchMaxCharacters(input),
       });
       return createFetchToolResult(results);

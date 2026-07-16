@@ -16,15 +16,15 @@ jobs:
       id-token: write # required for npm OIDC provenance
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           version: 11.3.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: pnpm
@@ -42,8 +42,25 @@ jobs:
       - name: Build
         run: pnpm run build
 
+      - name: Check whether this push will publish
+        id: publish
+        run: |
+          if pnpm tegami check-publish; then
+            echo "needed=true" >> "$GITHUB_OUTPUT"
+          else
+            status=$?
+            if [ "$status" -ne 1 ]; then
+              exit "$status"
+            fi
+            echo "needed=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Version or publish packages
         run: pnpm tegami ci
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_CONFIG_PROVENANCE: "true"
+
+      - name: Verify packages from the npm registry
+        if: steps.publish.outputs.needed == 'true'
+        run: pnpm verify:published

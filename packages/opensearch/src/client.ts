@@ -1,7 +1,10 @@
+import type { CacheOptions } from "./cache.ts";
 import {
   createEnvironmentReader,
   type OpenSearchEnvironment,
 } from "./environment.ts";
+import type { LocalFetchOptions } from "./fetch/local-options.ts";
+import type { FetchUrlValidator } from "./fetch/orchestration.ts";
 import {
   type CreateFetchServiceOptions,
   createFetchService,
@@ -9,6 +12,10 @@ import {
   type FetchResult,
   type FetchService,
 } from "./fetch.ts";
+import {
+  createOpenSearchObserver,
+  type OpenSearchObservabilityOptions,
+} from "./observability.ts";
 import type { SearchResult } from "./search/types.ts";
 import {
   type CreateSearchServiceOptions,
@@ -16,16 +23,35 @@ import {
   type SearchService,
 } from "./search.ts";
 
+export type { CacheOptions } from "./cache.ts";
 export type { OpenSearchEnvironment } from "./environment.ts";
+export type {
+  OpenSearchEvent,
+  OpenSearchEventSink,
+  OpenSearchObservabilityOptions,
+} from "./observability.ts";
 
 export interface OpenSearchOptions {
   readonly env?: OpenSearchEnvironment;
   readonly fetch?: {
+    /** Allow Node local fetches to reach private networks. Defaults to false. */
+    readonly allowPrivateNetwork?: boolean;
+    /** Per-client fetch cache policy. */
+    readonly cache?: CacheOptions;
     /**
      * Maximum per-URL fetch work started concurrently inside a batch.
      * Defaults to 8.
      */
     readonly maxConcurrency?: number;
+    /** Maximum bytes downloaded by one Node local fetch. Defaults to 10 MiB. */
+    readonly maxDownloadBytes?: number;
+    /** Maximum redirects followed by one Node local fetch. Defaults to 5. */
+    readonly maxRedirects?: number;
+  };
+  readonly observability?: OpenSearchObservabilityOptions;
+  readonly search?: {
+    /** Per-client search cache policy. */
+    readonly cache?: CacheOptions;
   };
 }
 
@@ -36,7 +62,13 @@ export interface OpenSearchOptions {
  */
 export interface OpenSearchRuntime {
   readonly exaMcpFetchProvider?: CreateFetchServiceOptions["exaMcpFetchProvider"];
+  readonly fetchUrlValidatorFactory?: (
+    options: LocalFetchOptions
+  ) => FetchUrlValidator;
   readonly localFetch?: CreateFetchServiceOptions["localFetch"];
+  readonly localFetchFactory?: (
+    options: LocalFetchOptions
+  ) => NonNullable<CreateFetchServiceOptions["localFetch"]>;
   readonly searchProviders?: CreateSearchServiceOptions["providers"];
 }
 
@@ -55,12 +87,25 @@ class ConfiguredOpenSearchClient implements OpenSearchClient {
 
   constructor(options: OpenSearchOptions, runtime: OpenSearchRuntime) {
     const env = createEnvironmentReader(options.env);
+    const observer = createOpenSearchObserver(options.observability?.onEvent);
+    const localFetchOptions = {
+      allowPrivateNetwork: options.fetch?.allowPrivateNetwork,
+      maxDownloadBytes: options.fetch?.maxDownloadBytes,
+      maxRedirects: options.fetch?.maxRedirects,
+    } satisfies LocalFetchOptions;
+    const localFetch = runtime.localFetchFactory?.(localFetchOptions);
     this.#fetchService = createFetchService(env, {
       exaMcpFetchProvider: runtime.exaMcpFetchProvider,
-      localFetch: runtime.localFetch,
+      cache: options.fetch?.cache,
+      localFetch: localFetch ?? runtime.localFetch,
       maxConcurrency: options.fetch?.maxConcurrency,
+      observer,
+      validateUrl:
+        runtime.fetchUrlValidatorFactory?.(localFetchOptions) ?? undefined,
     });
     this.#searchService = createSearchService(env, {
+      cache: options.search?.cache,
+      observer,
       providers: runtime.searchProviders,
     });
   }

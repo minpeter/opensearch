@@ -6,6 +6,7 @@ import {
   type EnvironmentReader,
   processEnvironmentReader,
 } from "../environment.ts";
+import { readResponseText } from "../response-body.ts";
 import { getRandomUserAgent } from "../user-agents.ts";
 import { SearchEngineError } from "./errors.ts";
 import { classifyStatusFailure, REQUEST_TIMEOUT_MS } from "./http.ts";
@@ -67,15 +68,25 @@ async function getText(
   url: string,
   headers: Record<string, string>
 ): Promise<FetchedText> {
-  const response = await fetch(url, {
-    headers,
-    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-  });
-  return {
-    body: await response.text(),
-    ok: response.ok,
-    status: response.status,
-  };
+  try {
+    const response = await fetch(url, {
+      headers,
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+    return {
+      body: await readResponseText(response),
+      ok: response.ok,
+      status: response.status,
+    };
+  } catch (error) {
+    throw new SearchEngineError(
+      ENGINE,
+      "transient",
+      `DuckDuckGo fetch failed: ${
+        error instanceof Error ? error.message : String(error)
+      }`
+    );
+  }
 }
 
 function extractVqd(html: string): string | null {

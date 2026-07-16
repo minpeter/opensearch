@@ -5,12 +5,14 @@ type ResponseParser = (
   url: string,
   response: Response
 ) => Promise<FetchResult | null>;
+type ResponseFetcher = (url: string) => Promise<Response>;
 
 export async function fetchViaArchiveFallback(
   url: string,
-  parseResponse: ResponseParser
+  parseResponse: ResponseParser,
+  fetcher: ResponseFetcher = fetch
 ): Promise<FetchResult | null> {
-  const archived = await fetchArchiveFallback(url);
+  const archived = await fetchArchiveFallback(url, fetcher);
   if (!archived) {
     return null;
   }

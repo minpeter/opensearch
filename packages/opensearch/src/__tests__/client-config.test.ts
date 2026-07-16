@@ -174,6 +174,66 @@ describe("createOpenSearch", () => {
     expect(mockFetch).toHaveBeenCalledTimes(2);
   });
 
+  it("supports disabling the per-client search cache", async () => {
+    const mockFetch = vi.fn().mockImplementation(() =>
+      Promise.resolve(
+        createMockJsonResponse({
+          results: [
+            {
+              content: "Uncached result",
+              title: "Uncached",
+              url: "https://example.com/uncached",
+            },
+          ],
+        })
+      )
+    );
+    vi.stubGlobal("fetch", mockFetch);
+    const client = createOpenSearch({
+      env: {
+        ...DISABLE_HOSTED_ENV,
+        TAVILY_API_KEY: "cache-test-key",
+      },
+      search: { cache: { enabled: false } },
+    });
+
+    await client.search("uncached query");
+    await client.search("uncached query");
+
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("applies a bounded per-client fetch cache policy", async () => {
+    const mockFetch = vi.fn().mockImplementation(() =>
+      Promise.resolve(
+        new Response(ARTICLE_HTML, {
+          headers: { "Content-Type": "text/html" },
+          status: 200,
+        })
+      )
+    );
+    vi.stubGlobal("fetch", mockFetch);
+    const client = createOpenSearch({
+      env: DISABLE_HOSTED_ENV,
+      fetch: { cache: { maxEntries: 1 } },
+    });
+
+    await client.fetch("https://example.com/one");
+    await client.fetch("https://example.com/two");
+    await client.fetch("https://example.com/one");
+
+    expect(mockFetch).toHaveBeenCalledTimes(3);
+  });
+
+  it("rejects invalid cache policies at client creation", () => {
+    expect(() =>
+      createOpenSearch({ search: { cache: { maxEntries: 0 } } })
+    ).toThrow("cache.maxEntries must be a positive safe integer");
+    expect(() => createOpenSearch({ fetch: { cache: { ttlMs: 0 } } })).toThrow(
+      "cache.ttlMs must be a positive safe integer"
+    );
+  });
+
   it("uses explicit Exa fetch config without inheriting process env", async () => {
     process.env.EXA_API_KEY = "process-exa-key";
     const mockFetch = vi.fn().mockImplementation(() =>

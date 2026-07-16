@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { readResponseJson } from "../response-body.ts";
 import type { FetchSource } from "./result.ts";
 
 const ARCHIVE_TODAY_DOMAINS = [
@@ -13,6 +14,7 @@ const WAYBACK_AVAILABLE_ENDPOINT = "https://archive.org/wayback/available";
 const WAYBACK_CDX_ENDPOINT = "https://web.archive.org/cdx/search/cdx";
 
 type ArchiveCandidateType = "archive" | "cache";
+type ArchiveFetcher = (url: string) => Promise<Response>;
 
 export interface ArchiveCandidate {
   readonly name: string;
@@ -120,17 +122,23 @@ export function staticArchiveCandidates(rawUrl: string): ArchiveCandidate[] {
 }
 
 async function waybackAvailableCandidate(
-  rawUrl: string
+  rawUrl: string,
+  fetcher: ArchiveFetcher
 ): Promise<ArchiveCandidate | null> {
   const endpoint = waybackAvailabilityUrl(rawUrl);
   if (!endpoint) {
     return null;
   }
-  const response = await fetch(endpoint);
+  const response = await fetcher(endpoint);
   if (!response?.ok) {
+    await response?.body?.cancel();
     return null;
   }
-  const parsed = waybackAvailableSchema.safeParse(await response.json());
+  const payload = await readArchiveJson(response);
+  if (payload === null) {
+    return null;
+  }
+  const parsed = waybackAvailableSchema.safeParse(payload);
   const snapshot = parsed.success
     ? parsed.data.archived_snapshots?.closest
     : null;
@@ -145,17 +153,23 @@ async function waybackAvailableCandidate(
 }
 
 async function waybackCdxCandidate(
-  rawUrl: string
+  rawUrl: string,
+  fetcher: ArchiveFetcher
 ): Promise<ArchiveCandidate | null> {
   const endpoint = waybackCdxUrl(rawUrl);
   if (!endpoint) {
     return null;
   }
-  const response = await fetch(endpoint);
+  const response = await fetcher(endpoint);
   if (!response?.ok) {
+    await response?.body?.cancel();
     return null;
   }
-  const parsed = waybackCdxSchema.safeParse(await response.json());
+  const payload = await readArchiveJson(response);
+  if (payload === null) {
+    return null;
+  }
+  const parsed = waybackCdxSchema.safeParse(payload);
   if (!(parsed.success && parsed.data.length > 1)) {
     return null;
   }
@@ -171,27 +185,54 @@ async function waybackCdxCandidate(
   );
 }
 
+async function readArchiveJson(response: Response): Promise<unknown | null> {
+  try {
+    return await readResponseJson(response);
+  } catch {
+    return null;
+  }
+}
+
 async function dynamicArchiveCandidates(
-  rawUrl: string
+  rawUrl: string,
+  fetcher: ArchiveFetcher
 ): Promise<ArchiveCandidate[]> {
   const out: ArchiveCandidate[] = [];
-  const available = await waybackAvailableCandidate(rawUrl);
+  const available = await resolveOptionalArchiveCandidate(() =>
+    waybackAvailableCandidate(rawUrl, fetcher)
+  );
   if (available) {
     out.push(available);
   }
-  const cdx = await waybackCdxCandidate(rawUrl);
+  const cdx = await resolveOptionalArchiveCandidate(() =>
+    waybackCdxCandidate(rawUrl, fetcher)
+  );
   if (cdx) {
     out.push(cdx);
   }
   return out;
 }
 
+async function resolveOptionalArchiveCandidate(
+  resolve: () => Promise<ArchiveCandidate | null>
+): Promise<ArchiveCandidate | null> {
+  try {
+    return await resolve();
+  } catch (error) {
+    if (!(error instanceof Error)) {
+      throw error;
+    }
+    return null;
+  }
+}
+
 export async function archiveCandidates(
-  rawUrl: string
+  rawUrl: string,
+  fetcher: ArchiveFetcher = fetch
 ): Promise<ArchiveCandidate[]> {
   const candidates = [
     ...staticArchiveCandidates(rawUrl),
-    ...(await dynamicArchiveCandidates(rawUrl)),
+    ...(await dynamicArchiveCandidates(rawUrl, fetcher)),
   ];
   const seen = new Set<string>();
   return candidates.filter((candidate) => {
@@ -204,26 +245,29 @@ export async function archiveCandidates(
 }
 
 export async function fetchArchiveFallback(
-  rawUrl: string
+  rawUrl: string,
+  fetcher: ArchiveFetcher = fetch
 ): Promise<ArchiveFetchResult | null> {
   for (const candidate of staticArchiveCandidates(rawUrl)) {
     try {
-      const response = await fetch(candidate.url);
+      const response = await fetcher(candidate.url);
       if (response?.ok) {
         return { candidate, response };
       }
+      await response?.body?.cancel();
     } catch (error) {
       if (!(error instanceof Error)) {
         throw error;
       }
     }
   }
-  for (const candidate of await dynamicArchiveCandidates(rawUrl)) {
+  for (const candidate of await dynamicArchiveCandidates(rawUrl, fetcher)) {
     try {
-      const response = await fetch(candidate.url);
+      const response = await fetcher(candidate.url);
       if (response?.ok) {
         return { candidate, response };
       }
+      await response?.body?.cancel();
     } catch (error) {
       if (!(error instanceof Error)) {
         throw error;

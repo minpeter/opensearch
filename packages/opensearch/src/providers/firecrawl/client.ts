@@ -5,7 +5,13 @@ import {
   type EnvironmentReader,
   processEnvironmentReader,
 } from "../../environment.ts";
+import {
+  ResponseSizeLimitError,
+  readResponseJson,
+  readResponseText,
+} from "../../response-body.ts";
 import { getBaseUrl } from "../shared/base-url.ts";
+import { ProviderHttpError } from "../shared/error.ts";
 
 const FIRECRAWL_API_KEY_ENV = "FIRECRAWL_API_KEY";
 const FIRECRAWL_BASE_URL_ENV = "OPENSEARCH_FIRECRAWL_URL";
@@ -13,6 +19,7 @@ const FIRECRAWL_DEFAULT_BASE_URL = "https://api.firecrawl.dev/v2";
 const FIRECRAWL_TIMEOUT_MS = 30_000;
 const FIRECRAWL_KEY_FALLBACK_STATUSES = new Set([401, 402, 403, 429]);
 const FIRECRAWL_SEARCH_MARKDOWN_MAX_CHARACTERS = 1200;
+const FIRECRAWL_ERROR_DETAIL_MAX_CHARACTERS = 4096;
 export const OPENSEARCH_ENABLE_FIRECRAWL_ENV = "OPENSEARCH_ENABLE_FIRECRAWL";
 
 const optionalStringSchema = z.string().nullable().optional();
@@ -249,7 +256,7 @@ async function readFirecrawlJson(
   response: Response
 ): Promise<unknown> {
   try {
-    const payload: unknown = await response.json();
+    const payload = await readResponseJson(response);
     return payload;
   } catch (error) {
     throw new Error(
@@ -263,11 +270,27 @@ async function readFirecrawlJson(
 async function createFirecrawlHttpError(
   endpoint: FirecrawlEndpoint,
   response: Response
-): Promise<Error> {
-  const body = await response.text();
-  const message = body.trim() || "empty response body";
+): Promise<ProviderHttpError> {
+  const body = await readFirecrawlErrorBody(response);
+  const message =
+    body.trim().slice(0, FIRECRAWL_ERROR_DETAIL_MAX_CHARACTERS) ||
+    "empty response body";
 
-  return new Error(
-    `Firecrawl ${endpoint} request failed with HTTP ${response.status}: ${message}`
+  return new ProviderHttpError(
+    `Firecrawl ${endpoint} request failed with HTTP ${response.status}: ${message}`,
+    response.status
   );
+}
+
+async function readFirecrawlErrorBody(response: Response): Promise<string> {
+  try {
+    return await readResponseText(response);
+  } catch (error) {
+    if (error instanceof ResponseSizeLimitError) {
+      return error.message;
+    }
+    return `response body could not be read: ${
+      error instanceof Error ? error.message : String(error)
+    }`;
+  }
 }

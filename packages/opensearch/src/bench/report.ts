@@ -213,6 +213,9 @@ export function diffBaseline(
   const baselineByEngine = new Map(
     baseline.providers.map((report) => [report.engine, report])
   );
+  const currentEngines = new Set(
+    current.providers.map((report) => report.engine)
+  );
   const regressions: MetricRegression[] = [];
 
   for (const report of current.providers) {
@@ -242,6 +245,20 @@ export function diffBaseline(
         false
       );
     }
+  }
+
+  for (const before of baseline.providers) {
+    if (currentEngines.has(before.engine) || before.successRate <= tolerance) {
+      continue;
+    }
+    regressions.push({
+      baseline: before.successRate,
+      current: 0,
+      delta: -before.successRate,
+      engine: before.engine,
+      metric: "successRate",
+      tolerance,
+    });
   }
 
   return regressions;

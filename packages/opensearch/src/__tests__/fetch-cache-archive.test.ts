@@ -111,6 +111,41 @@ describe("fetchArchiveFallback", () => {
       fetchArchiveFallback("https://example.com/a")
     ).resolves.toBeNull();
   });
+
+  it("cancels unsuccessful candidate bodies", async () => {
+    const cancel = vi.fn();
+    const mockFetch = vi.fn(() =>
+      Promise.resolve(
+        new Response(
+          new ReadableStream({
+            cancel,
+            start(controller) {
+              controller.enqueue(new Uint8Array([1]));
+            },
+          }),
+          { status: 503 }
+        )
+      )
+    );
+
+    await expect(
+      fetchArchiveFallback("https://example.com/a", mockFetch)
+    ).resolves.toBeNull();
+    expect(cancel).toHaveBeenCalledTimes(mockFetch.mock.calls.length);
+  });
+
+  it("returns null when dynamic archive discovery is unavailable", async () => {
+    const mockFetch = vi.fn((url: string) => {
+      if (url.includes("wayback/available") || url.includes("cdx/search")) {
+        return Promise.reject(new Error("archive discovery unavailable"));
+      }
+      return Promise.resolve(new Response("miss", { status: 503 }));
+    });
+
+    await expect(
+      fetchArchiveFallback("https://example.com/a", mockFetch)
+    ).resolves.toBeNull();
+  });
 });
 
 describe("local cache/archive fallback", () => {

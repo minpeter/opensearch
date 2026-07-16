@@ -129,4 +129,30 @@ describe("diffBaseline", () => {
     });
     expect(diffBaseline(report, report, 0.15)).toEqual([]);
   });
+
+  it("flags a previously healthy provider that disappears from the run", () => {
+    const baseline = buildReport({
+      mode: "live",
+      numResults: 10,
+      queryCount: 3,
+      reports: [baseReport({ successRate: 1 })],
+      topK: 10,
+    });
+    const current = buildReport({
+      mode: "live",
+      numResults: 10,
+      queryCount: 3,
+      reports: [],
+      topK: 10,
+    });
+
+    expect(diffBaseline(current, baseline)).toEqual([
+      expect.objectContaining({
+        baseline: 1,
+        current: 0,
+        engine: "Brave",
+        metric: "successRate",
+      }),
+    ]);
+  });
 });

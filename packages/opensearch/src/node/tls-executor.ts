@@ -1,5 +1,11 @@
 import { validateChallenge } from "../fetch/challenge.ts";
+import { DEFAULT_MAX_DOWNLOAD_BYTES } from "../fetch/local-options.ts";
 import type { FetchAttemptTrace, FetchVerdict } from "../fetch/result.ts";
+import {
+  assertTextByteLimit,
+  ResponseSizeLimitError,
+  readResponseText,
+} from "../response-body.ts";
 
 const DEFAULT_TIMEOUT_MS = 20_000;
 const DEFAULT_BROWSER_PROFILES = [
@@ -10,13 +16,19 @@ const DEFAULT_BROWSER_PROFILES = [
 ] as const;
 const OK_VERDICTS = new Set<FetchVerdict>(["strong_ok", "weak_ok"]);
 const TLS_ENV = "OPENSEARCH_ENABLE_TLS_IMPERSONATION";
+const DEFAULT_MAX_REDIRECTS = 5;
+const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 
 export interface TlsImpersonationOptions {
+  readonly abortOnError?: (error: unknown) => boolean;
   readonly browserProfiles?: readonly string[];
   readonly enabled?: boolean;
   readonly loader?: WreqLoader;
+  readonly maxRedirects?: number;
+  readonly maxResponseBytes?: number;
   readonly referer?: string;
   readonly timeoutMs?: number;
+  readonly validateUrl?: (url: string) => void;
 }
 
 export interface TlsImpersonationResult {
@@ -34,10 +46,12 @@ interface WreqModule {
 interface WreqFetchInit {
   readonly browser?: string;
   readonly headers?: Readonly<Record<string, string>>;
+  readonly redirect?: "error" | "follow" | "manual";
   readonly signal?: AbortSignal;
 }
 
 interface WreqResponse {
+  readonly body?: ReadableStream<Uint8Array> | null;
   readonly headers?: unknown;
   readonly status: number;
   text(): Promise<string>;
@@ -73,12 +87,17 @@ export async function fetchViaTlsImpersonation(
   for (const profile of profiles) {
     const startedAt = Date.now();
     try {
-      const response = await wreq.fetch(url, {
-        browser: profile,
-        headers: tlsHeaders(url, options.referer),
-        signal: AbortSignal.timeout(options.timeoutMs ?? DEFAULT_TIMEOUT_MS),
-      });
-      const body = await response.text();
+      const response = await fetchWreqWithRedirectPolicy(
+        wreq,
+        url,
+        {
+          browser: profile,
+          headers: tlsHeaders(url, options.referer),
+          signal: AbortSignal.timeout(options.timeoutMs ?? DEFAULT_TIMEOUT_MS),
+        },
+        options
+      );
+      const body = await readWreqText(response, options.maxResponseBytes);
       const validation = validateChallenge({
         body,
         headers: toHeaders(response.headers),
@@ -105,6 +124,12 @@ export async function fetchViaTlsImpersonation(
         };
       }
     } catch (error) {
+      if (
+        error instanceof ResponseSizeLimitError ||
+        options.abortOnError?.(error)
+      ) {
+        throw error;
+      }
       trace.push(
         tlsTrace(url, profile, "unknown", {
           elapsedMs: Date.now() - startedAt,
@@ -118,6 +143,56 @@ export async function fetchViaTlsImpersonation(
     trace,
     verdict: trace.at(-1)?.verdict ?? "unknown",
   };
+}
+
+async function fetchWreqWithRedirectPolicy(
+  wreq: WreqModule,
+  rawUrl: string,
+  init: WreqFetchInit,
+  options: TlsImpersonationOptions
+): Promise<WreqResponse> {
+  const enforcePolicy = options.validateUrl !== undefined;
+  if (!enforcePolicy) {
+    return wreq.fetch(rawUrl, init);
+  }
+
+  let url = rawUrl;
+  const maxRedirects = options.maxRedirects ?? DEFAULT_MAX_REDIRECTS;
+  for (let redirectCount = 0; ; redirectCount += 1) {
+    options.validateUrl?.(url);
+    const response = await wreq.fetch(url, { ...init, redirect: "manual" });
+    if (!REDIRECT_STATUSES.has(response.status)) {
+      return response;
+    }
+
+    const location = toHeaders(response.headers).get("Location");
+    if (!location) {
+      return response;
+    }
+    if (redirectCount >= maxRedirects) {
+      await response.body?.cancel();
+      throw new Error(`TLS fetch exceeded the ${maxRedirects}-redirect limit`);
+    }
+
+    await response.body?.cancel();
+    url = new URL(location, url).toString();
+  }
+}
+
+async function readWreqText(
+  response: WreqResponse,
+  maxResponseBytes = DEFAULT_MAX_DOWNLOAD_BYTES
+): Promise<string> {
+  if (response.body) {
+    return readResponseText(
+      { body: response.body, headers: toHeaders(response.headers) },
+      maxResponseBytes
+    );
+  }
+
+  const text = await response.text();
+  assertTextByteLimit(text, maxResponseBytes);
+  return text;
 }
 
 function defaultWreqLoader(): Promise<WreqModule> {

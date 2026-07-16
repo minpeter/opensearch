@@ -10,6 +10,7 @@ allowBuilds:
   esbuild: true
 
 autoInstallPeers: false
+linkWorkspacePackages: true
 
 minimumReleaseAgeExclude:
   - '@typescript/typescript-aix-ppc64@7.0.2'

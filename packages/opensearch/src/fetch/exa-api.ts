@@ -7,6 +7,8 @@ import {
   type EnvironmentReader,
   processEnvironmentReader,
 } from "../environment.ts";
+import { ProviderHttpError } from "../providers/shared/error.ts";
+import { cancelResponseBody, readResponseJson } from "../response-body.ts";
 import { DEFAULT_MAX_CHARACTERS, EXA_API_KEY_ENV } from "./config.ts";
 import { createFetchResult, type FetchResult } from "./result.ts";
 
@@ -89,8 +91,10 @@ export async function fetchExaApiBatchWithPool(
   for (const apiKey of attemptOrder) {
     const response = await requestExaContents(apiKey, urls, maxCharacters);
     if (response.status === 429) {
-      lastRateLimitError = new Error(
-        `Exa API fetch failed with status ${response.status}`
+      await cancelResponseBody(response);
+      lastRateLimitError = new ProviderHttpError(
+        `Exa API fetch failed with status ${response.status}`,
+        response.status
       );
       continue;
     }
@@ -131,10 +135,16 @@ async function parseExaContentsResponse(
   urls: readonly string[]
 ): Promise<FetchResult[]> {
   if (!response.ok) {
-    throw new Error(`Exa API fetch failed with status ${response.status}`);
+    await cancelResponseBody(response);
+    throw new ProviderHttpError(
+      `Exa API fetch failed with status ${response.status}`,
+      response.status
+    );
   }
 
-  const payload = exaContentsResponseSchema.parse(await response.json());
+  const payload = exaContentsResponseSchema.parse(
+    await readResponseJson(response)
+  );
   const statusesById = new Map(
     (payload.statuses ?? [])
       .map((status) => (status.id ? ([status.id, status] as const) : null))
@@ -156,11 +166,13 @@ async function parseExaContentsResponse(
     if (status?.status === "error") {
       const errorTag = status.error?.tag ?? "unknown-error";
       const errorCode = status.error?.httpStatusCode;
-      throw new Error(
-        errorCode
-          ? `Exa API fetch failed: ${errorTag} (${errorCode})`
-          : `Exa API fetch failed: ${errorTag}`
-      );
+      if (errorCode !== undefined) {
+        throw new ProviderHttpError(
+          `Exa API fetch failed: ${errorTag} (${errorCode})`,
+          errorCode
+        );
+      }
+      throw new Error(`Exa API fetch failed: ${errorTag}`);
     }
 
     const result =

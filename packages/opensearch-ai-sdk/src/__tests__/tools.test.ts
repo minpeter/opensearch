@@ -2,10 +2,11 @@ import type {
   FetchOptions,
   FetchResult,
   OpenSearchClient,
+  OpenSearchEvent,
   SearchResult,
 } from "@minpeter/opensearch";
 import type { ToolExecutionOptions, ToolSet } from "ai";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createOpenSearchTools as createRootOpenSearchTools,
   createWebFetchTool as createRootWebFetchTool,
@@ -121,6 +122,10 @@ class FakeOpenSearchClient implements OpenSearchClient {
 }
 
 describe("OpenSearch AI SDK tools", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("exposes web_search and web_fetch from root and node factories", () => {
     const client = new FakeOpenSearchClient();
 
@@ -172,6 +177,71 @@ describe("OpenSearch AI SDK tools", () => {
       { maxResults: 4, query: "typescript docs" },
     ]);
     expect(output).toStrictEqual([searchResult]);
+  });
+
+  it("forwards edge client observability options without changing tool output", async () => {
+    const events: OpenSearchEvent[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            results: [
+              {
+                content: "Observed through the AI SDK adapter.",
+                title: "Observed adapter result",
+                url: "https://example.com/adapter",
+              },
+            ],
+          }),
+          { headers: { "Content-Type": "application/json" }, status: 200 }
+        )
+      )
+    );
+    const tool = createRootWebSearchTool({
+      openSearchOptions: {
+        env: {
+          OPENSEARCH_ENABLE_EXA_MCP: "false",
+          OPENSEARCH_ENABLE_FIRECRAWL: "false",
+          OPENSEARCH_ENABLE_PARALLEL_MCP: "false",
+          OPENSEARCH_TAVILY_URL: "https://tavily.example/search",
+          TAVILY_API_KEY: "test-key",
+        },
+        observability: {
+          onEvent: (event) => {
+            events.push(event);
+          },
+        },
+      },
+    });
+
+    const output = await tool.execute(
+      { numResults: 2, query: "adapter observability" },
+      toolExecutionOptions
+    );
+
+    expect(output).toEqual([
+      {
+        engine: "Tavily",
+        snippet: "Observed through the AI SDK adapter.",
+        title: "Observed adapter result",
+        url: "https://example.com/adapter",
+      },
+    ]);
+    expect(events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          operation: "search",
+          phase: "success",
+          type: "operation",
+        }),
+        expect.objectContaining({
+          phase: "success",
+          provider: "Tavily",
+          type: "provider",
+        }),
+      ])
+    );
   });
 
   it("defaults search execution to 5 results", async () => {

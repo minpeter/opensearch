@@ -6,6 +6,7 @@ import {
   isFirecrawlEnabled,
   searchFirecrawl,
 } from "../../providers/firecrawl/client.ts";
+import { getHttpStatus } from "../../providers/shared/error.ts";
 import { getErrorMessage, SearchEngineError } from "../errors.ts";
 import { attachEngine, dedupeResults, normalizeResult } from "../text.ts";
 import type { ParsedResult, SearchProvider } from "../types.ts";
@@ -31,10 +32,12 @@ export function createFirecrawlSearchProvider(
           .map((result) => normalizeResult(result))
           .filter((result): result is ParsedResult => result !== null);
       } catch (error) {
+        const status = getHttpStatus(error);
         throw new SearchEngineError(
           "Firecrawl",
-          "transient",
-          `Firecrawl search failed: ${getErrorMessage(error)}`
+          classifyFirecrawlFailure(status),
+          `Firecrawl search failed: ${getErrorMessage(error)}`,
+          status === undefined ? {} : { status }
         );
       }
 
@@ -48,4 +51,14 @@ export function createFirecrawlSearchProvider(
       );
     },
   };
+}
+
+function classifyFirecrawlFailure(status: number | undefined) {
+  if (status === 401 || status === 402) {
+    return "misconfigured" as const;
+  }
+  if (status === 403 || status === 451) {
+    return "blocked" as const;
+  }
+  return "transient" as const;
 }

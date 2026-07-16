@@ -28,6 +28,7 @@ These are the engines that can run with no user-supplied API key:
 | --- | --- | --- | --- | --- |
 | DuckDuckGo (Node/full-runtime only) | none (scrape) → JSON API on block | — | blocked | 8000 |
 | Exa (MCP) | request-param | `numResults` | blocked | 8000 |
+| Ollama local (Node, opt-in) | request-param | `max_results` | blocked | 3000 |
 | Parallel (MCP) | slice | — | blocked | 8000 |
 
 **SearxNG** is keyless but only added when `OPENSEARCH_SEARXNG_URLS` is set, so it
@@ -52,6 +53,7 @@ is config-gated rather than always-on.
 | Linkup | `limit` | status | yes | — | 8000 |
 | Firecrawl | `limit` | status | yes | — | 8000 |
 | Mojeek | `s` | status | yes | — | 8000 |
+| Ollama cloud (opt-in) | `max_results` | blocked | no | **10** | 8000 |
 | You | `count` | status | yes | — | 8000 |
 | Exa (API) | `numResults` | status | yes | — | 8000 |
 | Parallel (API) | — (objective) | status | yes | — | 8000 |
@@ -81,3 +83,7 @@ with `OPENSEARCH_ENABLE_DUCKDUCKGO_POW=false`.
   would otherwise distort the comparison.
 - **MCP providers** (Exa/Parallel) map 429 by message substring and throw without
   a status, which is why `rateLimitRate` keys on the message as well as the status.
+- **Ollama** is disabled unless `OPENSEARCH_ENABLE_OLLAMA=true`. Node can use a
+  signed-in local daemon; edge uses cloud only and needs `OLLAMA_API_KEY`. Both
+  paths share one account quota, so local 429 and non-auth backend failures do
+  not spend another request against cloud.

@@ -4,6 +4,8 @@ export interface CliOptions {
   readonly concurrency?: number;
   readonly deadlineMs?: number;
   readonly exclude: ReadonlySet<string>;
+  readonly failOnRegression: boolean;
+  readonly healthGate: boolean;
   readonly history?: string;
   readonly markdown?: string;
   readonly mode: "offline" | "live";
@@ -47,6 +49,8 @@ export function parseArgs(argv: readonly string[]): CliOptions {
   let history: string | undefined;
   let baseline: string | undefined;
   let charts: string | undefined;
+  let failOnRegression = false;
+  let healthGate = false;
   const exclude = new Set<string>();
 
   // A value-taking flag must be followed by a real value, never another flag or
@@ -70,6 +74,12 @@ export function parseArgs(argv: readonly string[]): CliOptions {
         break;
       case "--offline":
         mode = "offline";
+        break;
+      case "--fail-on-regression":
+        failOnRegression = true;
+        break;
+      case "--health-gate":
+        healthGate = true;
         break;
       case "--num-results":
         numResults = parseCount(requireValue(i, arg), arg);
@@ -135,6 +145,8 @@ export function parseArgs(argv: readonly string[]): CliOptions {
     concurrency,
     deadlineMs,
     exclude,
+    failOnRegression,
+    healthGate,
     history,
     markdown,
     mode,

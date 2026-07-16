@@ -12,14 +12,21 @@ describe("parseArgs", () => {
       "5",
       "--exclude",
       "DuckDuckGo,Parallel",
+      "--health-gate",
+      "--fail-on-regression",
     ]);
     expect(options.mode).toBe("live");
     expect(options.numResults).toBe(5);
     expect([...options.exclude].sort()).toEqual(["DuckDuckGo", "Parallel"]);
+    expect(options.healthGate).toBe(true);
+    expect(options.failOnRegression).toBe(true);
   });
 
   it("defaults to offline mode with no flags", () => {
-    expect(parseArgs([]).mode).toBe("offline");
+    const options = parseArgs([]);
+    expect(options.mode).toBe("offline");
+    expect(options.healthGate).toBe(false);
+    expect(options.failOnRegression).toBe(false);
   });
 
   it("parses string and path flags", () => {

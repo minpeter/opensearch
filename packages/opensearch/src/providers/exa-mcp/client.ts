@@ -6,6 +6,10 @@ import {
   type EnvironmentReader,
   processEnvironmentReader,
 } from "../../environment.ts";
+import {
+  DEFAULT_MAX_RESPONSE_BYTES,
+  limitResponseBody,
+} from "../../response-body.ts";
 import { getBaseUrl } from "../shared/base-url.ts";
 import {
   createExaMcpServerUrl,
@@ -123,6 +127,7 @@ async function withExaMcpClient<T>(
   const transport = new StreamableHTTPClientTransport(
     new URL(createExaMcpRequestUrl(enabledTools, env)),
     {
+      fetch: fetchExaMcpTransport,
       requestInit: {
         signal: AbortSignal.timeout(EXA_MCP_TIMEOUT_MS),
       },
@@ -137,6 +142,14 @@ async function withExaMcpClient<T>(
       // Ignore close errors; the search result/error is more important.
     });
   }
+}
+
+export async function fetchExaMcpTransport(
+  input: RequestInfo | URL,
+  init?: RequestInit,
+  maxResponseBytes = DEFAULT_MAX_RESPONSE_BYTES
+): Promise<Response> {
+  return limitResponseBody(await fetch(input, init), maxResponseBytes);
 }
 
 function getExaMcpErrorText(content: unknown): string {

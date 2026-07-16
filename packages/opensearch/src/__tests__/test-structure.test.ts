@@ -1,5 +1,5 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
@@ -9,6 +9,8 @@ const MAX_SERP_REGISTRY_PURE_LOC = 80;
 const LINE_BREAK_REGEX = /\r?\n/;
 const LEGACY_PROVIDER_FILE_REGEX = /^providers-.+\.ts$/u;
 const SEARCH_MODULE_IMPORT_REGEX = /from\s+["'](?:\.\.\/)+search\//u;
+const DIRECT_RESPONSE_BODY_READ_REGEX =
+  /\bresponse\.(?:arrayBuffer|blob|json|text)\s*\(/u;
 const SOURCE_DIRECTORY = fileURLToPath(new URL("..", import.meta.url));
 const TESTS_DIRECTORY = fileURLToPath(new URL(".", import.meta.url));
 const EXPECTED_SEARCH_PROVIDER_REGISTRY_FILES = [
@@ -19,6 +21,7 @@ const EXPECTED_SEARCH_PROVIDER_REGISTRY_FILES = [
   "independent.ts",
   "jina.ts",
   "llm.ts",
+  "ollama.ts",
   "parallel-mcp.ts",
   "serp.ts",
 ] as const;
@@ -49,6 +52,9 @@ const LEGACY_ROOT_PROVIDER_FILES = [
   "parallel-mcp-provider.ts",
   "parallel-mcp.ts",
 ] as const;
+const ALLOWED_DIRECT_RESPONSE_BODY_READ_FILES = new Set([
+  "node/tls-executor.ts",
+]);
 
 describe("test structure", () => {
   it("keeps routing test files below the pure LOC ceiling", () => {
@@ -101,6 +107,21 @@ describe("test structure", () => {
       .map((filePath) => filePath.slice(providerDirectory.length + 1));
 
     expect(searchCoupledProviderFiles).toEqual([]);
+  });
+
+  it("keeps external response reads behind the bounded body reader", () => {
+    const directReaders = listTsFilesRecursive(SOURCE_DIRECTORY)
+      .map((filePath) => relative(SOURCE_DIRECTORY, filePath))
+      .filter((filePath) => !filePath.startsWith("__tests__/"))
+      .filter(
+        (filePath) =>
+          !ALLOWED_DIRECT_RESPONSE_BODY_READ_FILES.has(filePath) &&
+          DIRECT_RESPONSE_BODY_READ_REGEX.test(
+            readFileSync(join(SOURCE_DIRECTORY, filePath), "utf8")
+          )
+      );
+
+    expect(directReaders).toEqual([]);
   });
 
   it("keeps SERP providers in small dedicated files", () => {
