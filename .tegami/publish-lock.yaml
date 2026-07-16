@@ -1,32 +1,16 @@
 core:changelogs:
-  - content: "---\npackages:\n  npm:@minpeter/opensearch:\n    type: patch\n  npm:opensearch-ai-sdk:\n    type: patch\n  npm:opensearch-mcp:\n    type: patch\n---\n\n## Add opt-in Ollama web search and fetch\n\nAdd Ollama local-daemon and cloud web tools behind\n`OPENSEARCH_ENABLE_OLLAMA=true`. Node can use the signed-in local daemon while\nedge stays cloud-only. Preserve the shared account quota by avoiding a duplicate\ncloud request after local 429 responses, bound provider responses, and include\nOllama in core, AI SDK, and MCP result schemas. Preserve native downstream\nbatching when Ollama cannot serve only some or all requested URLs.\n"
-    filename: add-ollama-web-provider.md
-    v: 0.0.0
-  - content: "---\npackages:\n  npm:@minpeter/opensearch:\n    type: patch\n  npm:opensearch-ai-sdk:\n    type: patch\n  npm:opensearch-mcp:\n    type: patch\n---\n\n## Bound caches and harden Node fetches\n\nBound per-client search and fetch caches, expose cache policy options, reject\nnon-HTTP URLs and URL userinfo in every runtime, reject private and unsafe Node\nfetch destinations before provider routing, validate\nredirects, and cap retained downloads. Add structured operation, cache,\nprovider, fallback, failure, and latency events through an edge-safe client sink;\nAI SDK options pass the sink through and MCP can emit sanitized JSON events.\nKeep batch assembly within its concurrency bound after cache eviction, and stop\nprovider fallback on HTTP 451 legal restrictions. Cancel unused non-success\nresponse bodies so provider and discovery connections can be reclaimed.\n"
-    filename: harden-runtime-boundaries.md
-    v: 0.0.0
-  - content: "---\npackages:\n  npm:@minpeter/opensearch:\n    type: patch\n  npm:opensearch-ai-sdk:\n    type: patch\n  npm:opensearch-mcp:\n    type: patch\n---\n\n## Repair package installation and release verification\n\nPublish adapter dependencies as real semver ranges instead of workspace\nprotocols. Add clean tarball installation and entrypoint smoke tests, verify\nregistry packages only on actual publish runs, and update release, dependency,\nsecurity, coverage, and Node 22/24 CI gates.\n"
-    filename: repair-package-release-qa.md
+  - content: "---\npackages:\n  npm:opensearch-mcp:\n    type: patch\n---\n\n## Verify the installed MCP protocol\n\nExercise the packaged MCP executable through `initialize` and `tools/list`\nduring tarball and registry verification. Reject stale bundles whose runtime\nversion differs from the package manifest, and require both `web_search` and\n`web_fetch` to be discoverable before package QA or the release workflow\ncompletes.\n"
+    filename: verify-mcp-protocol.md
     v: 0.0.0
 core:packages:
   - id: npm:opensearch-workspace
     updated: false
+  - id: npm:@minpeter/opensearch
+    updated: false
+  - id: npm:opensearch-ai-sdk
+    updated: false
   - changelogIds:
-      - add-ollama-web-provider.md
-      - harden-runtime-boundaries.md
-      - repair-package-release-qa.md
-    id: npm:@minpeter/opensearch
-    updated: true
-  - changelogIds:
-      - add-ollama-web-provider.md
-      - harden-runtime-boundaries.md
-      - repair-package-release-qa.md
-    id: npm:opensearch-ai-sdk
-    updated: true
-  - changelogIds:
-      - add-ollama-web-provider.md
-      - harden-runtime-boundaries.md
-      - repair-package-release-qa.md
+      - verify-mcp-protocol.md
     id: npm:opensearch-mcp
     updated: true
 npm:packages:

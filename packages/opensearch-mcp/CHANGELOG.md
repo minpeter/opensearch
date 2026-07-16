@@ -1,3 +1,13 @@
+## opensearch-mcp@0.2.8
+
+### Verify the installed MCP protocol
+
+Exercise the packaged MCP executable through `initialize` and `tools/list`
+during tarball and registry verification. Reject stale bundles whose runtime
+version differs from the package manifest, and require both `web_search` and
+`web_fetch` to be discoverable before package QA or the release workflow
+completes.
+
 ## opensearch-mcp@0.2.7
 
 ### Add opt-in Ollama web search and fetch
