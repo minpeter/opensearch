@@ -1,5 +1,9 @@
 # Provider metrics bench
 
+For the deterministic fetch output-limit experiment, see
+[`FETCH_LIMITS.md`](./FETCH_LIMITS.md). It measures the core postcondition that
+every provider and fallback must honor the requested page-content budget.
+
 Quantitative comparison of every search provider's **limit** and **search
 quality**, in two modes:
 

@@ -4,7 +4,10 @@ import {
   processEnvironmentReader,
 } from "./environment.ts";
 import { assertValidMaxConcurrency } from "./fetch/concurrency.ts";
-import { DEFAULT_MAX_CONCURRENCY } from "./fetch/config.ts";
+import {
+  DEFAULT_MAX_CONCURRENCY,
+  requireMaxCharacters,
+} from "./fetch/config.ts";
 import {
   type CreateFetchOperationsOptions,
   createFetchOperations,
@@ -20,6 +23,10 @@ export type { FetchResult } from "./fetch/result.ts";
 export const fetchResultSchema = fetchResultSchemaValue;
 
 export interface FetchOptions {
+  /**
+   * Maximum extracted characters returned per page. Defaults to 12,000 and is
+   * enforced after every provider and fallback.
+   */
   readonly maxCharacters?: number;
   /** Overrides the client's per-URL batch concurrency for this call. */
   readonly maxConcurrency?: number;
@@ -81,7 +88,11 @@ function createFetchServiceForOperations(
     maxConcurrency = defaultMaxConcurrency
   ): Promise<FetchResult[]> {
     assertValidMaxConcurrency(maxConcurrency);
-    return operations.fetchUrls(urls, maxCharacters, maxConcurrency);
+    const characterLimit =
+      maxCharacters === undefined
+        ? undefined
+        : requireMaxCharacters(maxCharacters);
+    return operations.fetchUrls(urls, characterLimit, maxConcurrency);
   }
 
   function fetchUrlWithCache(url: string): Promise<FetchResult> {

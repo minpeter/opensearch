@@ -92,3 +92,18 @@ export function createFetchResult(
     length: content.length,
   };
 }
+
+export function limitFetchResult(
+  result: FetchResult,
+  maxCharacters: number
+): FetchResult {
+  if (result.content.length <= maxCharacters) {
+    return result;
+  }
+
+  return createFetchResult(
+    result.url,
+    result.content.slice(0, maxCharacters),
+    result.title
+  );
+}

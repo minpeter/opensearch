@@ -9,6 +9,7 @@ import {
   DEFAULT_MAX_CHARACTERS,
   DEFAULT_MAX_CONCURRENCY,
   EXA_API_KEY_ENV,
+  requireMaxCharacters,
 } from "./config.ts";
 import {
   type ExaMcpFetchProvider,
@@ -18,7 +19,7 @@ import {
   type LocalFetch,
 } from "./provider-fallback.ts";
 import { fetchViaPublicApi } from "./public-api.ts";
-import type { FetchResult } from "./result.ts";
+import { type FetchResult, limitFetchResult } from "./result.ts";
 
 export type { ExaMcpFetchProvider, LocalFetch } from "./provider-fallback.ts";
 
@@ -56,15 +57,23 @@ export function createFetchOperations(
   };
 
   return {
-    fetchUrl(url: string) {
-      return fetchUrlDirect(url, context);
+    async fetchUrl(url: string) {
+      const result = await fetchUrlDirect(url, context);
+      return limitFetchResult(result, DEFAULT_MAX_CHARACTERS);
     },
-    fetchUrls(
+    async fetchUrls(
       urls: string[],
       maxCharacters = DEFAULT_MAX_CHARACTERS,
       maxConcurrency = DEFAULT_MAX_CONCURRENCY
     ) {
-      return fetchUrlsDirect(urls, maxCharacters, maxConcurrency, context);
+      const characterLimit = requireMaxCharacters(maxCharacters);
+      const results = await fetchUrlsDirect(
+        urls,
+        characterLimit,
+        maxConcurrency,
+        context
+      );
+      return results.map((result) => limitFetchResult(result, characterLimit));
     },
   };
 }

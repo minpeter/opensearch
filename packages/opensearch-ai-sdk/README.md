@@ -17,6 +17,15 @@ runtime:
 import { createOpenSearchTools } from "opensearch-ai-sdk/node";
 ```
 
+Core policies remain constructor options rather than tool-schema fields, so
+models cannot override infrastructure limits:
+
+```ts
+const tools = createOpenSearchTools({
+  openSearchOptions: { fetch: { maxConcurrency: 4 } },
+});
+```
+
 Install `@minpeter/opensearch`'s optional Playwright peer only if you enable its
 Playwright fallback.
 

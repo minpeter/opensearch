@@ -49,6 +49,7 @@
     "attw": "attw --pack . --profile esm-only",
     "bench": "node --experimental-strip-types src/bench/cli.ts",
     "bench:fetch-batch": "node --experimental-strip-types src/bench/fetch-batch.ts",
+    "bench:fetch-limits": "node --experimental-strip-types src/bench/fetch-limits.ts",
     "bench:offline": "node --experimental-strip-types src/bench/cli.ts --offline",
     "bench:live": "node --experimental-strip-types src/bench/cli.ts --live",
     "verify:edge": "node scripts/verify-edge.mjs"
