@@ -13,9 +13,16 @@ export const PACKAGE_SPECS = [
     binary: "opensearch-mcp",
     directory: "packages/opensearch-mcp",
     imports: [],
+    mcp: {
+      serverName: "opensearch",
+      tools: ["web_fetch", "web_search"],
+    },
     name: "opensearch-mcp",
   },
 ];
+
+const mcpProtocolSmokeUrl = new URL("./mcp-protocol-smoke.mjs", import.meta.url)
+  .href;
 
 export const retryOperation = async ({
   attempts,
@@ -47,6 +54,7 @@ import assert from "node:assert/strict";
 import { access, readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { createRequire } from "node:module";
+import { verifyMcpServer } from ${JSON.stringify(mcpProtocolSmokeUrl)};
 
 const require = createRequire(import.meta.url);
 const packages = ${JSON.stringify(packages)};
@@ -81,8 +89,20 @@ for (const packageSpec of packages) {
     await access(binaryPath);
     const source = await readFile(binaryPath, "utf8");
     assert.match(source, /^#!\\/usr\\/bin\\/env node/u);
+
+    if (packageSpec.mcp !== undefined) {
+      await verifyMcpServer({
+        binaryPath,
+        expectedServerName: packageSpec.mcp.serverName,
+        expectedTools: packageSpec.mcp.tools,
+        expectedVersion: packageSpec.version,
+        packageManifestPath: manifestPath,
+      });
+    }
   }
 }
 
-process.stdout.write("Package entrypoints passed clean-install smoke verification.\\n");
+process.stdout.write(
+  "Package entrypoints and MCP protocol passed clean-install smoke verification.\\n"
+);
 `;
