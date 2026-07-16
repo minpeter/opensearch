@@ -17,6 +17,31 @@ export const PACKAGE_SPECS = [
   },
 ];
 
+export const retryOperation = async ({
+  attempts,
+  delayMs,
+  onRetry,
+  operation,
+}) => {
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      return await operation(attempt);
+    } catch (error) {
+      const normalizedError =
+        error instanceof Error ? error : new Error(String(error));
+      if (attempt === attempts) {
+        throw normalizedError;
+      }
+      await onRetry?.({ attempt, error: normalizedError });
+      if (delayMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+    }
+  }
+
+  throw new Error("Retry operation received no attempts");
+};
+
 export const createSmokeTest = (packages) => `
 import assert from "node:assert/strict";
 import { access, readFile } from "node:fs/promises";

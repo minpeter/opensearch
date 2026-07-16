@@ -31,7 +31,7 @@ test("root package.json uses Tegami release commands", () => {
   assert.ok(manifest.scripts.release.includes("pnpm tegami publish"));
   assert.equal(
     manifest.scripts["test:release"],
-    "node --test scripts/tegami-config.test.mjs"
+    "node --test scripts/tegami-config.test.mjs scripts/package-smoke.test.mjs"
   );
   assert.equal(
     manifest.scripts["verify:published"],
@@ -94,9 +94,7 @@ test("Tegami discovers workspace packages and resolves pending changelogs", asyn
     },
   });
   const context = await paper._internal.context();
-  const discoveredPackageIds = context.graph
-    .getPackages()
-    .map(({ id }) => id);
+  const discoveredPackageIds = context.graph.getPackages().map(({ id }) => id);
 
   for (const packageId of EXPECTED_PACKAGE_IDS) {
     assert.ok(
@@ -113,7 +111,11 @@ test("Tegami discovers workspace packages and resolves pending changelogs", asyn
   }
 
   const draft = await paper.draft();
-  assert.equal(draft.hasPending(), true, "pending changelogs must bump packages");
+  assert.equal(
+    draft.hasPending(),
+    true,
+    "pending changelogs must bump packages"
+  );
   assert.deepEqual(
     draft
       .getChangelogs()
