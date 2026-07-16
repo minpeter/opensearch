@@ -1,3 +1,33 @@
+## opensearch-mcp@0.2.7
+
+### Add opt-in Ollama web search and fetch
+
+Add Ollama local-daemon and cloud web tools behind
+`OPENSEARCH_ENABLE_OLLAMA=true`. Node can use the signed-in local daemon while
+edge stays cloud-only. Preserve the shared account quota by avoiding a duplicate
+cloud request after local 429 responses, bound provider responses, and include
+Ollama in core, AI SDK, and MCP result schemas. Preserve native downstream
+batching when Ollama cannot serve only some or all requested URLs.
+
+### Bound caches and harden Node fetches
+
+Bound per-client search and fetch caches, expose cache policy options, reject
+non-HTTP URLs and URL userinfo in every runtime, reject private and unsafe Node
+fetch destinations before provider routing, validate
+redirects, and cap retained downloads. Add structured operation, cache,
+provider, fallback, failure, and latency events through an edge-safe client sink;
+AI SDK options pass the sink through and MCP can emit sanitized JSON events.
+Keep batch assembly within its concurrency bound after cache eviction, and stop
+provider fallback on HTTP 451 legal restrictions. Cancel unused non-success
+response bodies so provider and discovery connections can be reclaimed.
+
+### Repair package installation and release verification
+
+Publish adapter dependencies as real semver ranges instead of workspace
+protocols. Add clean tarball installation and entrypoint smoke tests, verify
+registry packages only on actual publish runs, and update release, dependency,
+security, coverage, and Node 22/24 CI gates.
+
 ## opensearch-mcp@0.2.6
 
 ### Enforce page content limits across every fetch path
