@@ -1,13 +1,17 @@
 core:changelogs:
-  - content: "---\npackages:\n  npm:@minpeter/opensearch:\n    type: patch\n---\n\n## Bound batch fetch concurrency\n\nDeduplicate repeated URLs in batch fetches and cap per-URL provider work at eight\nconcurrent operations by default. Clients can configure `fetch.maxConcurrency`,\nand individual `fetch` calls can override it without changing result order or\ncardinality.\n"
-    filename: bounded-fetch-concurrency.md
+  - content: "---\npackages:\n  npm:@minpeter/opensearch:\n    type: patch\n  npm:opensearch-ai-sdk:\n    type: patch\n  npm:opensearch-mcp:\n    type: patch\n---\n\n## Enforce page content limits across every fetch path\n\nApply the requested `maxCharacters` limit, or the documented 12,000-character\ndefault, after every fetch provider and fallback. This keeps core, AI SDK, and\nMCP results within the same output budget even when an upstream provider ignores\nthe requested limit, and rejects invalid limits instead of forwarding them.\n"
+    filename: enforce-fetch-output-limits.md
     v: 0.0.0
 core:packages:
   - changelogIds:
-      - bounded-fetch-concurrency.md
+      - enforce-fetch-output-limits.md
     id: npm:@minpeter/opensearch
     updated: true
-  - id: npm:opensearch-ai-sdk
+  - changelogIds:
+      - enforce-fetch-output-limits.md
+    id: npm:opensearch-ai-sdk
     updated: true
-  - id: npm:opensearch-mcp
+  - changelogIds:
+      - enforce-fetch-output-limits.md
+    id: npm:opensearch-mcp
     updated: true
