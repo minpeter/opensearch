@@ -89,4 +89,46 @@ describe("TtlCache", () => {
     await expect(cache.getOrSet("key", factory)).resolves.toBe("value");
     expect(factory).toHaveBeenCalledTimes(2);
   });
+
+  it("bounds high-cardinality workloads by default", () => {
+    const cache = new TtlCache<number, number>(60_000);
+
+    for (let index = 0; index < 10_000; index += 1) {
+      cache.set(index, index);
+    }
+
+    expect(cache.size).toBe(256);
+    expect(cache.get(0)).toBeUndefined();
+    expect(cache.get(9999)).toBe(9999);
+  });
+
+  it("evicts the least recently used entry at a custom capacity", () => {
+    const cache = new TtlCache<string, number>(60_000, { maxEntries: 2 });
+    cache.set("first", 1);
+    cache.set("second", 2);
+    expect(cache.get("first")).toBe(1);
+
+    cache.set("third", 3);
+
+    expect(cache.get("first")).toBe(1);
+    expect(cache.get("second")).toBeUndefined();
+    expect(cache.get("third")).toBe(3);
+  });
+
+  it("sweeps expired entries before evicting live entries", () => {
+    const cache = new TtlCache<string, number>(1000, { maxEntries: 2 });
+    cache.set("first", 1);
+    cache.set("second", 2);
+    vi.advanceTimersByTime(1001);
+
+    cache.set("third", 3);
+
+    expect(cache.size).toBe(1);
+    expect(cache.get("third")).toBe(3);
+  });
+
+  it("rejects invalid TTL and capacity values", () => {
+    expect(() => new TtlCache(0)).toThrow("ttlMs");
+    expect(() => new TtlCache(1000, { maxEntries: 0 })).toThrow("maxEntries");
+  });
 });

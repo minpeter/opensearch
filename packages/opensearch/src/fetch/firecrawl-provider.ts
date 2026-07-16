@@ -3,11 +3,13 @@ import {
   fetchFirecrawlUrl,
   isFirecrawlEnabled,
 } from "../providers/firecrawl/client.ts";
+import { getHttpStatus } from "../providers/shared/error.ts";
 import { mapWithConcurrency } from "./concurrency.ts";
 import { DEFAULT_MAX_CHARACTERS } from "./config.ts";
 import { createFetchResult, type FetchResult } from "./result.ts";
 
 type FetchFallback = (url: string) => Promise<FetchResult>;
+type FetchFallbackObserver = (url: string, error: Error) => void;
 
 export async function fetchUrlViaFirecrawl(
   url: string,
@@ -22,7 +24,8 @@ export function fetchUrlsViaFirecrawl(
   maxCharacters: number,
   env: EnvironmentReader,
   fallback: FetchFallback | undefined,
-  maxConcurrency: number
+  maxConcurrency: number,
+  onFallback?: FetchFallbackObserver
 ): Promise<FetchResult[]> {
   return mapWithConcurrency(urls, maxConcurrency, async (url) => {
     try {
@@ -32,7 +35,11 @@ export function fetchUrlsViaFirecrawl(
       if (!(error instanceof Error)) {
         throw error;
       }
+      if (getHttpStatus(error) === 451) {
+        throw error;
+      }
       if (fallback) {
+        onFallback?.(url, error);
         return fallback(url);
       }
       throw error;
@@ -52,6 +59,9 @@ export async function tryFetchUrlViaFirecrawl(
     return await fetchUrlViaFirecrawl(url, env);
   } catch (error) {
     if (!(error instanceof Error)) {
+      throw error;
+    }
+    if (getHttpStatus(error) === 451) {
       throw error;
     }
     return null;
@@ -79,6 +89,9 @@ export async function tryFetchUrlsViaFirecrawl(
     );
   } catch (error) {
     if (!(error instanceof Error)) {
+      throw error;
+    }
+    if (getHttpStatus(error) === 451) {
       throw error;
     }
     return null;

@@ -12,6 +12,7 @@ export const SEARCH_ENGINE_NAMES = [
   "Kagi",
   "Linkup",
   "Mojeek",
+  "Ollama",
   "Parallel",
   "Perplexity",
   "ScrapingBee",

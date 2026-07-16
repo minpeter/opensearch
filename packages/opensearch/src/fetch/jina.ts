@@ -1,6 +1,12 @@
 import { z } from "zod";
+import {
+  cancelResponseBody,
+  ResponseSizeLimitError,
+  readResponseText,
+} from "../response-body.ts";
 import { getRandomUserAgent } from "../user-agents.ts";
 import { isChallengePage } from "./challenge.ts";
+import { DEFAULT_MAX_DOWNLOAD_BYTES } from "./local-options.ts";
 
 const JINA_TIMEOUT_MS = 10_000;
 
@@ -17,6 +23,7 @@ export type JinaReaderMode = (typeof JINA_READER_MODES)[number];
 export interface JinaReaderOptions {
   readonly cacheToleranceSeconds?: number;
   readonly cookies?: string;
+  readonly maxResponseBytes?: number;
   readonly mode?: JinaReaderMode;
   readonly noCache?: boolean;
   readonly targetSelector?: string;
@@ -151,11 +158,18 @@ export async function fetchJinaReader(
       signal: AbortSignal.timeout(options.timeoutMs ?? JINA_TIMEOUT_MS),
     });
     if (!response.ok) {
+      await cancelResponseBody(response);
       return null;
     }
-    const text = await response.text();
+    const text = await readResponseText(
+      response,
+      options.maxResponseBytes ?? DEFAULT_MAX_DOWNLOAD_BYTES
+    );
     return mode === "json" ? resultFromJson(text) : resultFromText(text, mode);
-  } catch {
+  } catch (error) {
+    if (error instanceof ResponseSizeLimitError) {
+      throw error;
+    }
     return null;
   }
 }

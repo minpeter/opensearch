@@ -1,6 +1,10 @@
 export type {
+  CacheOptions,
   OpenSearchClient,
   OpenSearchEnvironment,
+  OpenSearchEvent,
+  OpenSearchEventSink,
+  OpenSearchObservabilityOptions,
   OpenSearchOptions,
 } from "./client.ts";
 export { createOpenSearch } from "./client.ts";

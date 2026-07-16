@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { createEnvironmentReader } from "../environment.ts";
 import { mapWithConcurrency } from "../fetch/concurrency.ts";
+import { createFetchResult } from "../fetch/result.ts";
+import { createFetchService } from "../fetch.ts";
 import { createOpenSearch } from "../index.ts";
 
 interface ConcurrencyMetrics {
@@ -128,6 +131,43 @@ describe("fetch batch concurrency", () => {
       maxConcurrency: 5,
     });
     expect(overriddenMetrics.peak).toBe(5);
+  });
+
+  it("does not refetch fresh results evicted while assembling a batch", async () => {
+    let active = 0;
+    let calls = 0;
+    let peak = 0;
+    const service = createFetchService(
+      createEnvironmentReader({
+        OPENSEARCH_ENABLE_EXA_MCP: "false",
+        OPENSEARCH_ENABLE_FIRECRAWL: "false",
+      }),
+      {
+        cache: { maxEntries: 1 },
+        localFetch: async (url) => {
+          active += 1;
+          calls += 1;
+          peak = Math.max(peak, active);
+          try {
+            await new Promise((resolve) => setTimeout(resolve, 2));
+            return createFetchResult(url, `content:${url}`);
+          } finally {
+            active -= 1;
+          }
+        },
+        maxConcurrency: 2,
+      }
+    );
+    const urls = Array.from(
+      { length: 5 },
+      (_value, index) => `https://example.com/cache-eviction-${index}`
+    );
+
+    const results = await service.fetch(urls);
+
+    expect(calls).toBe(urls.length);
+    expect(peak).toBe(2);
+    expect(results.map((result) => result.url)).toStrictEqual(urls);
   });
 
   it("rejects invalid client and per-call concurrency", async () => {

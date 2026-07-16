@@ -9,6 +9,7 @@
 // `import("node:...")` (pkce-challenge gates it behind globalThis.crypto, so it
 // never executes on Workers). Only the static import graph is load-bearing.
 import { fileURLToPath } from "node:url";
+import { gzipSync } from "node:zlib";
 import { build } from "esbuild";
 
 const ENTRY = fileURLToPath(new URL("../out/index.js", import.meta.url));
@@ -52,6 +53,14 @@ const heavyLeaks = inputs.filter((path) =>
 );
 
 const bundledCode = result.outputFiles.map((file) => file.text).join("\n");
+const rawBytes = result.outputFiles.reduce(
+  (total, file) => total + file.contents.byteLength,
+  0
+);
+const gzipBytes = result.outputFiles.reduce(
+  (total, file) => total + gzipSync(file.contents).byteLength,
+  0
+);
 const globalLeaks = BANNED_GLOBAL_PATTERNS.filter(({ pattern }) =>
   pattern.test(bundledCode)
 ).map(({ name }) => name);
@@ -87,6 +96,6 @@ if (
 }
 
 console.log(
-  `edge entry clean: ${inputs.length} modules bundled under [workerd,worker,browser] - ` +
+  `edge entry clean: ${inputs.length} modules, ${rawBytes} raw bytes, ${gzipBytes} gzip bytes under [workerd,worker,browser] - ` +
     "no jsdom / unpdf / turndown / readability / undici / local / duckduckgo, no static node: imports, and no node globals."
 );

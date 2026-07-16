@@ -26,10 +26,8 @@ const run = async (command: string, args: string[]): Promise<void> => {
 
 const pnpmLockfilePlugin = {
   name: "pnpm-lockfile",
-  cli: {
-    async draftApplied() {
-      await run("pnpm", ["install", "--lockfile-only"]);
-    },
+  async applyCliDraft() {
+    await run("pnpm", ["install", "--lockfile-only"]);
   },
 };
 

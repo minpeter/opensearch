@@ -1,13 +1,20 @@
+import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { validateChallenge } from "../fetch/challenge.ts";
+import { DEFAULT_MAX_DOWNLOAD_BYTES } from "../fetch/local-options.ts";
 import type { FetchAttemptTrace, FetchVerdict } from "../fetch/result.ts";
+import {
+  assertTextByteLimit,
+  ResponseSizeLimitError,
+} from "../response-body.ts";
 
 const DEFAULT_TIMEOUT_MS = 20_000;
 const DEFAULT_DEVICE_NAME = "iPhone 13 Pro";
 const OK_VERDICTS = new Set<FetchVerdict>(["strong_ok", "weak_ok"]);
 const PLAYWRIGHT_ENV = "OPENSEARCH_ENABLE_PLAYWRIGHT_FALLBACK";
 const PLAYWRIGHT_PACKAGE = "playwright";
+const NON_NETWORK_BROWSER_PROTOCOLS = new Set(["about:", "blob:", "data:"]);
 
 export type PlaywrightDeviceClass = "auto" | "desktop" | "mobile";
 export type PlaywrightExecutorName =
@@ -17,15 +24,18 @@ export type PlaywrightExecutorName =
   | "playwright_real_chrome";
 
 export interface PlaywrightFallbackOptions {
+  readonly abortOnError?: (error: unknown) => boolean;
   readonly capabilities?: readonly string[];
   readonly deviceClass?: PlaywrightDeviceClass;
   readonly deviceName?: string;
   readonly enabled?: boolean;
   readonly headless?: boolean;
   readonly loader?: PlaywrightLoader;
+  readonly maxResponseBytes?: number;
   readonly profileDir?: string;
   readonly successSelectors?: readonly string[];
   readonly timeoutMs?: number;
+  readonly validateUrl?: (url: string) => void;
   readonly waitSelector?: string;
 }
 
@@ -39,6 +49,19 @@ export interface PlaywrightFallbackResult {
 interface BrowserContext {
   close(): Promise<void>;
   newPage(): Promise<Page>;
+  route(
+    url: string,
+    handler: (route: Route, request: Request) => Promise<void>
+  ): Promise<void>;
+}
+
+interface Request {
+  url(): string;
+}
+
+interface Route {
+  abort(errorCode?: string): Promise<void>;
+  continue(): Promise<void>;
 }
 
 interface BrowserDevice {
@@ -127,21 +150,47 @@ export async function fetchViaPlaywrightFallback(
 
   const startedAt = Date.now();
   let context: BrowserContext | undefined;
+  let blockedRequestError: unknown;
+  let temporaryProfileDir: string | undefined;
   try {
+    options.validateUrl?.(url);
     const playwright = await (options.loader ?? defaultPlaywrightLoader)();
     const launchOptions = buildLaunchOptions(playwright, executor, options);
+    const profile = await preparePlaywrightProfile(options.profileDir);
+    temporaryProfileDir = profile.temporaryPath;
     context = await playwright.chromium.launchPersistentContext(
-      options.profileDir ?? join(tmpdir(), "opensearch-playwright-profile"),
+      profile.path,
       launchOptions
     );
+    if (options.validateUrl) {
+      await context.route("**/*", async (route, request) => {
+        try {
+          const requestUrl = request.url();
+          if (isNetworkBrowserRequest(requestUrl)) {
+            options.validateUrl?.(requestUrl);
+          }
+          await route.continue();
+        } catch (error) {
+          blockedRequestError = error;
+          await route.abort("blockedbyclient");
+        }
+      });
+    }
     const page = await context.newPage();
     const timeout = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     await page.goto(url, { timeout, waitUntil: "domcontentloaded" });
+    if (blockedRequestError) {
+      throw blockedRequestError;
+    }
     const selector = options.waitSelector ?? options.successSelectors?.[0];
     if (selector) {
       await page.waitForSelector(selector, { state: "attached", timeout });
     }
     const body = await page.content();
+    assertTextByteLimit(
+      body,
+      options.maxResponseBytes ?? DEFAULT_MAX_DOWNLOAD_BYTES
+    );
     const validation = validateChallenge({
       body,
       status: 200,
@@ -166,7 +215,14 @@ export async function fetchViaPlaywrightFallback(
         }
       : { summary: trace.summary, trace: [trace], verdict: validation.verdict };
   } catch (error) {
-    const summary = errorMessage(error);
+    const effectiveError = blockedRequestError ?? error;
+    if (
+      effectiveError instanceof ResponseSizeLimitError ||
+      options.abortOnError?.(effectiveError)
+    ) {
+      throw effectiveError;
+    }
+    const summary = errorMessage(effectiveError);
     return {
       summary,
       trace: [
@@ -178,7 +234,39 @@ export async function fetchViaPlaywrightFallback(
       verdict: "unknown",
     };
   } finally {
+    await cleanupPlaywrightContext(context, temporaryProfileDir);
+  }
+}
+
+async function preparePlaywrightProfile(profileDir?: string): Promise<{
+  readonly path: string;
+  readonly temporaryPath?: string;
+}> {
+  if (profileDir) {
+    return { path: profileDir };
+  }
+  const temporaryPath = await mkdtemp(join(tmpdir(), "opensearch-playwright-"));
+  return { path: temporaryPath, temporaryPath };
+}
+
+async function cleanupPlaywrightContext(
+  context: BrowserContext | undefined,
+  temporaryProfileDir: string | undefined
+): Promise<void> {
+  try {
     await context?.close();
+  } finally {
+    if (temporaryProfileDir) {
+      await rm(temporaryProfileDir, { force: true, recursive: true });
+    }
+  }
+}
+
+function isNetworkBrowserRequest(rawUrl: string): boolean {
+  try {
+    return !NON_NETWORK_BROWSER_PROTOCOLS.has(new URL(rawUrl).protocol);
+  } catch {
+    return true;
   }
 }
 

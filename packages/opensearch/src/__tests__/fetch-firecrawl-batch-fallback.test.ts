@@ -94,4 +94,19 @@ describe("Firecrawl batch fetch fallback", () => {
       )
     ).toBe(false);
   });
+
+  it("does not invoke local fallback after an HTTP 451 response", async () => {
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValue(new Response("legal restriction", { status: 451 }));
+    vi.stubGlobal("fetch", mockFetch);
+
+    await expect(
+      fetchUrls(["https://example.com/restricted"])
+    ).rejects.toMatchObject({ status: 451 });
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(String(mockFetch.mock.calls[0]?.[0])).toBe(
+      "https://api.firecrawl.dev/v2/scrape"
+    );
+  });
 });

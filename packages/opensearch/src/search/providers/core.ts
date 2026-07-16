@@ -4,6 +4,7 @@ import {
   type EnvironmentReader,
   processEnvironmentReader,
 } from "../../environment.ts";
+import { getHttpStatus } from "../../providers/shared/error.ts";
 import {
   createTinyFishApiKeyPool,
   type TinyFishApiKeyPool,
@@ -13,6 +14,7 @@ import { getRandomUserAgent } from "../../user-agents.ts";
 import { createPooledSearchProvider } from "../api-key-provider.ts";
 import { getErrorMessage, SearchEngineError } from "../errors.ts";
 import {
+  classifyApiStatusFailure,
   createSearchUrl,
   fetchSearchText,
   parseJsonResponse,
@@ -58,10 +60,12 @@ function createTinyFishProviderWithPool(
       try {
         results = await searchTinyFish(query, apiKeyPool);
       } catch (error) {
+        const status = getHttpStatus(error);
         throw new SearchEngineError(
           "TinyFish",
-          "transient",
-          `TinyFish search failed: ${getErrorMessage(error)}`
+          status === undefined ? "transient" : classifyApiStatusFailure(status),
+          `TinyFish search failed: ${getErrorMessage(error)}`,
+          status === undefined ? {} : { status }
         );
       }
 

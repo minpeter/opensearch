@@ -1,9 +1,12 @@
+import { readResponseText } from "../../response-body.ts";
+import { ProviderHttpError } from "../shared/error.ts";
 import {
   getTinyFishApiKeyAttemptOrder,
   type TinyFishApiKeyPool,
 } from "./api-key-pool.ts";
 
 export const TINYFISH_TIMEOUT_MS = 30_000;
+const TINYFISH_ERROR_DETAIL_MAX_CHARACTERS = 4096;
 
 type TinyFishServiceName = "fetch" | "search";
 
@@ -52,7 +55,7 @@ async function parseTinyFishJsonResponse(
   response: Response,
   serviceName: TinyFishServiceName
 ): Promise<unknown> {
-  const bodyText = await response.text();
+  const bodyText = await readResponseText(response);
   const { parseError, value } = parseJsonBody(bodyText);
 
   if (!response.ok) {
@@ -70,7 +73,17 @@ async function readTinyFishHttpError(
   response: Response,
   serviceName: TinyFishServiceName
 ): Promise<Error> {
-  const bodyText = await response.text();
+  let bodyText: string;
+  try {
+    bodyText = await readResponseText(response);
+  } catch (error) {
+    return createTinyFishHttpError(
+      response,
+      serviceName,
+      {},
+      error instanceof Error ? error.message : String(error)
+    );
+  }
   const { parseError, value } = parseJsonBody(bodyText);
 
   return createTinyFishHttpError(response, serviceName, value, parseError);
@@ -81,14 +94,15 @@ function createTinyFishHttpError(
   serviceName: TinyFishServiceName,
   body: unknown,
   parseError?: string
-): Error {
+): ProviderHttpError {
   const retryAfter = response.headers.get("retry-after");
   const retryAfterMessage = retryAfter ? ` Retry-After: ${retryAfter}.` : "";
 
-  return new Error(
+  return new ProviderHttpError(
     `TinyFish ${serviceName} request failed with HTTP ${
       response.status
-    }: ${readErrorMessage(body, parseError)}.${retryAfterMessage}`
+    }: ${readErrorMessage(body, parseError)}.${retryAfterMessage}`,
+    response.status
   );
 }
 
@@ -119,12 +133,12 @@ function readErrorMessage(body: unknown, parseError?: string): string {
   if (typeof body === "object" && body !== null && "error" in body) {
     const error = body.error;
     if (typeof error === "string") {
-      return error;
+      return error.slice(0, TINYFISH_ERROR_DETAIL_MAX_CHARACTERS);
     }
     if (typeof error === "object" && error !== null && "message" in error) {
       const message = error.message;
       if (typeof message === "string") {
-        return message;
+        return message.slice(0, TINYFISH_ERROR_DETAIL_MAX_CHARACTERS);
       }
     }
   }

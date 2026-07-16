@@ -27,6 +27,14 @@ test("root package.json uses Tegami release commands", () => {
     manifest.scripts["test:release"],
     "node --test scripts/tegami-config.test.mjs"
   );
+  assert.equal(
+    manifest.scripts["verify:published"],
+    "node scripts/verify-published-packages.mjs"
+  );
+  assert.equal(
+    manifest.scripts["verify:packed"],
+    "node scripts/verify-packed-packages.mjs"
+  );
   assert.equal(manifest.scripts.changeset, undefined);
   assert.ok(manifest.devDependencies.tegami, "tegami must be installed");
   assert.equal(manifest.devDependencies["@changesets/cli"], undefined);
@@ -40,6 +48,9 @@ test("release workflow delegates versioning and publishing to Tegami", () => {
   assert.ok(workflow.includes("npm install -g npm@latest"));
   assert.ok(workflow.includes("pnpm run test:release"));
   assert.ok(workflow.includes("pnpm tegami ci"));
+  assert.ok(workflow.includes("pnpm tegami check-publish"));
+  assert.ok(workflow.includes("pnpm verify:published"));
+  assert.ok(workflow.includes("if: steps.publish.outputs.needed == 'true'"));
   assert.ok(workflow.includes('NPM_CONFIG_PROVENANCE: "true"'));
   assert.equal(workflow.includes("changesets/action"), false);
   assert.equal(workflow.includes("pnpm changeset publish"), false);
@@ -61,6 +72,7 @@ test("Tegami entrypoint targets this repository", () => {
   assert.ok(script.includes('client: "npm"'));
   assert.ok(script.includes("updateLockFile: false"));
   assert.ok(script.includes('name: "pnpm-lockfile"'));
+  assert.ok(script.includes("applyCliDraft"));
   assert.ok(script.includes('"--lockfile-only"'));
   assert.ok(script.includes('repo: "minpeter/opensearch"'));
   assert.ok(script.includes('base: "main"'));
@@ -72,6 +84,35 @@ test("Changesets release metadata was removed", () => {
   );
 
   assert.deepEqual(releaseMetadataFiles, []);
+});
+
+test("published manifests contain no workspace dependency protocols", () => {
+  const packageDirectories = [
+    "packages/opensearch",
+    "packages/opensearch-ai-sdk",
+    "packages/opensearch-mcp",
+  ];
+  const dependencyFields = [
+    "dependencies",
+    "optionalDependencies",
+    "peerDependencies",
+  ];
+
+  for (const packageDirectory of packageDirectories) {
+    const manifest = readJson(`${packageDirectory}/package.json`);
+    for (const dependencyField of dependencyFields) {
+      const dependencies = manifest[dependencyField] ?? {};
+      for (const [dependencyName, dependencyRange] of Object.entries(
+        dependencies
+      )) {
+        assert.equal(
+          dependencyRange.startsWith("workspace:"),
+          false,
+          `${manifest.name} cannot publish ${dependencyName} as ${dependencyRange}`
+        );
+      }
+    }
+  }
 });
 
 test("README documents Tegami changelog package ids", () => {

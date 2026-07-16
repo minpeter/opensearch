@@ -13,6 +13,7 @@ import {
   loadQueries,
   OFFLINE_NUM_RESULTS,
 } from "./fixtures.ts";
+import { evaluateMonitorHealth } from "./health.ts";
 import { buildCharts } from "./render.ts";
 import {
   buildReport,
@@ -78,8 +79,10 @@ function historyLine(report: BenchReport, date: string): string {
     latencyP95Ms: provider.latencyP95Ms,
     ndcgAtK: provider.ndcgAtK,
     qualityScore: provider.qualityScore,
+    probeCount: provider.probeCount,
     rate429Rate: provider.rate429Rate,
     rateLimitRate: provider.rateLimitRate,
+    successCount: provider.successCount,
     successRate: provider.successRate,
     timeoutRate: provider.timeoutRate,
   }));
@@ -90,19 +93,19 @@ function historyLine(report: BenchReport, date: string): string {
   });
 }
 
-function reportDrift(report: BenchReport, baselinePath: string): void {
+function reportDrift(report: BenchReport, baselinePath: string): number {
   let baselineRaw: string;
   try {
     baselineRaw = readFileSync(baselinePath, "utf-8");
   } catch {
     err(`No baseline at ${baselinePath}; skipping drift check.`);
-    return;
+    return 0;
   }
   const baseline = JSON.parse(baselineRaw) as BenchReport;
   const regressions = diffBaseline(report, baseline);
   if (regressions.length === 0) {
     out("No metric regressions beyond tolerance.");
-    return;
+    return 0;
   }
   err(`Detected ${regressions.length} metric regression(s):`);
   for (const regression of regressions) {
@@ -110,17 +113,20 @@ function reportDrift(report: BenchReport, baselinePath: string): void {
       `  ${regression.engine}.${regression.metric}: ${regression.baseline.toFixed(3)} -> ${regression.current.toFixed(3)} (Δ ${regression.delta.toFixed(3)})`
     );
   }
+  return regressions.length;
 }
 
 async function runLive(options: CliOptions): Promise<BenchReport> {
   // Dynamic import so the offline path never loads the heavy provider graph.
-  const { getSearchProviders } = await import("../search/providers.ts");
+  const { getNodeSearchProviders } = await import(
+    "../search/node-providers.ts"
+  );
   const { runBenchmark } = await import("./runner.ts");
 
   const numResults = options.numResults ?? DEFAULT_LIVE_NUM_RESULTS;
   const topK = options.topK ?? numResults;
   const queries = loadQueries(options.queries);
-  const allProviders = getSearchProviders();
+  const allProviders = getNodeSearchProviders();
   const providers = allProviders.filter(
     (provider) => !options.exclude.has(provider.name)
   );
@@ -148,17 +154,8 @@ async function runLive(options: CliOptions): Promise<BenchReport> {
   });
 }
 
-async function main(): Promise<void> {
-  const options = parseArgs(process.argv.slice(2));
-
-  const report =
-    options.mode === "live"
-      ? await runLive(options)
-      : buildOfflineReport(options.numResults ?? OFFLINE_NUM_RESULTS);
-
-  writeOutputs(report, options);
-
-  if (options.mode === "live" && options.history !== undefined) {
+function processLiveReport(report: BenchReport, options: CliOptions): boolean {
+  if (options.history !== undefined) {
     mkdirSync(dirname(options.history), { recursive: true });
     appendFileSync(
       options.history,
@@ -167,8 +164,49 @@ async function main(): Promise<void> {
     out(`Appended history line to ${options.history}`);
   }
 
-  if (options.mode === "live" && options.baseline !== undefined) {
-    reportDrift(report, options.baseline);
+  let gateFailed = false;
+  if (options.healthGate) {
+    const health = evaluateMonitorHealth(report);
+    if (health.healthy) {
+      out(
+        `Health gate passed with ${health.healthyProviders.length} healthy provider(s): ${health.healthyProviders.join(", ")}`
+      );
+    } else {
+      gateFailed = true;
+      err("Provider health gate failed:");
+      for (const reason of health.reasons) {
+        err(`  ${reason}`);
+      }
+    }
+  }
+
+  if (options.baseline !== undefined) {
+    const regressionCount = reportDrift(report, options.baseline);
+    if (options.failOnRegression && regressionCount > 0) {
+      gateFailed = true;
+    }
+  }
+  return gateFailed;
+}
+
+async function main(): Promise<void> {
+  const options = parseArgs(process.argv.slice(2));
+  if (
+    options.mode !== "live" &&
+    (options.healthGate || options.failOnRegression)
+  ) {
+    throw new Error("Live health flags require --live");
+  }
+
+  const report =
+    options.mode === "live"
+      ? await runLive(options)
+      : buildOfflineReport(options.numResults ?? OFFLINE_NUM_RESULTS);
+
+  writeOutputs(report, options);
+
+  if (options.mode === "live" && processLiveReport(report, options)) {
+    process.exitCode = 1;
   }
 }
 

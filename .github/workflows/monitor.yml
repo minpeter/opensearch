@@ -4,9 +4,9 @@ name: Provider Metrics Monitor
 # (fill-rate, 429/blocked, timeout, latency) and QUALITY (intrinsic heuristics,
 # cross-engine consensus, labeled golden queries) against real APIs.
 #
-# This is MONITORING, not gating — it never fails on provider errors. Only
-# providers whose secrets are present are measured; the rest are reported as
-# "skipped". The deterministic per-PR gate lives in ci.yml (the golden test).
+# The deterministic per-PR gate lives in ci.yml. This live monitor also fails
+# when every measured provider is unhealthy or when a persisted baseline
+# regresses, so a green run always means at least one provider actually worked.
 
 on:
   schedule:
@@ -34,6 +34,7 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
+  actions: read
   contents: read
 
 jobs:
@@ -42,21 +43,60 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           version: 11.3.0
 
       # Node 24 ships stable TypeScript type stripping, which the bench CLI relies
       # on to run src/bench/cli.ts directly without a build step.
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: pnpm
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Find previous completed monitor run
+        id: previous
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          run_id="$(gh api \
+            "repos/${GITHUB_REPOSITORY}/actions/workflows/monitor.yml/runs?status=completed&per_page=10" \
+            --jq '.workflow_runs[0].id // empty')"
+          echo "run-id=${run_id}" >> "$GITHUB_OUTPUT"
+
+      - name: Restore previous metrics artifact
+        if: steps.previous.outputs.run-id != ''
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ steps.previous.outputs.run-id }}
+          pattern: provider-metrics*
+          merge-multiple: true
+          path: packages/opensearch/provider-monitor-previous
+
+      - name: Prepare persistent monitor state
+        run: |
+          mkdir -p packages/opensearch/provider-monitor-state
+          if [ -f packages/opensearch/provider-monitor-previous/baseline.json ]; then
+            cp packages/opensearch/provider-monitor-previous/baseline.json \
+              packages/opensearch/provider-monitor-state/baseline.json
+          elif [ -f packages/opensearch/provider-monitor-previous/provider-metrics.json ]; then
+            cp packages/opensearch/provider-monitor-previous/provider-metrics.json \
+              packages/opensearch/provider-monitor-state/baseline.json
+          fi
+          if [ -f packages/opensearch/provider-monitor-previous/history.ndjson ]; then
+            cp packages/opensearch/provider-monitor-previous/history.ndjson \
+              packages/opensearch/provider-monitor-state/history.ndjson
+          elif [ -f packages/opensearch/provider-monitor-previous/provider-metrics.ndjson ]; then
+            cp packages/opensearch/provider-monitor-previous/provider-metrics.ndjson \
+              packages/opensearch/provider-monitor-state/history.ndjson
+          fi
 
       - name: Run live benchmark
         env:
@@ -76,6 +116,9 @@ jobs:
           KAGI_API_TOKEN: ${{ secrets.KAGI_API_TOKEN }}
           LINKUP_API_KEY: ${{ secrets.LINKUP_API_KEY }}
           MOJEEK_API_KEY: ${{ secrets.MOJEEK_API_KEY }}
+          OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
+          OPENSEARCH_ENABLE_OLLAMA: ${{ secrets.OLLAMA_API_KEY != '' && 'true' || 'false' }}
+          OPENSEARCH_DISABLE_OLLAMA_LOCAL: "true"
           PARALLEL_API_KEY: ${{ secrets.PARALLEL_API_KEY }}
           PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
           SCRAPINGBEE_API_KEY: ${{ secrets.SCRAPINGBEE_API_KEY }}
@@ -96,7 +139,17 @@ jobs:
             --queries "${QUERIES}" \
             --out provider-metrics.json \
             --markdown provider-metrics.md \
-            --history provider-metrics.ndjson
+            --charts provider-metrics-charts \
+            --history provider-monitor-state/history.ndjson \
+            --baseline provider-monitor-state/baseline.json \
+            --health-gate \
+            --fail-on-regression
+
+      - name: Promote healthy report to baseline
+        if: success()
+        run: |
+          cp packages/opensearch/provider-metrics.json \
+            packages/opensearch/provider-monitor-state/baseline.json
 
       - name: Write summary
         if: always()
@@ -109,10 +162,12 @@ jobs:
 
       - name: Upload report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
-          name: provider-metrics
+          name: provider-metrics-state
           retention-days: 90
           path: |
             packages/opensearch/provider-metrics.json
-            packages/opensearch/provider-metrics.ndjson
+            packages/opensearch/provider-metrics.md
+            packages/opensearch/provider-metrics-charts
+            packages/opensearch/provider-monitor-state

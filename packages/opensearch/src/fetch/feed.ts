@@ -1,6 +1,8 @@
 import { load } from "cheerio";
 import type { FetchResult } from "../fetch.ts";
+import { cancelResponseBody, readResponseText } from "../response-body.ts";
 import { type FeedDraft, type FeedEntry, parseFeedXml } from "./feed-parser.ts";
+import { DEFAULT_MAX_DOWNLOAD_BYTES } from "./local-options.ts";
 import { createFetchResult } from "./result.ts";
 import { transformedUrlAttempts } from "./url-transforms.ts";
 
@@ -24,9 +26,11 @@ interface FeedCandidate {
 }
 
 export interface FeedDiscoveryOptions {
+  readonly fetcher?: (url: string) => Promise<Response>;
   readonly html?: string;
   readonly includeTransforms?: boolean;
   readonly jinaAlternates?: readonly string[];
+  readonly maxResponseBytes?: number;
 }
 
 function entryLine(entry: FeedEntry): string {
@@ -126,15 +130,19 @@ export async function fetchDiscoveredFeed(
   rawUrl: string,
   options: FeedDiscoveryOptions = {}
 ): Promise<FetchResult | null> {
+  const fetcher = options.fetcher ?? fetch;
+  const maxResponseBytes =
+    options.maxResponseBytes ?? DEFAULT_MAX_DOWNLOAD_BYTES;
   for (const candidate of discoverFeedCandidates(rawUrl, options)) {
     try {
-      const response = await fetch(candidate.url);
+      const response = await fetcher(candidate.url);
       if (!response.ok) {
+        await cancelResponseBody(response);
         continue;
       }
       const parsed = parseFeed(
         candidate.url,
-        await response.text(),
+        await readResponseText(response, maxResponseBytes),
         candidate.name
       );
       if (parsed) {

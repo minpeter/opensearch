@@ -41,7 +41,7 @@
     "start": "node out/index.js"
   },
   "dependencies": {
-    "@minpeter/opensearch": "workspace:*",
+    "@minpeter/opensearch": "^0.0.6",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "zod": "^4.4.3"
   }

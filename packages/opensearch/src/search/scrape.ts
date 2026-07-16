@@ -1,5 +1,6 @@
 import { type CheerioAPI, load } from "cheerio/slim";
 
+import { cancelResponseBody, readResponseText } from "../response-body.ts";
 import { getErrorMessage, SearchEngineError } from "./errors.ts";
 import { classifyStatusFailure, createSearchRequestInit } from "./http.ts";
 import { extractHeuristicResults } from "./scrape-heuristic.ts";
@@ -78,14 +79,27 @@ async function searchWithScrapeEngine(
   }
 
   if (!response.ok) {
+    await cancelResponseBody(response);
     throw new SearchEngineError(
       engine.name,
       classifyStatusFailure(response.status),
-      `${engine.name} fetch failed with status ${response.status}`
+      `${engine.name} fetch failed with status ${response.status}`,
+      { status: response.status }
     );
   }
 
-  const html = await response.text();
+  let html: string;
+  try {
+    html = await readResponseText(response);
+  } catch (error) {
+    throw new SearchEngineError(
+      engine.name,
+      "transient",
+      `${engine.name} response body could not be read: ${getErrorMessage(
+        error
+      )}`
+    );
+  }
   return attachEngine(engine.name, engine.parse(html));
 }
 

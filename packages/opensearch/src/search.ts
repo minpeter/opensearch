@@ -1,10 +1,18 @@
 import pRetry from "p-retry";
 
-import { TtlCache } from "./cache.ts";
+import { type CacheOptions, resolveCacheOptions, TtlCache } from "./cache.ts";
 import {
   type EnvironmentReader,
   processEnvironmentReader,
 } from "./environment.ts";
+import {
+  createOpenSearchObserver,
+  emitCacheEvent,
+  emitFallbackEvent,
+  type OpenSearchObserver,
+  observeOperation,
+  observeProviderAttempt,
+} from "./observability.ts";
 import {
   formatFailureSummary,
   SearchEngineError,
@@ -24,6 +32,7 @@ export const searchResultSchema = searchResultSchemaValue;
 export const searchResultsSchema = searchResultsSchemaValue;
 
 const SEARCH_CACHE_TTL_MS = 3 * 60 * 1000;
+const SEARCH_CACHE_MAX_ENTRIES = 256;
 
 export interface SearchService {
   search(query: string, numResults?: number): Promise<SearchResult[]>;
@@ -34,6 +43,8 @@ export interface SearchService {
 }
 
 export interface CreateSearchServiceOptions {
+  readonly cache?: CacheOptions;
+  readonly observer?: OpenSearchObserver;
   readonly providers?: (env: EnvironmentReader) => SearchProvider[];
 }
 
@@ -44,25 +55,56 @@ export function createSearchService(
   options: CreateSearchServiceOptions = {}
 ): SearchService {
   const resolveProviders = options.providers ?? getSearchProviders;
-  const searchCache = new TtlCache<string, SearchResult[]>(SEARCH_CACHE_TTL_MS);
+  const observer = options.observer ?? createOpenSearchObserver();
+  const cacheOptions = resolveCacheOptions(options.cache, {
+    maxEntries: SEARCH_CACHE_MAX_ENTRIES,
+    ttlMs: SEARCH_CACHE_TTL_MS,
+  });
+  const searchCache = cacheOptions.enabled
+    ? new TtlCache<string, SearchResult[]>(cacheOptions.ttlMs, {
+        maxEntries: cacheOptions.maxEntries,
+      })
+    : null;
   const configuredProviders =
     env === processEnvironmentReader ? null : resolveProviders(env);
 
-  async function searchOnce(
+  async function runProviders(
     query: string,
-    numResults = 10
+    numResults: number,
+    operationId: string
   ): Promise<SearchResult[]> {
     const failures: SearchEngineError[] = [];
 
     const providers = configuredProviders ?? resolveProviders(env);
 
-    for (const provider of providers) {
+    for (const [index, provider] of providers.entries()) {
       try {
-        const results = await provider.search(query, numResults);
+        const results = await observeProviderAttempt(
+          observer,
+          {
+            operation: "search",
+            operationId,
+            provider: provider.name,
+          },
+          () => provider.search(query, numResults)
+        );
         return results.slice(0, numResults);
       } catch (error) {
         if (error instanceof SearchEngineError) {
+          if (error.status === 451) {
+            throw error;
+          }
           failures.push(error);
+          const nextProvider = providers[index + 1];
+          if (nextProvider) {
+            emitFallbackEvent(observer, {
+              fromProvider: provider.name,
+              operation: "search",
+              operationId,
+              reason: error.kind,
+              toProvider: nextProvider.name,
+            });
+          }
           continue;
         }
 
@@ -73,22 +115,48 @@ export function createSearchService(
     throw createSearchExecutionError(failures);
   }
 
-  async function searchWithCache(
+  function searchOnce(query: string, numResults = 10): Promise<SearchResult[]> {
+    return observeOperation(
+      observer,
+      { inputCount: 1, operation: "search" },
+      (operationId) => {
+        emitCacheEvent(observer, "search", operationId, "bypass");
+        return runProviders(query, numResults, operationId);
+      }
+    );
+  }
+
+  function searchWithCache(
     query: string,
     maxResults = 10
   ): Promise<SearchResult[]> {
-    const cacheKey = createSearchCacheKey(query, maxResults);
+    return observeOperation(
+      observer,
+      { inputCount: 1, operation: "search" },
+      async (operationId) => {
+        const cacheKey = createSearchCacheKey(query, maxResults);
+        const execute = async () =>
+          pRetry(async () => runProviders(query, maxResults, operationId), {
+            factor: 2,
+            minTimeout: 2000,
+            retries: 2,
+            shouldRetry: ({ error }) => shouldRetrySearchError(error),
+          });
+        if (searchCache === null) {
+          emitCacheEvent(observer, "search", operationId, "bypass");
+          return (await execute()).slice(0, maxResults);
+        }
 
-    const results = await searchCache.getOrSet(cacheKey, async () =>
-      pRetry(async () => searchOnce(query, maxResults), {
-        factor: 2,
-        minTimeout: 2000,
-        retries: 2,
-        shouldRetry: ({ error }) => shouldRetrySearchError(error),
-      })
+        emitCacheEvent(
+          observer,
+          "search",
+          operationId,
+          searchCache.has(cacheKey) ? "hit" : "miss"
+        );
+        const results = await searchCache.getOrSet(cacheKey, execute);
+        return results.slice(0, maxResults);
+      }
     );
-
-    return results.slice(0, maxResults);
   }
 
   return {
@@ -112,6 +180,9 @@ export function searchWithRetryAndCache(
 }
 
 function shouldRetrySearchError(error: Error): boolean {
+  if (error instanceof SearchEngineError && error.status === 451) {
+    return false;
+  }
   if (error instanceof SearchExecutionError) {
     return error.retryable;
   }

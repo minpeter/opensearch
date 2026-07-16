@@ -1,4 +1,9 @@
+import { access } from "node:fs/promises";
 import { describe, expect, it, vi } from "vitest";
+import {
+  assertSafeHttpUrl,
+  NetworkPolicyError,
+} from "../node/network-policy.ts";
 import {
   fetchViaPlaywrightFallback,
   type PlaywrightLoader,
@@ -15,6 +20,7 @@ interface FakePage {
 interface FakeContext {
   readonly close: ReturnType<typeof vi.fn>;
   readonly newPage: ReturnType<typeof vi.fn>;
+  readonly route: ReturnType<typeof vi.fn>;
 }
 
 function createLoader(page: FakePage): {
@@ -25,6 +31,7 @@ function createLoader(page: FakePage): {
   const context = {
     close: vi.fn().mockResolvedValue(undefined),
     newPage: vi.fn().mockResolvedValue(page),
+    route: vi.fn().mockResolvedValue(undefined),
   };
   const launchPersistentContext = vi.fn().mockResolvedValue(context);
   return {
@@ -175,6 +182,32 @@ describe("fetchViaPlaywrightFallback", () => {
     });
   });
 
+  it("uses isolated temporary profiles and removes them after each call", async () => {
+    const first = createLoader(createPage());
+    const second = createLoader(createPage());
+
+    await Promise.all([
+      fetchViaPlaywrightFallback("https://example.com/one", {
+        enabled: true,
+        loader: first.loader,
+      }),
+      fetchViaPlaywrightFallback("https://example.com/two", {
+        enabled: true,
+        loader: second.loader,
+      }),
+    ]);
+
+    const firstProfile = String(
+      first.launchPersistentContext.mock.calls[0]?.[0]
+    );
+    const secondProfile = String(
+      second.launchPersistentContext.mock.calls[0]?.[0]
+    );
+    expect(firstProfile).not.toBe(secondProfile);
+    await expect(access(firstProfile)).rejects.toThrow();
+    await expect(access(secondProfile)).rejects.toThrow();
+  });
+
   it("applies the configured mobile device profile", async () => {
     const page = createPage();
     const { launchPersistentContext, loader } = createLoader(page);
@@ -195,5 +228,99 @@ describe("fetchViaPlaywrightFallback", () => {
       })
     );
     expect(result.trace[0]?.name).toBe("playwright:playwright_mobile_chrome");
+  });
+
+  it("rejects rendered HTML over the byte limit", async () => {
+    const page = createPage("x".repeat(65));
+    const { loader } = createLoader(page);
+
+    await expect(
+      fetchViaPlaywrightFallback("https://example.com/large", {
+        enabled: true,
+        loader,
+        maxResponseBytes: 64,
+      })
+    ).rejects.toThrow("64-byte download limit");
+  });
+
+  it("blocks private redirect and subresource requests", async () => {
+    const page = createPage();
+    const { context, loader } = createLoader(page);
+    const abort = vi.fn().mockResolvedValue(undefined);
+    const continueRequest = vi.fn().mockResolvedValue(undefined);
+    context.route.mockImplementation(async (_pattern, handler) => {
+      await handler(
+        { abort, continue: continueRequest },
+        { url: () => "http://127.0.0.1/private" }
+      );
+    });
+
+    await expect(
+      fetchViaPlaywrightFallback("https://example.com/start", {
+        abortOnError: (error) => error instanceof NetworkPolicyError,
+        enabled: true,
+        loader,
+        validateUrl: (url) => {
+          assertSafeHttpUrl(url);
+        },
+      })
+    ).rejects.toBeInstanceOf(NetworkPolicyError);
+
+    expect(abort).toHaveBeenCalledWith("blockedbyclient");
+    expect(continueRequest).not.toHaveBeenCalled();
+    expect(context.close).toHaveBeenCalledOnce();
+  });
+
+  it("preserves a policy error when a blocked navigation rejects goto", async () => {
+    const page = createPage();
+    page.goto.mockRejectedValue(new Error("navigation aborted"));
+    const { context, loader } = createLoader(page);
+    context.route.mockImplementation(async (_pattern, handler) => {
+      await handler(
+        {
+          abort: vi.fn().mockResolvedValue(undefined),
+          continue: vi.fn().mockResolvedValue(undefined),
+        },
+        { url: () => "http://127.0.0.1/private" }
+      );
+    });
+
+    await expect(
+      fetchViaPlaywrightFallback("https://example.com/start", {
+        abortOnError: (error) => error instanceof NetworkPolicyError,
+        enabled: true,
+        loader,
+        validateUrl: (url) => {
+          assertSafeHttpUrl(url);
+        },
+      })
+    ).rejects.toBeInstanceOf(NetworkPolicyError);
+  });
+
+  it("allows non-network data and blob subresources", async () => {
+    const page = createPage();
+    const { context, loader } = createLoader(page);
+    const abort = vi.fn().mockResolvedValue(undefined);
+    const continueRequest = vi.fn().mockResolvedValue(undefined);
+    context.route.mockImplementation(async (_pattern, handler) => {
+      for (const url of [
+        "data:text/plain,hello",
+        "blob:https://example.com/id",
+      ]) {
+        await handler({ abort, continue: continueRequest }, { url: () => url });
+      }
+    });
+
+    const result = await fetchViaPlaywrightFallback("https://example.com", {
+      enabled: true,
+      loader,
+      validateUrl: (url) => {
+        assertSafeHttpUrl(url);
+      },
+    });
+
+    expect(result.response?.status).toBe(200);
+    expect(continueRequest).toHaveBeenCalledTimes(2);
+    expect(abort).not.toHaveBeenCalled();
   });
 });

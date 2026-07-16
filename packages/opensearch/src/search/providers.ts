@@ -10,6 +10,7 @@ import { createExaSearchProvider } from "./providers/exa.ts";
 import { createFirecrawlSearchProvider } from "./providers/firecrawl.ts";
 import { createIndependentProviders } from "./providers/independent.ts";
 import { createLlmNativeProviders } from "./providers/llm.ts";
+import { createOllamaSearchProvider } from "./providers/ollama.ts";
 import { createSerpProviders } from "./providers/serp.ts";
 import type { SearchProvider } from "./types.ts";
 
@@ -34,6 +35,8 @@ export interface GetSearchProvidersOptions {
   readonly duckDuckGoFactory?: (env: EnvironmentReader) => SearchProvider;
   readonly exaMcpFactory?: (env: EnvironmentReader) => SearchProvider;
   readonly parallelMcpFactory?: (env: EnvironmentReader) => SearchProvider;
+  /** Enable local-daemon Ollama probing in Node runtimes. */
+  readonly useOllamaLocal?: boolean;
 }
 
 export function getSearchProviders(
@@ -42,6 +45,12 @@ export function getSearchProviders(
 ): SearchProvider[] {
   const providers: SearchProvider[] = [];
 
+  pushProvider(
+    providers,
+    createOllamaSearchProvider(env, {
+      localEnabled: options.useOllamaLocal ?? false,
+    })
+  );
   pushProvider(providers, createTinyFishSearchProvider(env));
   providers.push(...createLlmNativeProviders(env));
   providers.push(...createSerpProviders(env));

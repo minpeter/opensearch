@@ -9,6 +9,10 @@ import {
   type EnvironmentReader,
   processEnvironmentReader,
 } from "../../environment.ts";
+import {
+  DEFAULT_MAX_RESPONSE_BYTES,
+  limitResponseBody,
+} from "../../response-body.ts";
 import { getErrorMessage } from "../shared/error.ts";
 import {
   DEFAULT_PARALLEL_MCP_SEARCH_TOOL,
@@ -98,14 +102,18 @@ export function createParallelMcpRequestInit(
   };
 }
 
-export function fetchParallelMcp(
+export async function fetchParallelMcp(
   input: RequestInfo | URL,
-  init?: RequestInit
+  init?: RequestInit,
+  maxResponseBytes = DEFAULT_MAX_RESPONSE_BYTES
 ): Promise<Response> {
-  return fetch(input, {
-    ...init,
-    redirect: init?.redirect ?? "manual",
-  });
+  return limitResponseBody(
+    await fetch(input, {
+      ...init,
+      redirect: init?.redirect ?? "manual",
+    }),
+    maxResponseBytes
+  );
 }
 
 function createAuthHeaders(

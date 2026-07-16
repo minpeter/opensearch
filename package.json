@@ -21,6 +21,8 @@
     "test": "turbo run test",
     "test:coverage": "turbo run test:coverage",
     "test:release": "node --test scripts/tegami-config.test.mjs",
+    "verify:published": "node scripts/verify-published-packages.mjs",
+    "verify:packed": "node scripts/verify-packed-packages.mjs",
     "attw": "turbo run attw",
     "verify:edge": "turbo run verify:edge",
     "start": "pnpm --filter opensearch-mcp start",
@@ -29,17 +31,17 @@
     "release": "pnpm build && pnpm tegami publish"
   },
   "devDependencies": {
-    "@arethetypeswrong/cli": "^0.18.3",
+    "@arethetypeswrong/cli": "^0.18.5",
     "@biomejs/biome": "2.4.16",
     "@types/jsdom": "^28.0.3",
-    "@types/node": "^25.9.2",
+    "@types/node": "^25.9.5",
     "@types/turndown": "^5.0.6",
-    "@vitest/coverage-v8": "^4.1.8",
-    "tegami": "^0.2.1",
-    "tsdown": "^0.22.4",
-    "turbo": "^2.6.1",
+    "@vitest/coverage-v8": "^4.1.10",
+    "tegami": "^1.2.5",
+    "tsdown": "^0.22.8",
+    "turbo": "^2.10.5",
     "typescript": "^7.0.2",
     "ultracite": "7.8.1",
-    "vitest": "^4.1.8"
+    "vitest": "^4.1.10"
   }
 }

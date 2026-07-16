@@ -22,7 +22,10 @@ models cannot override infrastructure limits:
 
 ```ts
 const tools = createOpenSearchTools({
-  openSearchOptions: { fetch: { maxConcurrency: 4 } },
+  openSearchOptions: {
+    fetch: { maxConcurrency: 4 },
+    observability: { onEvent: (event) => telemetry.write(event) },
+  },
 });
 ```
 

@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  assertSafeHttpUrl,
+  NetworkPolicyError,
+} from "../node/network-policy.ts";
+import {
   fetchViaTlsImpersonation,
   tlsImpersonationEnabled,
   type WreqLoader,
@@ -103,5 +107,43 @@ describe("fetchViaTlsImpersonation", () => {
       "tls:chrome_131",
       "tls:chrome_142",
     ]);
+  });
+
+  it("validates manual redirects before following them", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({
+      body: null,
+      headers: new Headers({ Location: "http://169.254.169.254/latest" }),
+      status: 302,
+      text: async () => "",
+    });
+
+    await expect(
+      fetchViaTlsImpersonation("https://example.com/a", {
+        abortOnError: (error) => error instanceof NetworkPolicyError,
+        enabled: true,
+        loader: loaderWithFetch(fetchImpl, ["chrome_131"]),
+        validateUrl: (url) => {
+          assertSafeHttpUrl(url);
+        },
+      })
+    ).rejects.toBeInstanceOf(NetworkPolicyError);
+
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(fetchImpl).toHaveBeenCalledWith(
+      "https://example.com/a",
+      expect.objectContaining({ redirect: "manual" })
+    );
+  });
+
+  it("rejects streamed TLS fallback bodies over the byte limit", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(new Response("x".repeat(65)));
+
+    await expect(
+      fetchViaTlsImpersonation("https://example.com/a", {
+        enabled: true,
+        loader: loaderWithFetch(fetchImpl, ["chrome_131"]),
+        maxResponseBytes: 64,
+      })
+    ).rejects.toThrow("64-byte download limit");
   });
 });

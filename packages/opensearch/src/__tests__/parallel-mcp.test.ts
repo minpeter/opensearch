@@ -4,6 +4,7 @@ import {
   createParallelMcpRequestInit,
   fetchParallelMcp,
 } from "../providers/parallel-mcp/client.ts";
+import { ResponseSizeLimitError } from "../response-body.ts";
 
 const ORIGINAL_PARALLEL_API_KEY = process.env.PARALLEL_API_KEY;
 
@@ -78,6 +79,48 @@ describe("Parallel MCP transport options", () => {
         method: "GET",
         redirect: "manual",
       })
+    );
+  });
+
+  it("rejects Parallel MCP responses with an oversized content length", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response("ok", {
+          headers: { "Content-Length": "4" },
+        })
+      )
+    );
+
+    await expect(
+      fetchParallelMcp("https://search.parallel.ai/mcp", undefined, 3)
+    ).rejects.toBeInstanceOf(ResponseSizeLimitError);
+  });
+
+  it("rejects chunked Parallel MCP responses after the byte limit", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          new ReadableStream<Uint8Array>({
+            start(controller) {
+              controller.enqueue(new Uint8Array([1, 2]));
+              controller.enqueue(new Uint8Array([3, 4]));
+              controller.close();
+            },
+          })
+        )
+      )
+    );
+
+    const response = await fetchParallelMcp(
+      "https://search.parallel.ai/mcp",
+      undefined,
+      3
+    );
+
+    await expect(response.arrayBuffer()).rejects.toBeInstanceOf(
+      ResponseSizeLimitError
     );
   });
 });

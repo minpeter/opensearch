@@ -3,28 +3,27 @@ import {
   type OpenSearchClient,
   type OpenSearchOptions,
 } from "./client.ts";
-import {
-  type EnvironmentReader,
-  processEnvironmentReader,
-} from "./environment.ts";
+import { processEnvironmentReader } from "./environment.ts";
 import { exaMcpFetchProvider } from "./fetch/exa-mcp-provider.ts";
-import { fetchLocalUrl } from "./fetch/local.ts";
+import { createLocalFetch } from "./fetch/local.ts";
 import {
   createFetchService,
   type FetchOptions,
   type FetchResult,
 } from "./fetch.ts";
-import { createDuckDuckGoProvider } from "./search/duckduckgo.ts";
-import { createExaMcpSearchProvider } from "./search/providers/exa-mcp.ts";
-import { createParallelMcpSearchProvider } from "./search/providers/parallel-mcp.ts";
-import { getSearchProviders } from "./search/providers.ts";
-import type { SearchProvider, SearchResult } from "./search/types.ts";
+import { createFetchUrlValidator } from "./node/network-policy.ts";
+import { getNodeSearchProviders } from "./search/node-providers.ts";
+import type { SearchResult } from "./search/types.ts";
 import { createSearchService } from "./search.ts";
 
 // Stable surface re-exported verbatim from the edge core.
 export type {
+  CacheOptions,
   OpenSearchClient,
   OpenSearchEnvironment,
+  OpenSearchEvent,
+  OpenSearchEventSink,
+  OpenSearchObservabilityOptions,
   OpenSearchOptions,
 } from "./client.ts";
 // biome-ignore lint/performance/noBarrelFile: this Node entrypoint intentionally mirrors the edge package surface.
@@ -50,19 +49,10 @@ export {
   searchResultsSchema,
 } from "./search.ts";
 
-function getNodeSearchProviders(
-  env: EnvironmentReader = processEnvironmentReader
-): SearchProvider[] {
-  return getSearchProviders(env, {
-    duckDuckGoFactory: createDuckDuckGoProvider,
-    exaMcpFactory: createExaMcpSearchProvider,
-    parallelMcpFactory: createParallelMcpSearchProvider,
-  });
-}
-
 const nodeFetchService = createFetchService(processEnvironmentReader, {
   exaMcpFetchProvider,
-  localFetch: fetchLocalUrl,
+  localFetch: createLocalFetch(),
+  validateUrl: createFetchUrlValidator(),
 });
 const nodeSearchService = createSearchService(processEnvironmentReader, {
   providers: getNodeSearchProviders,
@@ -99,7 +89,8 @@ export function createOpenSearch(
 ): OpenSearchClient {
   return createOpenSearchWithRuntime(options, {
     exaMcpFetchProvider,
-    localFetch: fetchLocalUrl,
+    fetchUrlValidatorFactory: createFetchUrlValidator,
+    localFetchFactory: createLocalFetch,
     searchProviders: getNodeSearchProviders,
   });
 }

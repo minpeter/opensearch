@@ -32,6 +32,7 @@ export interface AttemptExecutorResult<TResponse> {
 }
 
 export interface AttemptPlanOptions<TResponse> {
+  readonly abortOnError?: (error: unknown) => boolean;
   readonly executor: (
     input: AttemptExecutorInput
   ) => Promise<AttemptExecutorResult<TResponse>>;
@@ -98,6 +99,9 @@ export async function runAttemptPlan<TResponse>(
         return { trace, verdict: validation.verdict };
       }
     } catch (error) {
+      if (options.abortOnError?.(error)) {
+        throw error;
+      }
       trace.push({
         elapsedMs: Date.now() - startedAt,
         executor: options.executorName ?? "local-fetch",

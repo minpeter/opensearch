@@ -86,6 +86,23 @@ describe("feed parsing and discovery", () => {
     expect(mockFetch).toHaveBeenCalledTimes(2);
     expect(result?.title).toBe("Example Atom");
   });
+
+  it("cancels non-success response bodies before trying another feed", async () => {
+    const cancel = vi.fn();
+    const body = new ReadableStream({ cancel });
+    const fetcher = vi
+      .fn()
+      .mockResolvedValue(new Response(body, { status: 404 }));
+
+    const result = await fetchDiscoveredFeed("https://example.com/post", {
+      fetcher,
+      html: '<link rel="alternate" type="application/rss+xml" href="/missing.xml">',
+      includeTransforms: false,
+    });
+
+    expect(result).toBeNull();
+    expect(cancel).toHaveBeenCalledOnce();
+  });
 });
 
 describe("feed local fallback", () => {
