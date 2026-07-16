@@ -1,0 +1,13 @@
+core:changelogs:
+  - content: "---\npackages:\n  npm:@minpeter/opensearch:\n    type: patch\n---\n\n## Bound batch fetch concurrency\n\nDeduplicate repeated URLs in batch fetches and cap per-URL provider work at eight\nconcurrent operations by default. Clients can configure `fetch.maxConcurrency`,\nand individual `fetch` calls can override it without changing result order or\ncardinality.\n"
+    filename: bounded-fetch-concurrency.md
+    v: 0.0.0
+core:packages:
+  - changelogIds:
+      - bounded-fetch-concurrency.md
+    id: npm:@minpeter/opensearch
+    updated: true
+  - id: npm:opensearch-ai-sdk
+    updated: true
+  - id: npm:opensearch-mcp
+    updated: true
