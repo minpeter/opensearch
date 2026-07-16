@@ -62,6 +62,7 @@ export const verifyMcpServer = async ({
     maxTotalTimeout: timeoutMs,
     timeout: timeoutMs,
   };
+  let verificationResult;
 
   try {
     await client.connect(transport, requestOptions);
@@ -77,7 +78,7 @@ export const verifyMcpServer = async ({
       "MCP server version must match the installed package version"
     );
 
-    const { tools } = await client.listTools(undefined, requestOptions);
+    const { tools = [] } = await client.listTools(undefined, requestOptions);
     const actualTools = tools.map(({ name }) => name).sort();
     const sortedExpectedTools = [...expectedTools].sort();
     const toolSurfaceMatches =
@@ -91,18 +92,25 @@ export const verifyMcpServer = async ({
       );
     }
 
-    return { serverInfo, tools: actualTools };
+    verificationResult = { serverInfo, tools: actualTools };
   } catch (error) {
     const normalizedError =
       error instanceof Error ? error : new Error(String(error));
     const diagnostic = stderrOutput.trim();
-    if (diagnostic.length === 0) {
-      throw normalizedError;
+    const verificationError =
+      diagnostic.length === 0
+        ? normalizedError
+        : new Error(`${normalizedError.message} Stderr: ${diagnostic}`, {
+            cause: normalizedError,
+          });
+    try {
+      await client.close();
+    } catch {
+      // Preserve the protocol failure instead of replacing it with cleanup noise.
     }
-    throw new Error(`${normalizedError.message} Stderr: ${diagnostic}`, {
-      cause: normalizedError,
-    });
-  } finally {
-    await client.close();
+    throw verificationError;
   }
+
+  await client.close();
+  return verificationResult;
 };
