@@ -3,6 +3,7 @@ import {
   fetchFirecrawlUrl,
   isFirecrawlEnabled,
 } from "../providers/firecrawl/client.ts";
+import { mapWithConcurrency } from "./concurrency.ts";
 import { DEFAULT_MAX_CHARACTERS } from "./config.ts";
 import { createFetchResult, type FetchResult } from "./result.ts";
 
@@ -20,24 +21,23 @@ export function fetchUrlsViaFirecrawl(
   urls: string[],
   maxCharacters: number,
   env: EnvironmentReader,
-  fallback?: FetchFallback
+  fallback: FetchFallback | undefined,
+  maxConcurrency: number
 ): Promise<FetchResult[]> {
-  return Promise.all(
-    urls.map(async (url) => {
-      try {
-        const result = await fetchFirecrawlUrl(url, maxCharacters, env);
-        return createFetchResult(url, result.content, result.title);
-      } catch (error) {
-        if (!(error instanceof Error)) {
-          throw error;
-        }
-        if (fallback) {
-          return fallback(url);
-        }
+  return mapWithConcurrency(urls, maxConcurrency, async (url) => {
+    try {
+      const result = await fetchFirecrawlUrl(url, maxCharacters, env);
+      return createFetchResult(url, result.content, result.title);
+    } catch (error) {
+      if (!(error instanceof Error)) {
         throw error;
       }
-    })
-  );
+      if (fallback) {
+        return fallback(url);
+      }
+      throw error;
+    }
+  });
 }
 
 export async function tryFetchUrlViaFirecrawl(
@@ -62,14 +62,21 @@ export async function tryFetchUrlsViaFirecrawl(
   urls: string[],
   maxCharacters: number,
   env: EnvironmentReader,
-  fallback?: FetchFallback
+  fallback: FetchFallback | undefined,
+  maxConcurrency: number
 ): Promise<FetchResult[] | null> {
   if (!isFirecrawlEnabled(env)) {
     return null;
   }
 
   try {
-    return await fetchUrlsViaFirecrawl(urls, maxCharacters, env, fallback);
+    return await fetchUrlsViaFirecrawl(
+      urls,
+      maxCharacters,
+      env,
+      fallback,
+      maxConcurrency
+    );
   } catch (error) {
     if (!(error instanceof Error)) {
       throw error;

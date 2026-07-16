@@ -20,6 +20,13 @@ export type { OpenSearchEnvironment } from "./environment.ts";
 
 export interface OpenSearchOptions {
   readonly env?: OpenSearchEnvironment;
+  readonly fetch?: {
+    /**
+     * Maximum per-URL fetch work started concurrently inside a batch.
+     * Defaults to 8.
+     */
+    readonly maxConcurrency?: number;
+  };
 }
 
 /**
@@ -51,6 +58,7 @@ class ConfiguredOpenSearchClient implements OpenSearchClient {
     this.#fetchService = createFetchService(env, {
       exaMcpFetchProvider: runtime.exaMcpFetchProvider,
       localFetch: runtime.localFetch,
+      maxConcurrency: options.fetch?.maxConcurrency,
     });
     this.#searchService = createSearchService(env, {
       providers: runtime.searchProviders,

@@ -3,6 +3,8 @@ import {
   type EnvironmentReader,
   processEnvironmentReader,
 } from "./environment.ts";
+import { assertValidMaxConcurrency } from "./fetch/concurrency.ts";
+import { DEFAULT_MAX_CONCURRENCY } from "./fetch/config.ts";
 import {
   type CreateFetchOperationsOptions,
   createFetchOperations,
@@ -19,6 +21,8 @@ export const fetchResultSchema = fetchResultSchemaValue;
 
 export interface FetchOptions {
   readonly maxCharacters?: number;
+  /** Overrides the client's per-URL batch concurrency for this call. */
+  readonly maxConcurrency?: number;
 }
 
 export interface FetchService {
@@ -28,10 +32,15 @@ export interface FetchService {
     options?: FetchOptions
   ): Promise<FetchResult[]>;
   fetchUrl(url: string): Promise<FetchResult>;
-  fetchUrls(urls: string[], maxCharacters?: number): Promise<FetchResult[]>;
+  fetchUrls(
+    urls: string[],
+    maxCharacters?: number,
+    maxConcurrency?: number
+  ): Promise<FetchResult[]>;
   fetchUrlsWithCache(
     urls: string[],
-    maxCharacters?: number
+    maxCharacters?: number,
+    maxConcurrency?: number
   ): Promise<FetchResult[]>;
   fetchUrlWithCache(url: string): Promise<FetchResult>;
 }
@@ -39,6 +48,7 @@ export interface FetchService {
 export interface CreateFetchServiceOptions {
   readonly exaMcpFetchProvider?: CreateFetchOperationsOptions["exaMcpFetchProvider"];
   readonly localFetch?: CreateFetchOperationsOptions["localFetch"];
+  readonly maxConcurrency?: number;
 }
 
 const defaultFetchService = createFetchService(processEnvironmentReader);
@@ -47,11 +57,17 @@ export function createFetchService(
   env: EnvironmentReader = processEnvironmentReader,
   options: CreateFetchServiceOptions = {}
 ): FetchService {
-  return createFetchServiceForOperations(createFetchOperations(env, options));
+  const maxConcurrency = options.maxConcurrency ?? DEFAULT_MAX_CONCURRENCY;
+  assertValidMaxConcurrency(maxConcurrency);
+  return createFetchServiceForOperations(
+    createFetchOperations(env, options),
+    maxConcurrency
+  );
 }
 
 function createFetchServiceForOperations(
-  operations: FetchOperations
+  operations: FetchOperations,
+  defaultMaxConcurrency: number
 ): FetchService {
   const cache = new TtlCache<string, FetchResult>(3 * 60 * 1000);
 
@@ -61,9 +77,11 @@ function createFetchServiceForOperations(
 
   function fetchUrls(
     urls: string[],
-    maxCharacters?: number
+    maxCharacters?: number,
+    maxConcurrency = defaultMaxConcurrency
   ): Promise<FetchResult[]> {
-    return operations.fetchUrls(urls, maxCharacters);
+    assertValidMaxConcurrency(maxConcurrency);
+    return operations.fetchUrls(urls, maxCharacters, maxConcurrency);
   }
 
   function fetchUrlWithCache(url: string): Promise<FetchResult> {
@@ -72,21 +90,28 @@ function createFetchServiceForOperations(
 
   async function fetchUrlsWithCache(
     urls: string[],
-    maxCharacters?: number
+    maxCharacters?: number,
+    maxConcurrency = defaultMaxConcurrency
   ): Promise<FetchResult[]> {
+    assertValidMaxConcurrency(maxConcurrency);
+
     if (urls.length === 1 && maxCharacters === undefined) {
       const [url] = urls;
       return url ? [await fetchUrlWithCache(url)] : [];
     }
 
     if (maxCharacters !== undefined) {
-      return fetchUrls(urls, maxCharacters);
+      return fetchUrls(urls, maxCharacters, maxConcurrency);
     }
 
     const uncachedUrls = urls.filter((url) => !cache.has(url));
 
     if (uncachedUrls.length > 0) {
-      const fetchedResults = await fetchUrls(uncachedUrls);
+      const fetchedResults = await fetchUrls(
+        uncachedUrls,
+        undefined,
+        maxConcurrency
+      );
 
       for (const result of fetchedResults) {
         cache.set(result.url, result);
@@ -106,20 +131,26 @@ function createFetchServiceForOperations(
     options: FetchOptions = {}
   ): Promise<FetchResult | FetchResult[]> {
     const { maxCharacters } = options;
+    const maxConcurrency = options.maxConcurrency ?? defaultMaxConcurrency;
+    assertValidMaxConcurrency(maxConcurrency);
 
     if (typeof input === "string") {
       if (maxCharacters === undefined) {
         return fetchUrlWithCache(input);
       }
 
-      const [result] = await fetchUrlsWithCache([input], maxCharacters);
+      const [result] = await fetchUrlsWithCache(
+        [input],
+        maxCharacters,
+        maxConcurrency
+      );
       if (!result) {
         throw new Error("Fetch returned no result.");
       }
       return result;
     }
 
-    return fetchUrlsWithCache([...input], maxCharacters);
+    return fetchUrlsWithCache([...input], maxCharacters, maxConcurrency);
   }
 
   return {
@@ -137,9 +168,10 @@ export function fetchUrl(url: string): Promise<FetchResult> {
 
 export function fetchUrls(
   urls: string[],
-  maxCharacters?: number
+  maxCharacters?: number,
+  maxConcurrency?: number
 ): Promise<FetchResult[]> {
-  return defaultFetchService.fetchUrls(urls, maxCharacters);
+  return defaultFetchService.fetchUrls(urls, maxCharacters, maxConcurrency);
 }
 
 export function fetchUrlWithCache(url: string): Promise<FetchResult> {
@@ -148,9 +180,14 @@ export function fetchUrlWithCache(url: string): Promise<FetchResult> {
 
 export function fetchUrlsWithCache(
   urls: string[],
-  maxCharacters?: number
+  maxCharacters?: number,
+  maxConcurrency?: number
 ): Promise<FetchResult[]> {
-  return defaultFetchService.fetchUrlsWithCache(urls, maxCharacters);
+  return defaultFetchService.fetchUrlsWithCache(
+    urls,
+    maxCharacters,
+    maxConcurrency
+  );
 }
 
 export function fetch(

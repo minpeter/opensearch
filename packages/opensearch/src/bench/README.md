@@ -112,3 +112,66 @@ providers whose secrets are present are measured; the rest appear under
 `skipped`. Output is uploaded as the `provider-metrics` artifact (JSON + an
 NDJSON history line) and rendered into the run summary. Pass `--baseline <json>`
 to flag drift (`diffBaseline`) against a previous run.
+
+## Fetch batch fan-out microbenchmark
+
+`bench:fetch-batch` measures the scheduler around per-URL fetch fallbacks. Its
+hypothesis is that bounded scheduling caps resource fan-out and that duplicate
+inputs execute once, without changing result cardinality or order.
+
+The default of eight is a conservative zero-config choice, not a universal
+optimum: common small agent batches need few waves, while an unbounded direct
+core call can no longer open an arbitrary number of operations. The current
+adapters' 10-URL maximum needs at most two waves, but the core does not depend on
+that adapter policy. Callers can choose a different positive integer when
+latency, provider limits, or tenant budgets call for it. A hard 10-URL core limit
+was rejected because it would invalidate legitimate TypeScript batch workloads;
+a process-global semaphore was rejected because it would couple otherwise
+isolated clients and tenants; splitting native provider batch requests was
+rejected because it could increase upstream requests and cost.
+
+```sh
+pnpm --filter @minpeter/opensearch bench:fetch-batch
+```
+
+The fixed offline workload uses 100 inputs in two forms: 100 unique URLs, and 10
+unique URLs repeated 10 times. An injected provider takes 5 ms per call, so the
+benchmark performs no network I/O and consumes no provider quota. It warms up 3
+times, measures 20 iterations, and gives each probe a 5000 ms deadline. Output
+includes mean, p50, p95, min, and max latency plus provider calls, peak
+concurrency, output count, and order preservation. Each probe creates a fresh
+client and supplies `maxCharacters`, so no completed cache entry can affect the
+result.
+
+Measured on Linux x86_64 with Node v24.18.0. The before run used `49d3439` and
+executed this benchmark body inline because the script did not exist there; the
+after run used the checked-in command. Dependencies, workload, warm-up,
+iterations, and timeout were otherwise identical.
+
+| Workload / metric | Before | After | Change |
+| --- | ---: | ---: | ---: |
+| 10 unique repeated / provider calls | 100 | 10 | -90 (-90%) |
+| 10 unique repeated / peak concurrency | 100 | 8 | -92 (-92%) |
+| 10 unique repeated / latency mean | 5.55 ms | 10.38 ms | +4.83 ms |
+| 10 unique repeated / latency p50 / p95 | 5.58 / 5.74 ms | 10.32 / 10.45 ms | +4.74 / +4.71 ms |
+| 10 unique repeated / min / max | 5.31 / 5.86 ms | 10.25 / 11.40 ms | — |
+| 100 unique / provider calls | 100 | 100 | 0 |
+| 100 unique / peak concurrency | 100 | 8 | -92 (-92%) |
+| 100 unique / latency mean | 5.42 ms | 66.68 ms | +61.26 ms |
+| 100 unique / latency p50 / p95 | 5.34 / 5.65 ms | 66.76 / 67.69 ms | +61.42 / +62.04 ms |
+| 100 unique / min / max | 5.27 / 5.87 ms | 65.34 / 67.96 ms | — |
+
+Both before and after returned all 100 results in input order in every measured
+iteration. The added latency is expected: the synthetic 5 ms operations now run
+in waves of at most eight instead of all at once. The numbers are a deterministic
+scheduler proxy, not production latency or throughput predictions; they exclude
+real network variance and provider-side batching. The limit is per fetch call and
+does not coordinate separate clients or constrain fan-out performed internally
+by a provider's own batch operation.
+
+The root and Node runtime export counts stayed at 10 and 11 respectively; this
+change adds optional fields, not a new top-level export. An esbuild bundle under
+the same `workerd`, `worker`, and `browser` conditions grew from 670,200 to
+672,721 bytes (+2,521, +0.38%), or from 104,278 to 104,809 gzip bytes (+531,
++0.51%). The edge verifier still sees 83 modules and no Node-only dependency,
+static `node:` import, or Node global.
