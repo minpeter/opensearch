@@ -5,6 +5,9 @@
   "description": "Zero-config web search and page fetch for MCP clients",
   "license": "MIT",
   "packageManager": "pnpm@11.3.0",
+  "workspaces": [
+    "packages/*"
+  ],
   "engines": {
     "node": ">=22"
   },

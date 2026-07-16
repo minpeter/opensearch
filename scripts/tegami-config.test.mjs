@@ -3,8 +3,14 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
+import { tegami } from "tegami";
 
 const rootDir = dirname(dirname(fileURLToPath(import.meta.url)));
+const EXPECTED_PACKAGE_IDS = [
+  "npm:@minpeter/opensearch",
+  "npm:opensearch-ai-sdk",
+  "npm:opensearch-mcp",
+];
 
 const readText = (path) => readFileSync(join(rootDir, path), "utf8");
 const readJson = (path) => JSON.parse(readText(path));
@@ -35,6 +41,7 @@ test("root package.json uses Tegami release commands", () => {
     manifest.scripts["verify:packed"],
     "node scripts/verify-packed-packages.mjs"
   );
+  assert.deepEqual(manifest.workspaces, ["packages/*"]);
   assert.equal(manifest.scripts.changeset, undefined);
   assert.ok(manifest.devDependencies.tegami, "tegami must be installed");
   assert.equal(manifest.devDependencies["@changesets/cli"], undefined);
@@ -76,6 +83,54 @@ test("Tegami entrypoint targets this repository", () => {
   assert.ok(script.includes('"--lockfile-only"'));
   assert.ok(script.includes('repo: "minpeter/opensearch"'));
   assert.ok(script.includes('base: "main"'));
+});
+
+test("Tegami discovers workspace packages and resolves pending changelogs", async () => {
+  const paper = tegami({
+    cwd: rootDir,
+    npm: {
+      client: "npm",
+      updateLockFile: false,
+    },
+  });
+  const context = await paper._internal.context();
+  const discoveredPackageIds = context.graph
+    .getPackages()
+    .map(({ id }) => id);
+
+  for (const packageId of EXPECTED_PACKAGE_IDS) {
+    assert.ok(
+      discoveredPackageIds.includes(packageId),
+      `Tegami did not discover ${packageId}`
+    );
+  }
+
+  const pendingChangelogs = readDirectory(".tegami")
+    .filter((fileName) => fileName.endsWith(".md"))
+    .toSorted();
+  if (pendingChangelogs.length === 0) {
+    return;
+  }
+
+  const draft = await paper.draft();
+  assert.equal(draft.hasPending(), true, "pending changelogs must bump packages");
+  assert.deepEqual(
+    draft
+      .getChangelogs()
+      .map(({ filename }) => filename)
+      .toSorted(),
+    pendingChangelogs,
+    "every pending changelog must parse"
+  );
+
+  for (const changelog of draft.getChangelogs()) {
+    for (const packageReference of changelog.packages.keys()) {
+      assert.ok(
+        context.graph.getByName(packageReference).length > 0,
+        `${changelog.filename} references unknown package ${packageReference}`
+      );
+    }
+  }
 });
 
 test("Changesets release metadata was removed", () => {
