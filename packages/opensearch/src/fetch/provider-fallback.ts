@@ -11,7 +11,7 @@ import {
   isOllamaEnabled,
   isOllamaLocalEnabled,
   readOllamaApiKey,
-} from "../providers/ollama/client.ts";
+} from "../providers/ollama/config.ts";
 import { getHttpStatus } from "../providers/shared/error.ts";
 import type { TinyFishApiKeyPool } from "../providers/tinyfish/api-key-pool.ts";
 import { fetchTinyFishUrls } from "../providers/tinyfish/fetch.ts";

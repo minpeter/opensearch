@@ -10,7 +10,7 @@ import {
 } from "../environment.ts";
 import { tryFetchUrlViaOllama } from "../fetch/ollama-provider.ts";
 import { createFetchResult } from "../fetch/result.ts";
-import { resolveLocalBaseUrl } from "../providers/ollama/client.ts";
+import { resolveLocalBaseUrl } from "../providers/ollama/config.ts";
 import { getNodeSearchProviders } from "../search/node-providers.ts";
 import { createOllamaSearchProvider } from "../search/providers/ollama.ts";
 import { createSearchService } from "../search.ts";
