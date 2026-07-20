@@ -150,7 +150,7 @@ async function resultFromResponse(
     context.options.maxDownloadBytes
   );
   if (isFeedResponse(contentType)) {
-    const feed = parseFeed(url, new TextDecoder().decode(bytes), "feed:direct");
+    const feed = parseFeed(url, new TextDecoder().decode(bytes));
     if (feed) {
       return feed;
     }
