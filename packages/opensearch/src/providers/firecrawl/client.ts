@@ -122,13 +122,13 @@ export async function fetchFirecrawlUrl(
 ): Promise<FirecrawlFetchResult> {
   const payload = await requestFirecrawlJson({
     body: {
+      blockAds: true,
       formats: ["markdown"],
       onlyCleanContent: true,
       onlyMainContent: true,
       parsers: ["pdf"],
       proxy: "auto",
       removeBase64Images: true,
-      blockAds: true,
       timeout: FIRECRAWL_TIMEOUT_MS,
       url,
     },
@@ -174,6 +174,7 @@ async function requestFirecrawlJson(
   let lastFallbackError: Error | null = null;
 
   for (const apiKey of getFirecrawlAttemptOrder(options)) {
+    // biome-ignore lint/performance/noAwaitInLoops: API key fallback is sequential to stop after the first successful request
     const response = await fetch(createFirecrawlEndpoint(options), {
       body: JSON.stringify(options.body),
       headers: createFirecrawlHeaders(apiKey),
@@ -262,7 +263,8 @@ async function readFirecrawlJson(
     throw new Error(
       `Firecrawl ${endpoint} returned invalid JSON: ${
         error instanceof Error ? error.message : String(error)
-      }`
+      }`,
+      { cause: error }
     );
   }
 }

@@ -135,6 +135,7 @@ export async function fetchDiscoveredFeed(
     options.maxResponseBytes ?? DEFAULT_MAX_DOWNLOAD_BYTES;
   for (const candidate of discoverFeedCandidates(rawUrl, options)) {
     try {
+      // biome-ignore lint/performance/noAwaitInLoops: feed candidates are tried sequentially to stop after the first valid feed
       const response = await fetcher(candidate.url);
       if (!response.ok) {
         await cancelResponseBody(response);

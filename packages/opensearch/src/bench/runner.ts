@@ -78,7 +78,7 @@ function failureOutcome(
   }
 
   if (error instanceof SearchEngineError) {
-    const message = error.message;
+    const { message } = error;
     return {
       engine: provider.name,
       errorKind: error.kind,
@@ -144,6 +144,7 @@ async function probeProvider(
   // Sequential within a provider to avoid self-throttling its rate limits.
   for (const query of queries) {
     outcomes.push(
+      // biome-ignore lint/performance/noAwaitInLoops: sequential benchmark measurement
       await probe(provider, query.query, numResults, clock, deadlineMs)
     );
   }
@@ -165,7 +166,7 @@ export async function runBenchmark(
     requestedConcurrency !== undefined && Number.isFinite(requestedConcurrency)
       ? Math.max(1, Math.floor(requestedConcurrency))
       : DEFAULT_CONCURRENCY;
-  const providers = options.providers;
+  const { providers } = options;
   const results: ProbeOutcome[][] = new Array(providers.length);
   let cursor = 0;
 
@@ -177,6 +178,7 @@ export async function runBenchmark(
       if (provider === undefined) {
         continue;
       }
+      // biome-ignore lint/performance/noAwaitInLoops: sequential benchmark measurement
       results[index] = await probeProvider(
         provider,
         options.queries,

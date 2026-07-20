@@ -33,17 +33,17 @@ export interface JsonProviderRequest {
 }
 
 export interface JsonProviderSpec {
-  buildRequest(query: string, numResults: number): JsonProviderRequest;
+  buildRequest: (query: string, numResults: number) => JsonProviderRequest;
   readonly name: SearchEngineName;
-  parse(payload: unknown): ParsedResult[];
+  parse: (payload: unknown) => ParsedResult[];
 }
 
 const OPTIONAL_STRING_SCHEMA = z.string().nullable().optional();
 
 const COMMON_RESULT_SCHEMA = z.object({
   content: OPTIONAL_STRING_SCHEMA,
-  description: OPTIONAL_STRING_SCHEMA,
   desc: OPTIONAL_STRING_SCHEMA,
+  description: OPTIONAL_STRING_SCHEMA,
   excerpts: z
     .union([z.array(z.string()), z.string()])
     .nullable()
@@ -99,10 +99,12 @@ export function createJsonSearchProvider(
           throw error;
         }
 
+        // biome-ignore lint/style/useErrorCause: SearchEngineError receives the original cause in its fourth argument
         throw new SearchEngineError(
           spec.name,
           "transient",
-          `${spec.name} search failed: ${getErrorMessage(error)}`
+          `${spec.name} search failed: ${getErrorMessage(error)}`,
+          { cause: error }
         );
       }
     },

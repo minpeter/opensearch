@@ -89,7 +89,7 @@ describe("validateChallenge", () => {
     const result = validateChallenge({
       body: "Just a moment...",
       cookies: { __cf_bm: "token" },
-      headers: { server: "cloudflare", "cf-ray": "abc" },
+      headers: { "cf-ray": "abc", server: "cloudflare" },
     });
     expect(result.profiles[0]).toMatchObject({
       confidence: 0.9,

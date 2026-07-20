@@ -13,7 +13,6 @@ export function createSearchApiProvider(
 ): SearchProvider | null {
   return createPooledJsonSearchProvider({
     apiKeyPool: getApiKeyPool("SEARCHAPI_API_KEY", env),
-    name: "SearchAPI",
     buildRequest: (apiKey, query, numResults) => ({
       method: "GET",
       url: createSearchUrl(
@@ -30,6 +29,7 @@ export function createSearchApiProvider(
         }
       ),
     }),
+    name: "SearchAPI",
     parse: (payload) => parseCommonResultArray(payload, ["organic_results"]),
   });
 }

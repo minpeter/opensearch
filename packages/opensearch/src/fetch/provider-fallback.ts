@@ -36,13 +36,16 @@ export interface ExaMcpFetchBatchResult {
 }
 
 export interface ExaMcpFetchProvider {
-  fetchBatch(
+  fetchBatch: (
     urls: string[],
     maxCharacters: number,
     env: EnvironmentReader
-  ): Promise<readonly ExaMcpFetchBatchResult[]>;
-  fetchUrl(url: string, env: EnvironmentReader): Promise<FetchResult | null>;
-  isEnabled(env: EnvironmentReader): boolean;
+  ) => Promise<readonly ExaMcpFetchBatchResult[]>;
+  fetchUrl: (
+    url: string,
+    env: EnvironmentReader
+  ) => Promise<FetchResult | null>;
+  isEnabled: (env: EnvironmentReader) => boolean;
 }
 
 export interface FetchPipelineContext {
@@ -80,6 +83,7 @@ async function fetchUrlViaProvidersInternal(
   }
 
   const exaMcpEnabled =
+    // biome-ignore lint/suspicious/noUnnecessaryConditions: defensive fallback handles an optional provider supplied at runtime
     context.exaMcpFetchProvider?.isEnabled(context.env) ?? false;
   const exaMcpResult = await tryFetchUrlViaExaMcp(url, context, operationId);
   if (exaMcpResult) {

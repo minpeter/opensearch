@@ -42,23 +42,23 @@ export interface FetchOptions {
 }
 
 export interface FetchService {
-  fetch(url: string, options?: FetchOptions): Promise<FetchResult>;
-  fetch(
-    urls: readonly string[],
-    options?: FetchOptions
-  ): Promise<FetchResult[]>;
-  fetchUrl(url: string): Promise<FetchResult>;
-  fetchUrls(
+  fetch: ((url: string, options?: FetchOptions) => Promise<FetchResult>) &
+    ((
+      urls: readonly string[],
+      options?: FetchOptions
+    ) => Promise<FetchResult[]>);
+  fetchUrl: (url: string) => Promise<FetchResult>;
+  fetchUrls: (
     urls: string[],
     maxCharacters?: number,
     maxConcurrency?: number
-  ): Promise<FetchResult[]>;
-  fetchUrlsWithCache(
+  ) => Promise<FetchResult[]>;
+  fetchUrlsWithCache: (
     urls: string[],
     maxCharacters?: number,
     maxConcurrency?: number
-  ): Promise<FetchResult[]>;
-  fetchUrlWithCache(url: string): Promise<FetchResult>;
+  ) => Promise<FetchResult[]>;
+  fetchUrlWithCache: (url: string) => Promise<FetchResult>;
 }
 
 export interface CreateFetchServiceOptions {
@@ -103,11 +103,14 @@ function createFetchServiceForOperations(
       })
     : null;
 
-  function fetchUrl(url: string, operationId?: string): Promise<FetchResult> {
+  function fetchSingleUrl(
+    url: string,
+    operationId?: string
+  ): Promise<FetchResult> {
     return operations.fetchUrl(url, operationId);
   }
 
-  function fetchUrls(
+  function fetchMultipleUrls(
     urls: string[],
     maxCharacters?: number,
     maxConcurrency = defaultMaxConcurrency,
@@ -126,7 +129,7 @@ function createFetchServiceForOperations(
     );
   }
 
-  function fetchUrlWithCache(
+  function fetchSingleUrlWithCache(
     url: string,
     operationId?: string,
     emitCache = true
@@ -135,7 +138,7 @@ function createFetchServiceForOperations(
       if (operationId && emitCache) {
         emitCacheEvent(observer, "fetch", operationId, "bypass");
       }
-      return fetchUrl(url, operationId);
+      return fetchSingleUrl(url, operationId);
     }
 
     if (operationId && emitCache) {
@@ -146,10 +149,10 @@ function createFetchServiceForOperations(
         cache.has(url) ? "hit" : "miss"
       );
     }
-    return cache.getOrSet(url, () => fetchUrl(url, operationId));
+    return cache.getOrSet(url, () => fetchSingleUrl(url, operationId));
   }
 
-  async function fetchUrlsWithCache(
+  async function fetchMultipleUrlsWithCache(
     urls: string[],
     maxCharacters?: number,
     maxConcurrency = defaultMaxConcurrency,
@@ -159,12 +162,17 @@ function createFetchServiceForOperations(
 
     if (cache === null || maxCharacters !== undefined) {
       emitFetchCacheBypass(operationId);
-      return fetchUrls(urls, maxCharacters, maxConcurrency, operationId);
+      return fetchMultipleUrls(
+        urls,
+        maxCharacters,
+        maxConcurrency,
+        operationId
+      );
     }
 
     if (urls.length === 1) {
       const [url] = urls;
-      return url ? [await fetchUrlWithCache(url, operationId)] : [];
+      return url ? [await fetchSingleUrlWithCache(url, operationId)] : [];
     }
 
     return fetchCachedBatch(urls, maxConcurrency, operationId, cache);
@@ -203,7 +211,7 @@ function createFetchServiceForOperations(
     }
 
     if (uncachedUrls.length > 0) {
-      const fetchedResults = await fetchUrls(
+      const fetchedResults = await fetchMultipleUrls(
         uncachedUrls,
         undefined,
         maxConcurrency,
@@ -225,12 +233,15 @@ function createFetchServiceForOperations(
     });
   }
 
-  function fetch(url: string, options?: FetchOptions): Promise<FetchResult>;
-  function fetch(
+  function fetchInput(
+    url: string,
+    options?: FetchOptions
+  ): Promise<FetchResult>;
+  function fetchInput(
     urls: readonly string[],
     options?: FetchOptions
   ): Promise<FetchResult[]>;
-  function fetch(
+  function fetchInput(
     input: string | readonly string[],
     options: FetchOptions = {}
   ): Promise<FetchResult | FetchResult[]> {
@@ -247,10 +258,10 @@ function createFetchServiceForOperations(
         assertValidMaxConcurrency(maxConcurrency);
         if (typeof input === "string") {
           if (maxCharacters === undefined) {
-            return fetchUrlWithCache(input, operationId);
+            return fetchSingleUrlWithCache(input, operationId);
           }
 
-          const [result] = await fetchUrlsWithCache(
+          const [result] = await fetchMultipleUrlsWithCache(
             [input],
             maxCharacters,
             maxConcurrency,
@@ -262,7 +273,7 @@ function createFetchServiceForOperations(
           return result;
         }
 
-        return fetchUrlsWithCache(
+        return fetchMultipleUrlsWithCache(
           [...input],
           maxCharacters,
           maxConcurrency,
@@ -273,11 +284,11 @@ function createFetchServiceForOperations(
   }
 
   return {
-    fetch,
-    fetchUrl,
-    fetchUrls,
-    fetchUrlsWithCache,
-    fetchUrlWithCache,
+    fetch: fetchInput,
+    fetchUrl: fetchSingleUrl,
+    fetchUrls: fetchMultipleUrls,
+    fetchUrlsWithCache: fetchMultipleUrlsWithCache,
+    fetchUrlWithCache: fetchSingleUrlWithCache,
   };
 }
 

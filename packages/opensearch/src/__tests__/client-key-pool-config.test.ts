@@ -128,6 +128,4 @@ function readRequestHeader(
   if (headers && typeof headers === "object" && headerName in headers) {
     return String((headers as Record<string, unknown>)[headerName]);
   }
-
-  return;
 }

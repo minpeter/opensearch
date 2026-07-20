@@ -18,32 +18,32 @@ import type {
 interface PooledSearchProviderSpec {
   readonly apiKeyPool: ApiKeyPool;
   readonly name: SearchEngineName;
-  searchWithApiKey(
+  searchWithApiKey: (
     apiKey: string,
     query: string,
     numResults: number
-  ): Promise<SearchResult[]>;
+  ) => Promise<SearchResult[]>;
 }
 
 interface PooledJsonProviderSpec {
   readonly apiKeyPool: ApiKeyPool;
-  buildRequest(
+  buildRequest: (
     apiKey: string,
     query: string,
     numResults: number
-  ): JsonProviderRequest;
+  ) => JsonProviderRequest;
   readonly name: SearchEngineName;
-  parse(payload: unknown): ParsedResult[];
+  parse: (payload: unknown) => ParsedResult[];
 }
 
 interface PooledCredentialPairProviderSpec {
   readonly credentialPairPool: CredentialPairPool;
   readonly name: SearchEngineName;
-  searchWithCredentials(
+  searchWithCredentials: (
     credentials: CredentialPair,
     query: string,
     numResults: number
-  ): Promise<SearchResult[]>;
+  ) => Promise<SearchResult[]>;
 }
 
 export function createPooledSearchProvider(
@@ -61,6 +61,7 @@ export function createPooledSearchProvider(
 
       for (const apiKey of attemptOrder) {
         try {
+          // biome-ignore lint/performance/noAwaitInLoops: API keys are retried sequentially after retryable failures
           return await spec.searchWithApiKey(apiKey, query, numResults);
         } catch (error) {
           if (isKeyPoolRetryableError(error)) {
@@ -100,6 +101,7 @@ export function createPooledCredentialPairSearchProvider(
 
       for (const credentials of attemptOrder) {
         try {
+          // biome-ignore lint/performance/noAwaitInLoops: credential pairs are retried sequentially after retryable failures
           return await spec.searchWithCredentials(
             credentials,
             query,

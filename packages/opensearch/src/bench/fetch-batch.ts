@@ -58,7 +58,7 @@ function percentile(sortedValues: readonly number[], ratio: number): number {
 
 function distribution(values: readonly number[]): Distribution {
   const sortedValues = [...values].sort((left, right) => left - right);
-  const first = sortedValues[0];
+  const [first] = sortedValues;
   const last = sortedValues.at(-1);
 
   if (first === undefined || last === undefined) {
@@ -78,7 +78,7 @@ function distribution(values: readonly number[]): Distribution {
 
 function invariantValue(values: readonly number[], name: string): number {
   const uniqueValues = [...new Set(values)];
-  const value = uniqueValues[0];
+  const [value] = uniqueValues;
 
   if (uniqueValues.length !== 1 || value === undefined) {
     throw new Error(`${name} changed between benchmark iterations.`);
@@ -142,11 +142,13 @@ async function benchmarkWorkload(
   urls: readonly string[]
 ): Promise<WorkloadReport> {
   for (const _warmup of Array.from({ length: WARMUP_COUNT })) {
+    // biome-ignore lint/performance/noAwaitInLoops: sequential benchmark measurement
     await runProbe(urls);
   }
 
   const samples: ProbeResult[] = [];
   for (const _iteration of Array.from({ length: ITERATION_COUNT })) {
+    // biome-ignore lint/performance/noAwaitInLoops: sequential benchmark measurement
     samples.push(await runProbe(urls));
   }
 

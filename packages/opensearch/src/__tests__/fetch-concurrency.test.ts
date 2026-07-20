@@ -91,9 +91,9 @@ describe("fetch batch concurrency", () => {
 
     expect(metrics.calls).toBe(10);
     expect(metrics.peak).toBe(8);
-    expect(metrics.requestedUrls.toSorted()).toStrictEqual(
-      [...new Set(urls)].toSorted()
-    );
+    expect(
+      metrics.requestedUrls.toSorted((a, b) => a.localeCompare(b))
+    ).toStrictEqual([...new Set(urls)].toSorted((a, b) => a.localeCompare(b)));
     expect(results).toHaveLength(urls.length);
     expect(results.map((result) => result.url)).toStrictEqual(urls);
     expect(results.map((result) => result.content)).toStrictEqual(

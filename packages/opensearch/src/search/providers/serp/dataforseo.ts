@@ -37,7 +37,6 @@ function createDataForSeoProviderWithCredentials(
 ): SearchProvider {
   const [login, password] = credentials;
   return createJsonSearchProvider({
-    name: "DataForSEO",
     buildRequest: (query, numResults) => ({
       body: [
         {
@@ -55,6 +54,7 @@ function createDataForSeoProviderWithCredentials(
         env
       ),
     }),
+    name: "DataForSEO",
     parse: (payload) =>
       parseArrayFromAnyPath(payload, [
         ["tasks", "0", "result", "0", "items"],

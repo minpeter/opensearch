@@ -26,10 +26,12 @@ export function createExaMcpSearchProvider(
         if (error instanceof SearchEngineError) {
           throw error;
         }
+        // biome-ignore lint/style/useErrorCause: SearchEngineError receives the original cause in its fourth argument
         throw new SearchEngineError(
           "Exa",
           classifyExaMcpFailure(error),
-          `Exa MCP search failed: ${getErrorMessage(error)}`
+          `Exa MCP search failed: ${getErrorMessage(error)}`,
+          { cause: error }
         );
       }
     },

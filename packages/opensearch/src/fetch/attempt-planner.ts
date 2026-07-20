@@ -62,6 +62,7 @@ export async function runAttemptPlan<TResponse>(
   for (const attempt of attempts) {
     const startedAt = Date.now();
     try {
+      // biome-ignore lint/performance/noAwaitInLoops: attempts must run sequentially to stop after the first valid response
       const result = await options.executor({
         ...attempt,
         name: options.executorName ?? "local-fetch",

@@ -14,10 +14,10 @@ import {
 
 function createFetchResult(overrides: Partial<FetchResult> = {}): FetchResult {
   return {
-    title: "Example title",
-    url: "https://example.com/article",
     content: "# Example\n\nBody copy",
     length: "# Example\n\nBody copy".length,
+    title: "Example title",
+    url: "https://example.com/article",
     ...overrides,
   };
 }
@@ -25,8 +25,8 @@ function createFetchResult(overrides: Partial<FetchResult> = {}): FetchResult {
 describe("webFetchInputSchema", () => {
   it("accepts Exa-style numResults for search result limits", () => {
     const parsed = webSearchInputSchema.parse({
-      query: "example query",
       numResults: 7,
+      query: "example query",
     });
 
     expect(getSearchResultCount(parsed)).toBe(7);
@@ -34,8 +34,8 @@ describe("webFetchInputSchema", () => {
 
   it("still accepts the max_results compatibility alias for search result limits", () => {
     const parsed = webSearchInputSchema.parse({
-      query: "example query",
       max_results: 3,
+      query: "example query",
     });
 
     expect(getSearchResultCount(parsed)).toBe(3);
@@ -67,8 +67,8 @@ describe("webFetchInputSchema", () => {
 
   it("accepts maxCharacters for batched fetch requests", () => {
     const parsed = webFetchInputSchema.parse({
-      urls: ["https://example.com/one"],
       maxCharacters: 4000,
+      urls: ["https://example.com/one"],
     });
 
     expect(getFetchMaxCharacters(parsed)).toBe(4000);
@@ -82,8 +82,8 @@ describe("webFetchInputSchema", () => {
 
     expect(normalizedSchema).toBeDefined();
     expect(jsonSchema?.properties).toMatchObject({
-      urls: expect.objectContaining({ type: "array" }),
       maxCharacters: expect.objectContaining({ type: "integer" }),
+      urls: expect.objectContaining({ type: "array" }),
     });
     expect(jsonSchema?.properties).not.toHaveProperty("url");
   });
@@ -92,39 +92,39 @@ describe("webFetchInputSchema", () => {
 describe("webSearchInputSchema", () => {
   it("accepts numResults as the preferred result-count field", () => {
     const parsed = webSearchInputSchema.parse({
-      query: "example query",
       numResults: 7,
+      query: "example query",
     });
 
     expect(parsed).toEqual({
-      query: "example query",
       numResults: 7,
+      query: "example query",
     });
   });
 
   it("maps the max_results compatibility alias to numResults", () => {
     const parsed = webSearchInputSchema.parse({
-      query: "example query",
       max_results: 4,
+      query: "example query",
     });
 
     expect(parsed).toEqual({
-      query: "example query",
       max_results: 4,
+      query: "example query",
     });
   });
 
   it("prefers numResults when both fields are provided", () => {
     const parsed = webSearchInputSchema.parse({
-      query: "example query",
-      numResults: 6,
       max_results: 3,
+      numResults: 6,
+      query: "example query",
     });
 
     expect(parsed).toEqual({
-      query: "example query",
-      numResults: 6,
       max_results: 3,
+      numResults: 6,
+      query: "example query",
     });
   });
 
@@ -136,9 +136,9 @@ describe("webSearchInputSchema", () => {
 
     expect(normalizedSchema).toBeDefined();
     expect(jsonSchema?.properties).toMatchObject({
-      query: expect.objectContaining({ type: "string" }),
-      numResults: expect.objectContaining({ type: "integer" }),
       max_results: expect.objectContaining({ type: "integer" }),
+      numResults: expect.objectContaining({ type: "integer" }),
+      query: expect.objectContaining({ type: "string" }),
     });
   });
 });
@@ -150,7 +150,6 @@ describe("createFetchToolResult", () => {
 
     expect(toolResult.content).toEqual([
       {
-        type: "text",
         text: [
           "Title: Example title",
           "URL: https://example.com/article",
@@ -160,6 +159,7 @@ describe("createFetchToolResult", () => {
           "",
           "Body copy",
         ].join("\n"),
+        type: "text",
       },
     ]);
     expect(toolResult).not.toHaveProperty("structuredContent");
@@ -168,18 +168,18 @@ describe("createFetchToolResult", () => {
   it("returns text-first blocks for multi-fetch responses without structured output", () => {
     const first = createFetchResult();
     const second = createFetchResult({
-      title: "Second title",
-      url: "https://example.com/second",
       content: "Second body",
       length: "Second body".length,
+      title: "Second title",
+      url: "https://example.com/second",
     });
 
     const toolResult = createFetchToolResult([first, second]);
 
     expect(toolResult.content).toHaveLength(3);
     expect(toolResult.content[0]).toEqual({
-      type: "text",
       text: "Fetched 2 URLs. Each block below contains source metadata followed by extracted markdown.",
+      type: "text",
     });
     expect(toolResult.content[1]?.text).toContain("Title: Example title");
     expect(toolResult.content[1]?.text).toContain(
@@ -195,9 +195,9 @@ describe("createSearchContent", () => {
     const content = createSearchContent("example query", [
       {
         engine: "Brave",
+        snippet: "Example snippet",
         title: "Example",
         url: "https://example.com",
-        snippet: "Example snippet",
       },
     ]);
 

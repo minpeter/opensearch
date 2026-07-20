@@ -15,12 +15,12 @@ import type {
 type ScrapeEngineName = Extract<SearchEngineName, "DuckDuckGo">;
 
 interface ScrapeSearchEngine {
-  getRequestInit(query: string): {
+  getRequestInit: (query: string) => {
     readonly init: RequestInit;
     readonly url: string;
   };
   readonly name: ScrapeEngineName;
-  parse(html: string): ParsedResult[];
+  parse: (html: string) => ParsedResult[];
 }
 
 interface SearchParserConfig {
@@ -28,7 +28,7 @@ interface SearchParserConfig {
   readonly detectBlocked?: ($: CheerioAPI, pageText: string) => boolean;
   readonly detectNoResults?: ($: CheerioAPI, pageText: string) => boolean;
   readonly engine: ScrapeEngineName;
-  extractResults($: CheerioAPI): ParsedResult[];
+  extractResults: ($: CheerioAPI) => ParsedResult[];
 }
 
 export const SCRAPE_SEARCH_ENGINES: Record<
@@ -36,7 +36,6 @@ export const SCRAPE_SEARCH_ENGINES: Record<
   ScrapeSearchEngine
 > = {
   DuckDuckGo: {
-    name: "DuckDuckGo",
     getRequestInit(query: string) {
       const formData = new FormData();
       formData.append("q", query);
@@ -46,6 +45,7 @@ export const SCRAPE_SEARCH_ENGINES: Record<
         url: "https://html.duckduckgo.com/html/",
       };
     },
+    name: "DuckDuckGo",
     parse: parseDuckDuckGoResults,
   },
 };
@@ -71,10 +71,12 @@ async function searchWithScrapeEngine(
   try {
     response = await fetch(url, init);
   } catch (error) {
+    // biome-ignore lint/style/useErrorCause: SearchEngineError receives the original cause in its fourth argument
     throw new SearchEngineError(
       engine.name,
       "transient",
-      `${engine.name} fetch failed: ${getErrorMessage(error)}`
+      `${engine.name} fetch failed: ${getErrorMessage(error)}`,
+      { cause: error }
     );
   }
 
@@ -92,12 +94,14 @@ async function searchWithScrapeEngine(
   try {
     html = await readResponseText(response);
   } catch (error) {
+    // biome-ignore lint/style/useErrorCause: SearchEngineError receives the original cause in its fourth argument
     throw new SearchEngineError(
       engine.name,
       "transient",
       `${engine.name} response body could not be read: ${getErrorMessage(
         error
-      )}`
+      )}`,
+      { cause: error }
     );
   }
   return attachEngine(engine.name, engine.parse(html));

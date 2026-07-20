@@ -7,8 +7,8 @@ import { readApiKeyPool } from "./api-key-pool.ts";
 export type CredentialPair = readonly [string, string];
 
 export interface CredentialPairPool {
-  getAttemptOrder(): readonly CredentialPair[];
-  hasCredentials(): boolean;
+  getAttemptOrder: () => readonly CredentialPair[];
+  hasCredentials: () => boolean;
 }
 
 const credentialPairPools = new WeakMap<

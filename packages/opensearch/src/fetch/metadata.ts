@@ -46,7 +46,7 @@ function asName(value: unknown): string {
     return value.map(asName).filter(Boolean).join(", ");
   }
   if (value && typeof value === "object") {
-    const name = (value as { name?: unknown }).name;
+    const { name } = value as { name?: unknown };
     return typeof name === "string" ? name.trim() : "";
   }
   return "";

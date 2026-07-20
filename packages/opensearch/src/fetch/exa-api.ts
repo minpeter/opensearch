@@ -32,14 +32,14 @@ const exaContentsResponseSchema = z.object({
   statuses: z
     .array(
       z.object({
-        id: z.string().optional(),
-        status: z.string(),
         error: z
           .object({
             httpStatusCode: z.number().optional(),
             tag: z.string().optional(),
           })
           .optional(),
+        id: z.string().optional(),
+        status: z.string(),
       })
     )
     .optional(),
@@ -89,6 +89,7 @@ export async function fetchExaApiBatchWithPool(
   let lastRateLimitError: Error | null = null;
 
   for (const apiKey of attemptOrder) {
+    // biome-ignore lint/performance/noAwaitInLoops: API keys are retried sequentially after rate-limit responses
     const response = await requestExaContents(apiKey, urls, maxCharacters);
     if (response.status === 429) {
       await cancelResponseBody(response);

@@ -91,7 +91,7 @@ export function isIgnoredSearchEngineUrl(
 
   const hostname = parsedUrl.hostname.toLowerCase();
   const pathname = parsedUrl.pathname.toLowerCase();
-  const searchParams = parsedUrl.searchParams;
+  const { searchParams } = parsedUrl;
   const internalUrlRules = SEARCH_ENGINE_INTERNAL_URL_RULES[engine];
 
   if (SEARCH_ENGINE_HOSTS[engine].includes(hostname)) {

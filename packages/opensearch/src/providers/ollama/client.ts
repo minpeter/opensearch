@@ -55,18 +55,18 @@ const ollamaSearchResponseSchema = z.object({
   results: z
     .array(
       z.object({
+        content: z.string().optional(),
         title: z.string().optional(),
         url: z.string().optional(),
-        content: z.string().optional(),
       })
     )
     .optional(),
 });
 
 const ollamaFetchResponseSchema = z.object({
-  title: z.string().optional(),
   content: z.string().optional(),
   links: z.array(z.string()).optional(),
+  title: z.string().optional(),
 });
 
 export interface OllamaSearchItem {
@@ -242,8 +242,8 @@ export async function ollamaLocalSearch(
   const payload = await postJson(
     `${resolveLocalBaseUrl(env)}${LOCAL_PATH_SEARCH}`,
     {
-      query,
       max_results: capMaxResults(maxResults),
+      query,
     },
     {
       label: "local search",
@@ -265,8 +265,8 @@ export async function ollamaCloudSearch(
   const payload = await postJson(
     `${CLOUD_BASE_URL}${CLOUD_PATH_SEARCH}`,
     {
-      query,
       max_results: capMaxResults(maxResults),
+      query,
     },
     {
       headers: { Authorization: `Bearer ${apiKey}` },
@@ -328,9 +328,9 @@ function normalizeSearchItems(
 ): OllamaSearchItem[] {
   return items
     .map((item) => ({
+      content: item.content ?? "",
       title: item.title ?? "",
       url: item.url ?? "",
-      content: item.content ?? "",
     }))
     .filter((item) => item.url.length > 0);
 }
@@ -341,8 +341,8 @@ function normalizeFetchResult(payload: {
   readonly links?: readonly string[];
 }): OllamaFetchResult {
   return {
-    title: payload.title ?? "",
     content: payload.content ?? "",
     links: payload.links ?? [],
+    title: payload.title ?? "",
   };
 }

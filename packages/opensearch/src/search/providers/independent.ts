@@ -36,7 +36,6 @@ function createKagiProvider(
 ): SearchProvider | null {
   return createPooledJsonSearchProvider({
     apiKeyPool: getApiKeyPool(envName, env),
-    name: "Kagi",
     buildRequest: (apiKey, query, numResults) => ({
       headers: { Authorization: `Bot ${apiKey}` },
       method: "GET",
@@ -52,6 +51,7 @@ function createKagiProvider(
         }
       ),
     }),
+    name: "Kagi",
     parse: (payload) => parseCommonResultArray(payload, ["data"]),
   });
 }
@@ -59,7 +59,6 @@ function createKagiProvider(
 function createMojeekProvider(env: EnvironmentReader): SearchProvider | null {
   return createPooledJsonSearchProvider({
     apiKeyPool: getApiKeyPool("MOJEEK_API_KEY", env),
-    name: "Mojeek",
     buildRequest: (apiKey, query, numResults) => ({
       method: "GET",
       url: createSearchUrl(
@@ -76,6 +75,7 @@ function createMojeekProvider(env: EnvironmentReader): SearchProvider | null {
         }
       ),
     }),
+    name: "Mojeek",
     parse: (payload) =>
       parseArrayFromAnyPath(payload, [["response", "results"], ["results"]]),
   });
@@ -91,7 +91,6 @@ function createSearxngProviders(env: EnvironmentReader): SearchProvider[] {
 
 function createSearxngProvider(baseUrl: string): SearchProvider {
   return createJsonSearchProvider({
-    name: "SearxNG",
     buildRequest: (query) => ({
       method: "GET",
       url: createSearchUrl(
@@ -107,6 +106,7 @@ function createSearxngProvider(baseUrl: string): SearchProvider {
         }
       ),
     }),
+    name: "SearxNG",
     parse: (payload) => parseCommonResultArray(payload, ["results"]),
   });
 }

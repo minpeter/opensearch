@@ -11,7 +11,6 @@ export function createBrightDataProvider(
 ): SearchProvider | null {
   return createPooledJsonSearchProvider({
     apiKeyPool: getApiKeyPool("BRIGHT_DATA_SERP_API_KEY", env),
-    name: "BrightData",
     buildRequest: (apiKey, query, numResults) => ({
       body: {
         format: "json",
@@ -30,6 +29,7 @@ export function createBrightDataProvider(
         env
       ),
     }),
+    name: "BrightData",
     parse: (payload) =>
       parseArrayFromAnyPath(payload, [
         ["organic"],

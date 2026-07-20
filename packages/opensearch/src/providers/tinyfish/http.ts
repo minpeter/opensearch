@@ -32,6 +32,7 @@ export async function requestTinyFishJson(
   );
 
   for (const apiKey of remainingApiKeys) {
+    // biome-ignore lint/performance/noAwaitInLoops: sequential API key fallback prevents unnecessary concurrent requests
     const response = await requestWithApiKey(apiKey);
     if (response.status !== 429) {
       return parseTinyFishJsonResponse(response, serviceName);
@@ -131,12 +132,12 @@ function readErrorMessage(body: unknown, parseError?: string): string {
   }
 
   if (typeof body === "object" && body !== null && "error" in body) {
-    const error = body.error;
+    const { error } = body;
     if (typeof error === "string") {
       return error.slice(0, TINYFISH_ERROR_DETAIL_MAX_CHARACTERS);
     }
     if (typeof error === "object" && error !== null && "message" in error) {
-      const message = error.message;
+      const { message } = error;
       if (typeof message === "string") {
         return message.slice(0, TINYFISH_ERROR_DETAIL_MAX_CHARACTERS);
       }

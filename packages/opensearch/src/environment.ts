@@ -3,7 +3,7 @@ export type OpenSearchEnvironment = Readonly<
 >;
 
 export interface EnvironmentReader {
-  read(name: string): string | undefined;
+  read: (name: string) => string | undefined;
 }
 
 export const processEnvironmentReader: EnvironmentReader = {

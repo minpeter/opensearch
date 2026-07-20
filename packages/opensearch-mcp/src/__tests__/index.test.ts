@@ -30,7 +30,6 @@ describe("tool result shaping", () => {
 
     expect(toolResult.content).toEqual([
       {
-        type: "text",
         text: [
           'Returned 1 search results for "typescript".',
           "",
@@ -39,6 +38,7 @@ describe("tool result shaping", () => {
           "Highlights: Typed JavaScript at scale.",
           "Source: DuckDuckGo",
         ].join("\n"),
+        type: "text",
       },
     ]);
     expect(toolResult).not.toHaveProperty("structuredContent");
@@ -54,7 +54,6 @@ describe("tool result shaping", () => {
 
     expect(toolResult.content).toEqual([
       {
-        type: "text",
         text: [
           "Title: Example",
           "URL: https://example.com",
@@ -64,6 +63,7 @@ describe("tool result shaping", () => {
           "",
           "Body text",
         ].join("\n"),
+        type: "text",
       },
     ]);
     expect(toolResult).not.toHaveProperty("structuredContent");

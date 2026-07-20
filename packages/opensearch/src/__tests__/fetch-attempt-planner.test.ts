@@ -84,7 +84,7 @@ describe("runAttemptPlan", () => {
     const executor = vi.fn().mockResolvedValue({
       body: "<html>Just a moment...</html>",
       cookies: { __cf_bm: "token" },
-      headers: { server: "cloudflare", "cf-ray": "abc" },
+      headers: { "cf-ray": "abc", server: "cloudflare" },
       response: "blocked",
       status: 200,
     });

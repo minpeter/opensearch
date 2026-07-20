@@ -126,5 +126,5 @@ export interface BenchReport {
 
 /** Injectable monotonic clock (milliseconds). Defaults to performance.now(). */
 export interface Clock {
-  now(): number;
+  now: () => number;
 }

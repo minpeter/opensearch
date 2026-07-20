@@ -250,6 +250,7 @@ export async function fetchArchiveFallback(
 ): Promise<ArchiveFetchResult | null> {
   for (const candidate of staticArchiveCandidates(rawUrl)) {
     try {
+      // biome-ignore lint/performance/noAwaitInLoops: archive candidates are tried sequentially to stop after the first success
       const response = await fetcher(candidate.url);
       if (response?.ok) {
         return { candidate, response };
@@ -263,6 +264,7 @@ export async function fetchArchiveFallback(
   }
   for (const candidate of await dynamicArchiveCandidates(rawUrl, fetcher)) {
     try {
+      // biome-ignore lint/performance/noAwaitInLoops: archive candidates are tried sequentially to stop after the first success
       const response = await fetcher(candidate.url);
       if (response?.ok) {
         return { candidate, response };

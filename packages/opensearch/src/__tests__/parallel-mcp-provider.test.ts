@@ -45,10 +45,9 @@ describe("Parallel MCP provider parsing", () => {
 
   it("collects text content items and ignores malformed content", () => {
     const results = parseParallelMcpContentItems([
-      { type: "resource", text: "ignored" },
-      { type: "text", text: "not json" },
+      { text: "ignored", type: "resource" },
+      { text: "not json", type: "text" },
       {
-        type: "text",
         text: JSON.stringify({
           results: [
             {
@@ -60,6 +59,7 @@ describe("Parallel MCP provider parsing", () => {
           search_id: "search_456",
           session_id: "session_456",
         }),
+        type: "text",
       },
     ]);
 

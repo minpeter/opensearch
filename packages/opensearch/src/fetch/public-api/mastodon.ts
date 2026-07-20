@@ -8,11 +8,11 @@ const STATUS_LIMIT = 5;
 const HTML_TAG_REGEX = /<[^>]+>/g;
 const HTML_SPACE_REGEX = /\s+/g;
 const HTML_ENTITIES = {
+  "&#39;": "'",
   "&amp;": "&",
   "&gt;": ">",
   "&lt;": "<",
   "&quot;": '"',
-  "&#39;": "'",
 } as const;
 
 const accountSchema = z.object({

@@ -147,7 +147,7 @@ function createPublicLookup(): LookupFunction {
           callback(null, addresses);
           return;
         }
-        const first = addresses[0];
+        const [first] = addresses;
         if (!first) {
           callback(
             asLookupError(new Error("Hostname resolved to no addresses")),

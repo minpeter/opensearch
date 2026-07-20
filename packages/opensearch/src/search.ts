@@ -35,11 +35,11 @@ const SEARCH_CACHE_TTL_MS = 3 * 60 * 1000;
 const SEARCH_CACHE_MAX_ENTRIES = 256;
 
 export interface SearchService {
-  search(query: string, numResults?: number): Promise<SearchResult[]>;
-  searchWithRetryAndCache(
+  search: (query: string, numResults?: number) => Promise<SearchResult[]>;
+  searchWithRetryAndCache: (
     query: string,
     maxResults?: number
-  ): Promise<SearchResult[]>;
+  ) => Promise<SearchResult[]>;
 }
 
 export interface CreateSearchServiceOptions {
@@ -79,6 +79,7 @@ export function createSearchService(
 
     for (const [index, provider] of providers.entries()) {
       try {
+        // biome-ignore lint/performance/noAwaitInLoops: providers are tried sequentially according to fallback priority
         const results = await observeProviderAttempt(
           observer,
           {

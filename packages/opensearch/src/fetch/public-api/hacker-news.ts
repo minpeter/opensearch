@@ -34,15 +34,15 @@ const HN_LIST_ROUTES = {
     title: "Hacker News best stories",
     traceName: "public-api:hn:beststories",
   },
-  "/news": {
-    endpoint: "topstories",
-    title: "Hacker News top stories",
-    traceName: "public-api:hn:topstories",
-  },
   "/newest": {
     endpoint: "newstories",
     title: "Hacker News new stories",
     traceName: "public-api:hn:newstories",
+  },
+  "/news": {
+    endpoint: "topstories",
+    title: "Hacker News top stories",
+    traceName: "public-api:hn:topstories",
   },
   "/show": {
     endpoint: "showstories",
@@ -129,6 +129,7 @@ function storyEntry(item: z.infer<typeof hnItemSchema>): string {
     `${item.score ?? 0} points`,
     `${item.descendants ?? 0} comments`,
   ].filter(Boolean);
+  // biome-ignore lint/suspicious/noUnnecessaryConditions: runtime API responses may omit the optional story URL
   return `- [${item.title}](${item.url ?? "#"})${details.length > 0 ? ` — ${details.join(" · ")}` : ""}`;
 }
 

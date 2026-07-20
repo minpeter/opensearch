@@ -73,12 +73,12 @@ export interface OpenSearchRuntime {
 }
 
 export interface OpenSearchClient {
-  fetch(url: string, options?: FetchOptions): Promise<FetchResult>;
-  fetch(
-    urls: readonly string[],
-    options?: FetchOptions
-  ): Promise<FetchResult[]>;
-  search(query: string, maxResults?: number): Promise<SearchResult[]>;
+  fetch: ((url: string, options?: FetchOptions) => Promise<FetchResult>) &
+    ((
+      urls: readonly string[],
+      options?: FetchOptions
+    ) => Promise<FetchResult[]>);
+  search: (query: string, maxResults?: number) => Promise<SearchResult[]>;
 }
 
 class ConfiguredOpenSearchClient implements OpenSearchClient {
@@ -95,8 +95,8 @@ class ConfiguredOpenSearchClient implements OpenSearchClient {
     } satisfies LocalFetchOptions;
     const localFetch = runtime.localFetchFactory?.(localFetchOptions);
     this.#fetchService = createFetchService(env, {
-      exaMcpFetchProvider: runtime.exaMcpFetchProvider,
       cache: options.fetch?.cache,
+      exaMcpFetchProvider: runtime.exaMcpFetchProvider,
       localFetch: localFetch ?? runtime.localFetch,
       maxConcurrency: options.fetch?.maxConcurrency,
       observer,

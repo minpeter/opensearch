@@ -14,7 +14,6 @@ export function createGoogleCustomSearchProvider(
 ): SearchProvider | null {
   return createPooledJsonSearchProvider({
     apiKeyPool: getApiKeyPool("GOOGLE_CUSTOM_SEARCH_API_KEY", env),
-    name: "Google",
     buildRequest: (apiKey, query, numResults) => ({
       method: "GET",
       url: createSearchUrl(
@@ -31,6 +30,7 @@ export function createGoogleCustomSearchProvider(
         }
       ),
     }),
+    name: "Google",
     parse: (payload) => parseCommonResultArray(payload, ["items"]),
   });
 }

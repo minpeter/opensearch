@@ -47,21 +47,21 @@ export interface PlaywrightFallbackResult {
 }
 
 interface BrowserContext {
-  close(): Promise<void>;
-  newPage(): Promise<Page>;
-  route(
+  close: () => Promise<void>;
+  newPage: () => Promise<Page>;
+  route: (
     url: string,
     handler: (route: Route, request: Request) => Promise<void>
-  ): Promise<void>;
+  ) => Promise<void>;
 }
 
 interface Request {
-  url(): string;
+  url: () => string;
 }
 
 interface Route {
-  abort(errorCode?: string): Promise<void>;
-  continue(): Promise<void>;
+  abort: (errorCode?: string) => Promise<void>;
+  continue: () => Promise<void>;
 }
 
 interface BrowserDevice {
@@ -69,9 +69,9 @@ interface BrowserDevice {
 }
 
 interface Page {
-  content(): Promise<string>;
-  goto(url: string, options: PageGotoOptions): Promise<unknown>;
-  waitForSelector(selector: string, options: WaitOptions): Promise<unknown>;
+  content: () => Promise<string>;
+  goto: (url: string, options: PageGotoOptions) => Promise<unknown>;
+  waitForSelector: (selector: string, options: WaitOptions) => Promise<unknown>;
 }
 
 interface PageGotoOptions {
@@ -81,10 +81,10 @@ interface PageGotoOptions {
 
 interface PlaywrightModule {
   readonly chromium: {
-    launchPersistentContext(
+    launchPersistentContext: (
       profileDir: string,
       options: PlaywrightLaunchOptions
-    ): Promise<BrowserContext>;
+    ) => Promise<BrowserContext>;
   };
   readonly devices?: Readonly<Record<string, BrowserDevice>>;
 }

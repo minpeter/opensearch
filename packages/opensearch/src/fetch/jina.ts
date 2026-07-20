@@ -73,7 +73,7 @@ function alternateUrls(external: unknown): string[] {
   if (!isRecord(external)) {
     return [];
   }
-  const alternate = external.alternate;
+  const { alternate } = external;
   if (isRecord(alternate)) {
     return Object.values(alternate).flatMap((value) => {
       if (isRecord(value)) {

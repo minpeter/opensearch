@@ -28,10 +28,12 @@ export function createParallelMcpSearchProvider(
           throw error;
         }
 
+        // biome-ignore lint/style/useErrorCause: SearchEngineError receives the original cause in its fourth argument
         throw new SearchEngineError(
           "Parallel",
           classifyParallelMcpFailure(error),
-          `Parallel MCP search failed: ${getErrorMessage(error)}`
+          `Parallel MCP search failed: ${getErrorMessage(error)}`,
+          { cause: error }
         );
       }
     },

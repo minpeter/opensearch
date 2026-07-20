@@ -2,18 +2,18 @@ import type { WafProfile } from "./waf-profiles.ts";
 
 export const DEFAULT_WAF_PROFILES = [
   {
-    id: "akamai_bot_manager",
+    confidenceRules: { strong: 2, weak: 1 },
     detectors: {
       body: ["sec-if-cpt-container", "Powered and protected by Akamai"],
       cookie: ["_abck", "bm_sz", "ak_bmsc", "bm_sv", "bm_so"],
       header: ["X-Akamai-*"],
       server_contains: ["AkamaiGHost"],
     },
-    confidenceRules: { strong: 2, weak: 1 },
     fallbackWhenChallenge: ["curl_grid_exhaust", "playwright_real_chrome"],
+    id: "akamai_bot_manager",
   },
   {
-    id: "cloudflare_turnstile",
+    confidenceRules: { strong: 2, weak: 1 },
     detectors: {
       body: [
         "Just a moment...",
@@ -25,47 +25,47 @@ export const DEFAULT_WAF_PROFILES = [
       header: ["cf-ray", "cf-cache-status"],
       server_contains: ["cloudflare"],
     },
-    confidenceRules: { strong: 2, weak: 1 },
     fallbackWhenChallenge: ["playwright_mcp", "playwright_real_chrome"],
+    id: "cloudflare_turnstile",
   },
   {
-    id: "f5_big_ip",
+    confidenceRules: { strong: 2, weak: 1 },
     detectors: {
       body: ["The requested URL was rejected", "support ID is:"],
       cookie: ["BigIPServer", "TS01*", "F5_*"],
     },
-    confidenceRules: { strong: 2, weak: 1 },
+    id: "f5_big_ip",
   },
   {
-    id: "aws_waf",
+    confidenceRules: { strong: 2, weak: 1 },
     detectors: {
       cookie: ["aws-waf-token"],
       header: ["x-amzn-requestid", "x-amzn-errortype", "x-amzn-waf-*"],
     },
-    confidenceRules: { strong: 2, weak: 1 },
+    id: "aws_waf",
   },
   {
-    id: "datadome_probable",
+    confidenceRules: { strong: 2, weak: 1 },
     detectors: {
       body: ["DataDome"],
       cookie: ["datadome"],
     },
-    confidenceRules: { strong: 2, weak: 1 },
     fallbackWhenChallenge: ["playwright_real_chrome"],
+    id: "datadome_probable",
   },
   {
-    id: "perimeterx_human",
+    confidenceRules: { strong: 2, weak: 1 },
     detectors: {
       body: ["px-captcha", "Press & Hold to confirm you are a human"],
       cookie: ["_px3", "_pxhd", "_px2", "pxcts"],
     },
-    confidenceRules: { strong: 2, weak: 1 },
     fallbackWhenChallenge: ["playwright_real_chrome"],
+    id: "perimeterx_human",
   },
   {
-    id: "unknown_challenge",
-    detectors: {},
     confidenceRules: { strong: 0, weak: 0 },
+    detectors: {},
     fallbackWhenChallenge: ["playwright_mcp", "playwright_real_chrome"],
+    id: "unknown_challenge",
   },
 ] as const satisfies readonly WafProfile[];

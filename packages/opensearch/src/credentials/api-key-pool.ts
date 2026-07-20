@@ -4,8 +4,8 @@ import {
 } from "../environment.ts";
 
 export interface ApiKeyPool {
-  getAttemptOrder(): readonly string[];
-  hasApiKeys(): boolean;
+  getAttemptOrder: () => readonly string[];
+  hasApiKeys: () => boolean;
 }
 
 const apiKeyPools = new WeakMap<EnvironmentReader, Map<string, ApiKeyPool>>();

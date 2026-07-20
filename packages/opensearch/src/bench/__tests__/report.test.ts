@@ -115,7 +115,9 @@ describe("diffBaseline", () => {
       topK: 10,
     });
     const regressions = diffBaseline(current, baseline, 0.15);
-    const metrics = regressions.map((r) => r.metric).sort();
+    const metrics = regressions
+      .map((r) => r.metric)
+      .sort((a, b) => a.localeCompare(b));
     expect(metrics).toEqual(["rateLimitRate", "successRate"]);
   });
 
