@@ -1,8 +1,5 @@
 import type { ProviderReport } from "./types.ts";
 
-/** Version of the tier formula/cutoffs; bump on any change. */
-export const TIER_SCORE_VERSION = "1.0.0";
-
 export type Tier = "S" | "A" | "B" | "C" | "D";
 
 export const TIERS: readonly Tier[] = ["S", "A", "B", "C", "D"];

@@ -192,5 +192,5 @@ export async function runBenchmark(
   const workerCount = Math.min(concurrency, providers.length);
   await Promise.all(Array.from({ length: workerCount }, () => worker()));
 
-  return results.flatMap((batch) => batch ?? []);
+  return results.flat();
 }
