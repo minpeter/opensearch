@@ -31,9 +31,10 @@ const textContentType = "text" as const;
 function createToolErrorResponse(
   toolName: string,
   action: string,
-  error: Error
+  error: unknown
 ) {
-  const errorMessage = error.message;
+  const toolError = error instanceof Error ? error : new Error(String(error));
+  const errorMessage = toolError.message;
   console.error(`[opensearch] ${toolName} failed: ${errorMessage}`);
 
   return {
@@ -57,9 +58,7 @@ server.registerTool(
         await client.search(input.query, getSearchResultCount(input))
       );
     } catch (error) {
-      const toolError =
-        error instanceof Error ? error : new Error(String(error));
-      return createToolErrorResponse("web_search", "Search", toolError);
+      return createToolErrorResponse("web_search", "Search", error);
     }
   }
 );
@@ -77,9 +76,7 @@ server.registerTool(
       });
       return createFetchToolResult(results);
     } catch (error) {
-      const toolError =
-        error instanceof Error ? error : new Error(String(error));
-      return createToolErrorResponse("web_fetch", "Fetch", toolError);
+      return createToolErrorResponse("web_fetch", "Fetch", error);
     }
   }
 );
