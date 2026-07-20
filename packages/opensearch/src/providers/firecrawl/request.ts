@@ -13,6 +13,7 @@ const FIRECRAWL_BASE_URL_ENV = "OPENSEARCH_FIRECRAWL_URL";
 const FIRECRAWL_DEFAULT_BASE_URL = "https://api.firecrawl.dev/v2";
 const FIRECRAWL_KEY_FALLBACK_STATUSES = new Set([401, 402, 403, 429]);
 const FIRECRAWL_ERROR_DETAIL_MAX_CHARACTERS = 4096;
+const TRAILING_SLASHES_REGEX = /\/+$/u;
 export const FIRECRAWL_TIMEOUT_MS = 30_000;
 
 export type FirecrawlEndpoint = "scrape" | "search";
@@ -27,8 +28,6 @@ export interface FirecrawlRequestOptions {
 export async function requestFirecrawlJson(
   options: FirecrawlRequestOptions
 ): Promise<unknown> {
-  let lastFallbackError: Error | null = null;
-
   for (const apiKey of getFirecrawlAttemptOrder(options)) {
     // biome-ignore lint/performance/noAwaitInLoops: API key fallback is sequential to stop after the first successful request
     const response = await fetch(createFirecrawlEndpoint(options), {
@@ -39,10 +38,6 @@ export async function requestFirecrawlJson(
     });
 
     if (apiKey && FIRECRAWL_KEY_FALLBACK_STATUSES.has(response.status)) {
-      lastFallbackError = await createFirecrawlHttpError(
-        options.endpoint,
-        response
-      );
       continue;
     }
 
@@ -51,10 +46,6 @@ export async function requestFirecrawlJson(
     }
 
     return readFirecrawlJson(options.endpoint, response);
-  }
-
-  if (lastFallbackError) {
-    throw lastFallbackError;
   }
 
   throw new Error("Firecrawl request could not be attempted");
@@ -92,8 +83,9 @@ function createFirecrawlEndpoint(options: FirecrawlRequestOptions): string {
     return url.toString();
   }
 
-  const normalizedBaseUrl = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
-  return new URL(options.endpoint, normalizedBaseUrl).toString();
+  const pathPrefix = url.pathname.replace(TRAILING_SLASHES_REGEX, "");
+  url.pathname = `${pathPrefix}/${options.endpoint}`;
+  return url.toString();
 }
 
 function createFirecrawlHeaders(apiKey: string | null): Record<string, string> {
