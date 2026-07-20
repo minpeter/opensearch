@@ -42,11 +42,6 @@ export async function fetchWreqWithRedirectPolicy(
   init: WreqFetchInit,
   options: WreqRedirectPolicyOptions
 ): Promise<WreqResponse> {
-  const enforcePolicy = options.validateUrl !== undefined;
-  if (!enforcePolicy) {
-    return wreq.fetch(rawUrl, init);
-  }
-
   let url = rawUrl;
   const maxRedirects = options.maxRedirects ?? DEFAULT_MAX_REDIRECTS;
   for (let redirectCount = 0; ; redirectCount += 1) {
