@@ -1,3 +1,12 @@
+## opensearch-ai-sdk@0.0.7
+
+### Adapt to ai SDK v7 types
+
+Update type definitions for ai SDK v7 compatibility:
+`ToolExecutionOptions` is now generic, `OpenSearchToolSet` no longer
+extends ai's `ToolSet` (index signature incompatibility), and method
+signatures use property-style for stricter function type checking.
+
 ## opensearch-ai-sdk@0.0.6
 
 ### Add opt-in Ollama web search and fetch

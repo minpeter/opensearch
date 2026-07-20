@@ -1,3 +1,10 @@
+## @minpeter/opensearch@0.0.8
+
+### Bump undici to v8
+
+Upgrade the HTTP client from undici 7 to undici 8. No API changes —
+`Agent` and `Dispatcher` usage is unchanged. Requires Node >= 22.19.0.
+
 ## @minpeter/opensearch@0.0.7
 
 ### Add opt-in Ollama web search and fetch
