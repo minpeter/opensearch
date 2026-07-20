@@ -137,9 +137,15 @@ export function createFetchServiceForOperations(
         operationId
       );
 
-      for (const result of fetchedResults) {
-        activeCache.set(result.url, result);
-        resultsByUrl.set(result.url, result);
+      // Providers return results in request order; key by the requested URL
+      // because a provider may canonicalize or redirect result.url.
+      for (const [index, result] of fetchedResults.entries()) {
+        const requestedUrl = uncachedUrls[index];
+        if (requestedUrl === undefined) {
+          throw new Error("Fetch returned more results than requested.");
+        }
+        activeCache.set(requestedUrl, result);
+        resultsByUrl.set(requestedUrl, result);
       }
     }
 
