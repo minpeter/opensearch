@@ -8,8 +8,8 @@ import {
   fetchViaPlaywrightFallback,
   type PlaywrightLoader,
   playwrightFallbackEnabled,
-  selectPlaywrightExecutor,
 } from "../node/playwright-executor.ts";
+import { selectPlaywrightExecutor } from "../node/playwright-launch.ts";
 
 interface FakePage {
   readonly content: ReturnType<typeof vi.fn>;
