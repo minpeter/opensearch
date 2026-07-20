@@ -77,11 +77,9 @@ function isApexHost(host: string): boolean {
 }
 
 function withHost(url: URL, host: string): string {
-  const next = new URL(url.toString());
-  next.hostname = host;
   // Never carry Basic-auth credentials across to a different host.
-  next.username = "";
-  next.password = "";
+  const next = withoutCredentials(url);
+  next.hostname = host;
   return next.toString();
 }
 
