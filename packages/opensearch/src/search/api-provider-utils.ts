@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { readApiKeyPool } from "../credentials/api-key-pool.ts";
 import {
   type EnvironmentReader,
   processEnvironmentReader,
@@ -55,8 +54,6 @@ const COMMON_RESULT_SCHEMA = z.object({
   url: OPTIONAL_STRING_SCHEMA,
 });
 
-export type CommonResult = z.infer<typeof COMMON_RESULT_SCHEMA>;
-
 export function createJsonSearchProvider(
   spec: JsonProviderSpec
 ): SearchProvider {
@@ -111,28 +108,6 @@ export function createJsonSearchProvider(
   };
 }
 
-export function getEnvPool(
-  name: string,
-  env: EnvironmentReader = processEnvironmentReader
-): readonly string[] {
-  return readApiKeyPool(name, env);
-}
-
-export function getEnvPair(
-  firstName: string,
-  secondName: string,
-  env: EnvironmentReader = processEnvironmentReader
-): readonly [string, string] | null {
-  const firstValue = env.read(firstName)?.trim();
-  const secondValue = env.read(secondName)?.trim();
-
-  if (!(firstValue && secondValue)) {
-    return null;
-  }
-
-  return [firstValue, secondValue];
-}
-
 export function parseCommonResultArray(
   payload: unknown,
   path: readonly string[]
@@ -164,10 +139,7 @@ export function parseCommonResultArray(
     .filter((result): result is ParsedResult => result !== null);
 }
 
-export function getPathValue(
-  payload: unknown,
-  path: readonly string[]
-): unknown {
+function getPathValue(payload: unknown, path: readonly string[]): unknown {
   let current: unknown = payload;
 
   for (const segment of path) {

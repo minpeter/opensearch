@@ -12,7 +12,7 @@ import { getBaseUrl } from "../api-provider-utils.ts";
 import { SearchEngineError } from "../errors.ts";
 import { fetchSearchText, REQUEST_TIMEOUT_MS } from "../http.ts";
 import { attachEngine, dedupeResults, normalizeResult } from "../text.ts";
-import type { ParsedResult, SearchProvider } from "../types.ts";
+import type { ParsedResult, SearchProvider, SearchResult } from "../types.ts";
 
 const JINA_SEARCH_FIELD_PATTERN =
   /^\[(?<index>\d+)\]\s+(?<field>Title|URL Source|Description|Markdown Content):\s*(?<value>.*)$/u;
@@ -32,46 +32,42 @@ export function createJinaProviders(
     createPooledSearchProvider({
       apiKeyPool: getApiKeyPool("JINA_API_KEY", env),
       name: "Jina",
-      searchWithApiKey(apiKey, query, numResults) {
-        return createJinaProvider(apiKey, env).search(query, numResults);
-      },
+      searchWithApiKey: (apiKey, query, numResults) =>
+        searchJinaWithApiKey(apiKey, query, numResults, env),
     }),
   ]);
 }
 
-function createJinaProvider(
+async function searchJinaWithApiKey(
   apiKey: string,
+  query: string,
+  numResults: number,
   env: EnvironmentReader
-): SearchProvider {
-  return {
-    name: "Jina",
-    async search(query: string, numResults: number) {
-      const response = await fetchSearchText({
-        engine: "Jina",
-        init: {
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            "User-Agent": getRandomUserAgent(),
-            "X-Respond-With": "no-content",
-          },
-          method: "GET",
-          redirect: "manual",
-          signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-        },
-        url: createJinaSearchUrl(query, env),
-      });
-
-      const results = parseJinaSearchText(response);
-      if (results.length === 0) {
-        throw new SearchEngineError("Jina", "no-results", "No Results");
-      }
-
-      return attachEngine("Jina", results).slice(0, numResults);
+): Promise<SearchResult[]> {
+  const response = await fetchSearchText({
+    engine: "Jina",
+    init: {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "User-Agent": getRandomUserAgent(),
+        "X-Respond-With": "no-content",
+      },
+      method: "GET",
+      redirect: "manual",
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     },
-  };
+    url: createJinaSearchUrl(query, env),
+  });
+
+  const results = parseJinaSearchText(response);
+  if (results.length === 0) {
+    throw new SearchEngineError("Jina", "no-results", "No Results");
+  }
+
+  return attachEngine("Jina", results).slice(0, numResults);
 }
 
-export function parseJinaSearchText(text: string): ParsedResult[] {
+function parseJinaSearchText(text: string): ParsedResult[] {
   const drafts = new Map<string, JinaSearchDraft>();
   let activeSnippetIndex = "";
 
