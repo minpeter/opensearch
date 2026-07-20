@@ -13,7 +13,7 @@ export class ResponseSizeLimitError extends Error {
 interface ResponseBodySource {
   readonly body: ReadableStream<Uint8Array> | null;
   readonly headers: {
-    get(name: string): string | null;
+    get: (name: string) => string | null;
   };
 }
 
@@ -80,7 +80,9 @@ export async function readResponseBytes(
   const chunks: Uint8Array[] = [];
   let totalBytes = 0;
   try {
+    // biome-ignore lint/suspicious/noUnnecessaryConditions: stream completion is determined by each read result
     while (true) {
+      // biome-ignore lint/performance/noAwaitInLoops: readable stream chunks must be consumed sequentially
       const { done, value } = await reader.read();
       if (done) {
         break;

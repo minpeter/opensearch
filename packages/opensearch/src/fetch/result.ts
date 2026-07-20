@@ -74,10 +74,10 @@ export const fetchAttemptTraceSchema = z.object({
 });
 
 export const fetchResultSchema = z.object({
-  title: z.string(),
   content: z.string(),
-  url: z.string(),
   length: z.number(),
+  title: z.string(),
+  url: z.string(),
 }) satisfies z.ZodType<FetchResult>;
 
 export function createFetchResult(
@@ -86,10 +86,10 @@ export function createFetchResult(
   title = ""
 ): FetchResult {
   return {
-    title,
     content,
-    url,
     length: content.length,
+    title,
+    url,
   };
 }
 

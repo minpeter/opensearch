@@ -35,15 +35,15 @@ const BANNED_GLOBAL_PATTERNS = [
 const STATIC_IMPORT_KINDS = new Set(["import-statement", "require-call"]);
 
 const result = await build({
-  entryPoints: [ENTRY],
   bundle: true,
-  write: false,
-  format: "esm",
-  platform: "browser",
   conditions: ["workerd", "worker", "browser"],
+  entryPoints: [ENTRY],
   external: ["node:*"],
-  metafile: true,
+  format: "esm",
   logLevel: "silent",
+  metafile: true,
+  platform: "browser",
+  write: false,
 });
 
 const inputs = Object.keys(result.metafile.inputs);

@@ -39,7 +39,6 @@ export function createLlmNativeProviders(
 function createTavilyProvider(env: EnvironmentReader): SearchProvider | null {
   return createPooledJsonSearchProvider({
     apiKeyPool: getApiKeyPool("TAVILY_API_KEY", env),
-    name: "Tavily",
     buildRequest: (apiKey, query, numResults) => ({
       body: { max_results: numResults, query },
       headers: { Authorization: `Bearer ${apiKey}` },
@@ -50,6 +49,7 @@ function createTavilyProvider(env: EnvironmentReader): SearchProvider | null {
         env
       ),
     }),
+    name: "Tavily",
     parse: (payload) => parseCommonResultArray(payload, ["results"]),
   });
 }
@@ -63,7 +63,6 @@ function createFirecrawlProvider(
 
   return createPooledJsonSearchProvider({
     apiKeyPool: getApiKeyPool("FIRECRAWL_API_KEY", env),
-    name: "Firecrawl",
     buildRequest: (apiKey, query, numResults) => ({
       body: { limit: numResults, query },
       headers: { Authorization: `Bearer ${apiKey}` },
@@ -74,6 +73,7 @@ function createFirecrawlProvider(
         env
       ),
     }),
+    name: "Firecrawl",
     parse: (payload) =>
       parseArrayFromAnyPath(payload, [["data", "web"], ["data"], ["results"]]),
   });
@@ -82,7 +82,6 @@ function createFirecrawlProvider(
 function createParallelProvider(env: EnvironmentReader): SearchProvider | null {
   return createPooledJsonSearchProvider({
     apiKeyPool: getApiKeyPool("PARALLEL_API_KEY", env),
-    name: "Parallel",
     buildRequest: (apiKey, query, numResults) => ({
       body: {
         max_chars_total: Math.max(numResults, 1) * 1200,
@@ -97,6 +96,7 @@ function createParallelProvider(env: EnvironmentReader): SearchProvider | null {
         env
       ),
     }),
+    name: "Parallel",
     parse: (payload) => parseArrayFromAnyPath(payload, [["results"], ["data"]]),
   });
 }
@@ -104,7 +104,6 @@ function createParallelProvider(env: EnvironmentReader): SearchProvider | null {
 function createYouProvider(env: EnvironmentReader): SearchProvider | null {
   return createPooledJsonSearchProvider({
     apiKeyPool: getApiKeyPool("YOU_API_KEY", env),
-    name: "You",
     buildRequest: (apiKey, query, numResults) => ({
       headers: { "X-API-Key": apiKey },
       method: "GET",
@@ -116,6 +115,7 @@ function createYouProvider(env: EnvironmentReader): SearchProvider | null {
         }
       ),
     }),
+    name: "You",
     parse: (payload) =>
       parseArrayFromAnyPath(payload, [
         ["results", "web"],
@@ -130,7 +130,6 @@ function createPerplexityProvider(
 ): SearchProvider | null {
   return createPooledJsonSearchProvider({
     apiKeyPool: getApiKeyPool("PERPLEXITY_API_KEY", env),
-    name: "Perplexity",
     buildRequest: (apiKey, query, numResults) => ({
       authFailureStatuses: PERPLEXITY_AUTH_FAILURE_STATUSES,
       body: { max_results: numResults, query },
@@ -142,6 +141,7 @@ function createPerplexityProvider(
         env
       ),
     }),
+    name: "Perplexity",
     parse: (payload) => parseCommonResultArray(payload, ["results"]),
   });
 }
@@ -149,7 +149,6 @@ function createPerplexityProvider(
 function createValyuProvider(env: EnvironmentReader): SearchProvider | null {
   return createPooledJsonSearchProvider({
     apiKeyPool: getApiKeyPool("VALYU_API_KEY", env),
-    name: "Valyu",
     buildRequest: (apiKey, query, numResults) => ({
       body: { max_num_results: numResults, query },
       headers: { "X-API-Key": apiKey },
@@ -160,6 +159,7 @@ function createValyuProvider(env: EnvironmentReader): SearchProvider | null {
         env
       ),
     }),
+    name: "Valyu",
     parse: (payload) => parseArrayFromAnyPath(payload, [["results"], ["data"]]),
   });
 }
@@ -167,13 +167,12 @@ function createValyuProvider(env: EnvironmentReader): SearchProvider | null {
 function createLinkupProvider(env: EnvironmentReader): SearchProvider | null {
   return createPooledJsonSearchProvider({
     apiKeyPool: getApiKeyPool("LINKUP_API_KEY", env),
-    name: "Linkup",
     buildRequest: (apiKey, query, numResults) => ({
       body: {
         depth: "standard",
+        limit: numResults,
         outputType: "searchResults",
         q: query,
-        limit: numResults,
       },
       headers: { Authorization: `Bearer ${apiKey}` },
       method: "POST",
@@ -183,6 +182,7 @@ function createLinkupProvider(env: EnvironmentReader): SearchProvider | null {
         env
       ),
     }),
+    name: "Linkup",
     parse: (payload) => parseCommonResultArray(payload, ["results"]),
   });
 }

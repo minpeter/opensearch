@@ -54,7 +54,7 @@ interface WreqResponse {
   readonly body?: ReadableStream<Uint8Array> | null;
   readonly headers?: unknown;
   readonly status: number;
-  text(): Promise<string>;
+  text: () => Promise<string>;
   readonly url?: string;
 }
 
@@ -87,6 +87,7 @@ export async function fetchViaTlsImpersonation(
   for (const profile of profiles) {
     const startedAt = Date.now();
     try {
+      // biome-ignore lint/performance/noAwaitInLoops: browser profiles are tried sequentially to stop after the first valid response
       const response = await fetchWreqWithRedirectPolicy(
         wreq,
         url,
@@ -160,6 +161,7 @@ async function fetchWreqWithRedirectPolicy(
   const maxRedirects = options.maxRedirects ?? DEFAULT_MAX_REDIRECTS;
   for (let redirectCount = 0; ; redirectCount += 1) {
     options.validateUrl?.(url);
+    // biome-ignore lint/performance/noAwaitInLoops: each redirect URL depends on the previous response location
     const response = await wreq.fetch(url, { ...init, redirect: "manual" });
     if (!REDIRECT_STATUSES.has(response.status)) {
       return response;
@@ -272,7 +274,7 @@ function toHeaders(input: unknown): Headers {
 
 function isHeaderIterable(
   value: unknown
-): value is { entries(): IterableIterator<[string, string]> } {
+): value is { entries: () => IterableIterator<[string, string]> } {
   return (
     typeof value === "object" &&
     value !== null &&

@@ -14,10 +14,10 @@ import type { ParsedResult, SearchEngineName } from "./types.ts";
 type ScrapeEngineName = Extract<SearchEngineName, "DuckDuckGo">;
 
 interface HeuristicAnchor {
-  closest(selector?: string): { text(): string };
-  parent(): { text(): string; parent(): { text(): string } };
-  siblings(selector?: string): { text(): string };
-  text(): string;
+  closest: (selector?: string) => { text: () => string };
+  parent: () => { text: () => string; parent: () => { text: () => string } };
+  siblings: (selector?: string) => { text: () => string };
+  text: () => string;
 }
 
 export function extractHeuristicResults(

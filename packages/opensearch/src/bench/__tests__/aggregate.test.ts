@@ -145,8 +145,11 @@ describe("aggregateProbes quality score", () => {
     expect(brave?.consensus).toBeNull();
     expect(brave?.ndcgAtK).toBeNull();
     const heuristic =
+      // biome-ignore lint/suspicious/noUnnecessaryConditions: assertion guard: verifies value is defined before use
       ((brave?.snippetFillRate ?? 0) +
+        // biome-ignore lint/suspicious/noUnnecessaryConditions: assertion guard: verifies value is defined before use
         (brave?.titleFillRate ?? 0) +
+        // biome-ignore lint/suspicious/noUnnecessaryConditions: assertion guard: verifies value is defined before use
         (brave?.urlValidityRate ?? 0) +
         (brave?.termCoverage ?? 0)) /
       4;

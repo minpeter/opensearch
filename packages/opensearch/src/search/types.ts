@@ -30,9 +30,9 @@ export type SearchEngineName = (typeof SEARCH_ENGINE_NAMES)[number];
 
 export const searchResultSchema = z.object({
   engine: z.enum(SEARCH_ENGINE_NAMES),
+  snippet: z.string(),
   title: z.string(),
   url: z.string(),
-  snippet: z.string(),
 });
 
 export const searchResultsSchema = z.array(searchResultSchema);
@@ -48,5 +48,5 @@ export type EngineFailureKind =
 
 export interface SearchProvider {
   readonly name: SearchEngineName;
-  search(query: string, numResults: number): Promise<SearchResult[]>;
+  search: (query: string, numResults: number) => Promise<SearchResult[]>;
 }

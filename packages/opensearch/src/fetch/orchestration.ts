@@ -37,13 +37,13 @@ export type {
 } from "./provider-fallback.ts";
 
 export interface FetchOperations {
-  fetchUrl(url: string, operationId?: string): Promise<FetchResult>;
-  fetchUrls(
+  fetchUrl: (url: string, operationId?: string) => Promise<FetchResult>;
+  fetchUrls: (
     urls: string[],
     maxCharacters?: number,
     maxConcurrency?: number,
     operationId?: string
-  ): Promise<FetchResult[]>;
+  ) => Promise<FetchResult[]>;
 }
 
 export interface CreateFetchOperationsOptions {
@@ -67,9 +67,9 @@ export function createFetchOperations(
 ): FetchOperations {
   const observer = options.observer ?? createOpenSearchObserver();
   const context: FetchPipelineContext = {
+    env,
     exaApiKeyPool: createApiKeyPool(EXA_API_KEY_ENV, env),
     exaMcpFetchProvider: options.exaMcpFetchProvider,
-    env,
     localFetch: options.localFetch,
     observer,
     tinyFishApiKeyPool: createTinyFishApiKeyPool(env),

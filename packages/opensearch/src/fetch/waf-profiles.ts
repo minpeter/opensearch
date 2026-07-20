@@ -92,10 +92,10 @@ function normalizeProfile(id: string, value: unknown): WafProfile | null {
     return null;
   }
   return {
-    id,
     confidenceRules: normalizeConfidenceRules(value.confidenceRules),
     detectors: detectors ?? {},
     fallbackWhenChallenge: stringArray(value.fallbackWhenChallenge),
+    id,
   };
 }
 

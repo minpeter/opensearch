@@ -10,33 +10,39 @@ const OUTPUT_PATH =
 const PLAYWRIGHT_PACKAGE = "playwright";
 
 interface BrowserContext {
-  close(): Promise<void>;
-  newPage(): Promise<Page>;
+  close: () => Promise<void>;
+  newPage: () => Promise<Page>;
 }
 
 interface Page {
-  goto(url: string, options: { readonly timeout: number }): Promise<unknown>;
-  on(event: "request", listener: (request: PlaywrightRequest) => void): void;
-  waitForTimeout(timeoutMs: number): Promise<void>;
+  goto: (
+    url: string,
+    options: { readonly timeout: number }
+  ) => Promise<unknown>;
+  on: (
+    event: "request",
+    listener: (request: PlaywrightRequest) => void
+  ) => void;
+  waitForTimeout: (timeoutMs: number) => Promise<void>;
 }
 
 interface PlaywrightModule {
   readonly chromium: {
-    launchPersistentContext(
+    launchPersistentContext: (
       profileDir: string,
       options: {
         readonly channel: "chrome";
         readonly headless: boolean;
         readonly timeout: number;
       }
-    ): Promise<BrowserContext>;
+    ) => Promise<BrowserContext>;
   };
 }
 
 interface PlaywrightRequest {
-  method(): string;
-  resourceType(): string;
-  url(): string;
+  method: () => string;
+  resourceType: () => string;
+  url: () => string;
 }
 
 function argValue(name: string): string | undefined {

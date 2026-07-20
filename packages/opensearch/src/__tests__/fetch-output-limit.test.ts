@@ -67,19 +67,16 @@ describe("fetch output limits", () => {
     expect(localFetch).toHaveBeenCalledTimes(1);
   });
 
-  it.each([
-    0,
-    -1,
-    1.5,
-    Number.NaN,
-    Number.POSITIVE_INFINITY,
-  ])("rejects invalid maxCharacters value %s", async (maxCharacters) => {
-    const { service } = createFixtureService();
+  it.each([0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY])(
+    "rejects invalid maxCharacters value %s",
+    async (maxCharacters) => {
+      const { service } = createFixtureService();
 
-    await expect(
-      service.fetch("https://example.com/invalid", { maxCharacters })
-    ).rejects.toThrow("maxCharacters must be a positive safe integer");
-  });
+      await expect(
+        service.fetch("https://example.com/invalid", { maxCharacters })
+      ).rejects.toThrow("maxCharacters must be a positive safe integer");
+    }
+  );
 
   it("validates a limit even when the URL batch is empty", async () => {
     const { service } = createFixtureService();

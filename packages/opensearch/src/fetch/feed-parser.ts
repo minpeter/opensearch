@@ -14,9 +14,9 @@ export interface FeedDraft {
 }
 
 interface CheerioSelection {
-  attr(name: string): string | undefined;
-  first(): CheerioSelection;
-  text(): string;
+  attr: (name: string) => string | undefined;
+  first: () => CheerioSelection;
+  text: () => string;
 }
 
 function text($node: CheerioSelection): string {

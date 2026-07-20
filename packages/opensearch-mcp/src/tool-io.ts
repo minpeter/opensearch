@@ -16,27 +16,22 @@ export interface SearchToolResultItem {
 }
 
 export const webSearchInputSchema = z.object({
-  query: z
-    .string()
-    .describe(
-      "Natural language search query. Describe the ideal page, not just keywords."
-    ),
-  numResults: searchResultCountSchema
-    .optional()
-    .describe("Number of search results to return (default: 5, range: 1-15)."),
   max_results: searchResultCountSchema
     .optional()
     .describe(
       "Backward-compatible alias for numResults. Number of search results to return (default: 5, range: 1-15)."
     ),
+  numResults: searchResultCountSchema
+    .optional()
+    .describe("Number of search results to return (default: 5, range: 1-15)."),
+  query: z
+    .string()
+    .describe(
+      "Natural language search query. Describe the ideal page, not just keywords."
+    ),
 });
 
 export const webFetchInputSchema = z.object({
-  urls: z
-    .array(z.url())
-    .min(1)
-    .max(MAX_FETCH_URLS)
-    .describe("URLs to read. Batch multiple URLs in one call."),
   maxCharacters: z
     .int()
     .positive()
@@ -44,6 +39,11 @@ export const webFetchInputSchema = z.object({
     .describe(
       "Maximum characters to extract per page (must be a positive number, default: 12000)."
     ),
+  urls: z
+    .array(z.url())
+    .min(1)
+    .max(MAX_FETCH_URLS)
+    .describe("URLs to read. Batch multiple URLs in one call."),
 });
 
 export function createSearchContent(
@@ -68,7 +68,7 @@ export function createSearchToolResult(
 ) {
   return {
     content: [
-      { type: textContentType, text: createSearchContent(query, results) },
+      { text: createSearchContent(query, results), type: textContentType },
     ],
   };
 }
@@ -103,8 +103,8 @@ export function createFetchToolResult(results: FetchResult | FetchResult[]) {
     return {
       content: [
         {
-          type: textContentType,
           text: createFetchContentBlock(firstResult),
+          type: textContentType,
         },
       ],
     };
@@ -113,12 +113,12 @@ export function createFetchToolResult(results: FetchResult | FetchResult[]) {
   return {
     content: [
       {
-        type: textContentType,
         text: `Fetched ${normalizedResults.length} URLs. Each block below contains source metadata followed by extracted markdown.`,
+        type: textContentType,
       },
       ...normalizedResults.map((result) => ({
-        type: textContentType,
         text: createFetchContentBlock(result),
+        type: textContentType,
       })),
     ],
   };

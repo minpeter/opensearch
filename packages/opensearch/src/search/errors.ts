@@ -20,9 +20,9 @@ export class SearchEngineError extends Error {
     engine: SearchEngineName,
     kind: EngineFailureKind,
     message: string,
-    options: { readonly status?: number } = {}
+    options: { readonly cause?: unknown; readonly status?: number } = {}
   ) {
-    super(message);
+    super(message, { cause: options.cause });
     this.engine = engine;
     this.kind = kind;
     this.name = "SearchEngineError";

@@ -143,14 +143,17 @@ async function run(): Promise<void> {
   installRecordedFetch();
   const records: QaRecord[] = [];
   for (const scenario of scenarios) {
+    // biome-ignore lint/performance/noAwaitInLoops: sequential API calls
     const result = await fetchViaPublicApi(scenario.url);
     records.push({
+      // biome-ignore lint/suspicious/noUnnecessaryConditions: runtime validation of external data
       contentLength: result?.length ?? 0,
       expected: scenario.expected,
       group: scenario.group,
       name: scenario.name,
       ok: scenario.expected === "happy" ? result !== null : result === null,
       profileUsed: result?.profileUsed ?? null,
+      // biome-ignore lint/suspicious/noUnnecessaryConditions: runtime validation of external data
       title: result?.title ?? null,
       url: scenario.url,
       verdict: result?.verdict ?? null,

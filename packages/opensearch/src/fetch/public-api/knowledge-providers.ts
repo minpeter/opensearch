@@ -10,9 +10,6 @@ const WIKIPEDIA_PAGE_REGEX = /^\/wiki\/(.+)$/;
 
 const crossrefSchema = z.object({
   message: z.object({
-    DOI: z.string().optional(),
-    title: z.array(z.string()).optional(),
-    URL: z.string().optional(),
     author: z
       .array(
         z.object({
@@ -22,11 +19,14 @@ const crossrefSchema = z.object({
       )
       .optional(),
     "container-title": z.array(z.string()).optional(),
+    DOI: z.string().optional(),
     issued: z
       .object({
         "date-parts": z.array(z.array(z.number())).optional(),
       })
       .optional(),
+    title: z.array(z.string()).optional(),
+    URL: z.string().optional(),
   }),
 });
 
@@ -167,7 +167,7 @@ async function fetchOpenLibrary(url: URL): Promise<FetchResult | null> {
 
 async function fetchWikipedia(url: URL): Promise<FetchResult | null> {
   const title = url.pathname.match(WIKIPEDIA_PAGE_REGEX)?.[1];
-  const language = url.hostname.split(".")[0];
+  const [language] = url.hostname.split(".");
   if (!(title && language)) {
     return null;
   }

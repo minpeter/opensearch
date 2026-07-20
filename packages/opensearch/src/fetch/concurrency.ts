@@ -21,6 +21,7 @@ export async function mapWithConcurrency<TInput, TOutput>(
     while (!(entry.done || failure)) {
       const [index, input] = entry.value;
       try {
+        // biome-ignore lint/performance/noAwaitInLoops: each worker processes sequentially to enforce the concurrency bound
         results[index] = await mapper(input, index);
       } catch (error) {
         failure ??= { error };

@@ -34,12 +34,12 @@ describe("fetchViaPublicApi knowledge provider routes", () => {
     const mockFetch = vi.fn().mockResolvedValue(
       okJsonResponse({
         message: {
-          DOI: "10.1000/example",
-          URL: "https://doi.org/10.1000/example",
           author: [{ family: "Lovelace", given: "Ada" }],
           "container-title": ["Journal"],
+          DOI: "10.1000/example",
           issued: { "date-parts": [[2026]] },
           title: ["Example Paper"],
+          URL: "https://doi.org/10.1000/example",
         },
       })
     );

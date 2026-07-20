@@ -10,7 +10,6 @@ export function createScrapingBeeProvider(
 ): SearchProvider | null {
   return createPooledJsonSearchProvider({
     apiKeyPool: getApiKeyPool("SCRAPINGBEE_API_KEY", env),
-    name: "ScrapingBee",
     buildRequest: (apiKey, query, numResults) => ({
       method: "GET",
       url: createSearchUrl(
@@ -26,6 +25,7 @@ export function createScrapingBeeProvider(
         }
       ),
     }),
+    name: "ScrapingBee",
     parse: (payload) =>
       parseArrayFromAnyPath(payload, [["organic_results"], ["results"]]),
   });

@@ -85,10 +85,12 @@ export async function fetchSearchText({
       redirect: init.redirect ?? "manual",
     });
   } catch (error) {
+    // biome-ignore lint/style/useErrorCause: SearchEngineError receives the original cause in its fourth argument
     throw new SearchEngineError(
       engine,
       "transient",
-      `${engine} fetch failed: ${error instanceof Error ? error.message : String(error)}`
+      `${engine} fetch failed: ${error instanceof Error ? error.message : String(error)}`,
+      { cause: error }
     );
   }
 
@@ -105,12 +107,14 @@ export async function fetchSearchText({
   try {
     return await readResponseText(response);
   } catch (error) {
+    // biome-ignore lint/style/useErrorCause: SearchEngineError receives the original cause in its fourth argument
     throw new SearchEngineError(
       engine,
       "transient",
       `${engine} response body could not be read: ${
         error instanceof Error ? error.message : String(error)
-      }`
+      }`,
+      { cause: error }
     );
   }
 }
@@ -123,12 +127,14 @@ export function parseJsonResponse(
     const parsed: unknown = JSON.parse(responseBody);
     return parsed;
   } catch (error) {
+    // biome-ignore lint/style/useErrorCause: SearchEngineError receives the original cause in its fourth argument
     throw new SearchEngineError(
       engine,
       "transient",
       `${engine} returned invalid JSON: ${
         error instanceof Error ? error.message : String(error)
-      }`
+      }`,
+      { cause: error }
     );
   }
 }

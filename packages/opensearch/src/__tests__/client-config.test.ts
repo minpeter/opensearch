@@ -33,9 +33,9 @@ describe("createOpenSearch", () => {
       createMockJsonResponse({
         results: [
           {
+            content: "Configured through createOpenSearch.",
             title: "Explicit Tavily",
             url: "https://example.com/explicit",
-            content: "Configured through createOpenSearch.",
           },
         ],
       })
@@ -318,6 +318,4 @@ function readRequestHeader(
   if (headers && typeof headers === "object" && headerName in headers) {
     return String((headers as Record<string, unknown>)[headerName]);
   }
-
-  return;
 }

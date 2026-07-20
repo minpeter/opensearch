@@ -307,6 +307,7 @@ describe("fetchViaPlaywrightFallback", () => {
         "data:text/plain,hello",
         "blob:https://example.com/id",
       ]) {
+        // biome-ignore lint/performance/noAwaitInLoops: intentional sequential test execution
         await handler({ abort, continue: continueRequest }, { url: () => url });
       }
     });

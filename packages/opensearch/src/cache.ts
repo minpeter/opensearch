@@ -65,7 +65,7 @@ export class TtlCache<K, V> {
       }
       this.store.delete(oldest.value);
     }
-    this.store.set(key, { value, expiresAt: now + this.ttlMs });
+    this.store.set(key, { expiresAt: now + this.ttlMs, value });
   }
 
   has(key: K): boolean {

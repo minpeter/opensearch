@@ -148,6 +148,7 @@ function listingRequest(url: URL): RedditListingRequest | null {
     if (!(subreddit && query)) {
       return null;
     }
+    // biome-ignore assist/source/useSortedKeys: query param order matches Reddit API convention
     const params = new URLSearchParams({
       q: query,
       restrict_sr: "1",

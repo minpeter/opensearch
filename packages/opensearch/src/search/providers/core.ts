@@ -61,11 +61,12 @@ function createTinyFishProviderWithPool(
         results = await searchTinyFish(query, apiKeyPool);
       } catch (error) {
         const status = getHttpStatus(error);
+        // biome-ignore lint/style/useErrorCause: SearchEngineError receives the original cause in its fourth argument
         throw new SearchEngineError(
           "TinyFish",
           status === undefined ? "transient" : classifyApiStatusFailure(status),
           `TinyFish search failed: ${getErrorMessage(error)}`,
-          status === undefined ? {} : { status }
+          status === undefined ? { cause: error } : { cause: error, status }
         );
       }
 

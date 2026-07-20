@@ -11,7 +11,7 @@ const WARM_UP_ITERATIONS = 5;
 interface Workload {
   readonly limit: number;
   readonly name: string;
-  run(): Promise<FetchResult[]>;
+  run: () => Promise<FetchResult[]>;
 }
 
 interface WorkloadReport {
@@ -62,6 +62,7 @@ const workloads: Workload[] = [
 
 async function measureWorkload(workload: Workload): Promise<WorkloadReport> {
   for (let index = 0; index < WARM_UP_ITERATIONS; index += 1) {
+    // biome-ignore lint/performance/noAwaitInLoops: sequential benchmark measurement
     await workload.run();
   }
 
@@ -69,6 +70,7 @@ async function measureWorkload(workload: Workload): Promise<WorkloadReport> {
   let compliantSamples = 0;
 
   for (let index = 0; index < ITERATIONS; index += 1) {
+    // biome-ignore lint/performance/noAwaitInLoops: sequential benchmark measurement
     const results = await workload.run();
     for (const result of results) {
       const contentLength = result.content.length;
@@ -94,6 +96,7 @@ async function measureWorkload(workload: Workload): Promise<WorkloadReport> {
 
 const report: WorkloadReport[] = [];
 for (const workload of workloads) {
+  // biome-ignore lint/performance/noAwaitInLoops: sequential benchmark measurement
   report.push(await measureWorkload(workload));
 }
 

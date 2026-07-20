@@ -69,7 +69,9 @@ describe("fetchArchiveFallback", () => {
 
     const result = await fetchArchiveFallback("https://example.com/a");
 
+    // biome-ignore lint/suspicious/noUnnecessaryConditions: assertion guard: verifies value is defined before use
     expect(result?.candidate.name).toBe("archive:wayback:available");
+    // biome-ignore lint/suspicious/noUnnecessaryConditions: assertion guard: verifies value is defined before use
     expect(result?.candidate.source).toBe("archive");
     expect(result?.response.ok).toBe(true);
   });
@@ -95,7 +97,9 @@ describe("fetchArchiveFallback", () => {
 
     const result = await fetchArchiveFallback("https://example.com/a");
 
+    // biome-ignore lint/suspicious/noUnnecessaryConditions: assertion guard: verifies value is defined before use
     expect(result?.candidate.name).toBe("archive:wayback:cdx");
+    // biome-ignore lint/suspicious/noUnnecessaryConditions: assertion guard: verifies value is defined before use
     expect(result?.candidate.url).toBe(
       "https://web.archive.org/web/20260102000000/https://example.com/a"
     );

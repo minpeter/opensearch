@@ -25,9 +25,6 @@ const searchService = createSearchService(processEnvironmentReader, {
     }),
 });
 
-export const fetchUrl = fetchService.fetchUrl;
-export const fetchUrls = fetchService.fetchUrls;
-export const fetchUrlWithCache = fetchService.fetchUrlWithCache;
-export const fetchUrlsWithCache = fetchService.fetchUrlsWithCache;
-export const search = searchService.search;
-export const searchWithRetryAndCache = searchService.searchWithRetryAndCache;
+export const { fetchUrl, fetchUrls, fetchUrlWithCache, fetchUrlsWithCache } =
+  fetchService;
+export const { search, searchWithRetryAndCache } = searchService;

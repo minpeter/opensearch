@@ -119,8 +119,8 @@ describe("OpenSearch observability", () => {
 
   it("emits fetch provider and cache events without exposing URLs", async () => {
     const events: OpenSearchEvent[] = [];
-    const localFetch = vi.fn(async (url: string) =>
-      createFetchResult(url, "Observed local content", "Observed page")
+    const localFetch = vi.fn(async (requestedUrl: string) =>
+      createFetchResult(requestedUrl, "Observed local content", "Observed page")
     );
     const client = createOpenSearchWithRuntime(
       {

@@ -183,6 +183,6 @@ export async function extractMediaMetadata(
       return createUnsupportedDependencyResult(url, "yt-dlp is not installed");
     }
 
-    throw new Error(errorMessage(error));
+    throw new Error(errorMessage(error), { cause: error });
   }
 }

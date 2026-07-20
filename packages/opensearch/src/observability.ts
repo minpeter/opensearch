@@ -68,9 +68,9 @@ export interface OpenSearchObservabilityOptions {
 }
 
 export interface OpenSearchObserver {
-  createOperationId(operation: OpenSearchOperation): string;
-  emit(event: OpenSearchEvent): void;
-  now(): number;
+  createOperationId: (operation: OpenSearchOperation) => string;
+  emit: (event: OpenSearchEvent) => void;
+  now: () => number;
 }
 
 interface ProviderAttemptContext {

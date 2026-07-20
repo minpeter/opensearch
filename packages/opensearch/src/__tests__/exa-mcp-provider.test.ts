@@ -74,13 +74,13 @@ GitHub · Change is constant. GitHub keeps you ahead. · GitHub
 describe("parseExaMcpFetchContentItem", () => {
   it("reads the first text content item for web_fetch_exa", () => {
     const result = parseExaMcpFetchContentItem([
-      { type: "resource", text: "ignore me" },
+      { text: "ignore me", type: "resource" },
       {
-        type: "text",
         text: `# Example
 URL: https://example.com/page
 
 Body text.`,
+        type: "text",
       },
     ]);
 
@@ -96,18 +96,18 @@ describe("parseExaMcpFetchContentItems", () => {
   it("parses multiple fetch blocks from text content items", () => {
     const results = parseExaMcpFetchContentItems([
       {
-        type: "text",
         text: `# First
 URL: https://example.com/first
 
 First body.`,
+        type: "text",
       },
       {
-        type: "text",
         text: `# Second
 URL: https://example.com/second
 
 Second body.`,
+        type: "text",
       },
     ]);
 
@@ -209,25 +209,25 @@ describe("parseExaMcpContentItems", () => {
   it("collects text items, dedupes duplicate URLs, and ignores non-text content", () => {
     const results = parseExaMcpContentItems([
       {
-        type: "text",
         text: `
 Title: GitHub
 URL: https://github.com/
 Highlights:
 GitHub is where people build software.
         `,
+        type: "text",
       },
       {
-        type: "text",
         text: `
 Title: GitHub duplicate
 URL: https://github.com/
 Text: Duplicate entry should be removed.
         `,
+        type: "text",
       },
       {
-        type: "resource",
         text: "ignored",
+        type: "resource",
       },
     ]);
 

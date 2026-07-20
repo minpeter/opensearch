@@ -101,6 +101,7 @@ export function createOpenSearchToolsForRuntime<
   options: OpenSearchToolsOptions<TClient, TOpenSearchOptions> = {}
 ): OpenSearchToolSet<TSearchResult, TFetchResult> {
   const client = resolveClient(runtime, options);
+  // biome-ignore assist/source/useSortedKeys: Tool registration order is part of the public API.
   const tools = {
     web_search: createWebSearchToolForClient(client),
     web_fetch: createWebFetchToolForClient(client),

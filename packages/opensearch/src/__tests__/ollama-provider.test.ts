@@ -135,7 +135,7 @@ describe("Ollama search provider", () => {
     expect(mockFetch).toHaveBeenCalledTimes(1);
     const { url, body, init } = requestOf(mockFetch);
     expect(url).toBe("http://localhost:11434/api/experimental/web_search");
-    expect(body).toEqual({ query: "ollama docs", max_results: 5 });
+    expect(body).toEqual({ max_results: 5, query: "ollama docs" });
     expect(
       (init.headers as Record<string, string>).Authorization
     ).toBeUndefined();
@@ -155,7 +155,7 @@ describe("Ollama search provider", () => {
       .fn()
       .mockResolvedValueOnce(
         createMockJsonResponse(
-          ollamaSearchBody([{ title: "t", url: "https://x/", content: "c" }])
+          ollamaSearchBody([{ content: "c", title: "t", url: "https://x/" }])
         )
       );
     vi.stubGlobal("fetch", mockFetch);
@@ -163,7 +163,7 @@ describe("Ollama search provider", () => {
     const provider = getOllamaSearchProvider(env);
     await provider.search("q", 20);
 
-    expect(requestOf(mockFetch).body).toEqual({ query: "q", max_results: 10 });
+    expect(requestOf(mockFetch).body).toEqual({ max_results: 10, query: "q" });
   });
 
   it("falls back to the cloud API when the local daemon is unreachable", async () => {
@@ -174,7 +174,7 @@ describe("Ollama search provider", () => {
       .mockResolvedValueOnce(
         createMockJsonResponse(
           ollamaSearchBody([
-            { title: "Cloud", url: "https://c/", content: "snippet" },
+            { content: "snippet", title: "Cloud", url: "https://c/" },
           ])
         )
       );
@@ -189,7 +189,7 @@ describe("Ollama search provider", () => {
     );
     const cloud = requestOf(mockFetch, 1);
     expect(cloud.url).toBe("https://ollama.com/api/web_search");
-    expect(cloud.body).toEqual({ query: "cloud query", max_results: 4 });
+    expect(cloud.body).toEqual({ max_results: 4, query: "cloud query" });
     expect((cloud.init.headers as Record<string, string>).Authorization).toBe(
       "Bearer ollama-key"
     );
@@ -203,7 +203,7 @@ describe("Ollama search provider", () => {
       .mockResolvedValueOnce(
         createMockJsonResponse(
           ollamaSearchBody([
-            { title: "Edge", url: "https://edge/", content: "cloud only" },
+            { content: "cloud only", title: "Edge", url: "https://edge/" },
           ])
         )
       );
@@ -250,7 +250,7 @@ describe("Ollama search provider", () => {
       )
       .mockResolvedValueOnce(
         createMockJsonResponse(
-          ollamaSearchBody([{ title: "C", url: "https://c/", content: "s" }])
+          ollamaSearchBody([{ content: "s", title: "C", url: "https://c/" }])
         )
       );
     vi.stubGlobal("fetch", mockFetch);
@@ -339,7 +339,7 @@ describe("Ollama search provider", () => {
       .fn()
       .mockResolvedValueOnce(
         createMockJsonResponse(
-          ollamaSearchBody([{ title: "t", url: "https://x/", content: "c" }])
+          ollamaSearchBody([{ content: "c", title: "t", url: "https://x/" }])
         )
       );
     vi.stubGlobal("fetch", mockFetch);
@@ -372,7 +372,7 @@ describe("Ollama search chain integration", () => {
       .mockResolvedValueOnce(
         createMockJsonResponse(
           ollamaSearchBody([
-            { title: "Local", url: "https://local/", content: "snippet" },
+            { content: "snippet", title: "Local", url: "https://local/" },
           ])
         )
       );
@@ -491,9 +491,9 @@ describe("Ollama fetch provider", () => {
     expect(url).toBe("http://localhost:11434/api/experimental/web_fetch");
     expect(body).toEqual({ url: "https://example.com/" });
     expect(result).toMatchObject({
-      title: "Example Domain",
       content: "AAAAAAAAAA",
       length: 10,
+      title: "Example Domain",
       url: "https://example.com/",
     });
   });
@@ -506,8 +506,8 @@ describe("Ollama fetch provider", () => {
       .mockResolvedValueOnce(
         createMockJsonResponse({
           content: "cloud content",
-          title: "Cloud",
           links: [],
+          title: "Cloud",
         })
       );
     vi.stubGlobal("fetch", mockFetch);
@@ -522,7 +522,7 @@ describe("Ollama fetch provider", () => {
     expect(requestOf(mockFetch, 1).url).toBe(
       "https://ollama.com/api/web_fetch"
     );
-    expect(result).toMatchObject({ title: "Cloud", content: "cloud content" });
+    expect(result).toMatchObject({ content: "cloud content", title: "Cloud" });
   });
 
   it("treats empty cloud fetch content as a provider miss", async () => {
@@ -697,8 +697,8 @@ describe("Ollama fetch provider", () => {
         createMockJsonResponse({ content: "", links: [], title: "Empty" })
       );
     vi.stubGlobal("fetch", mockFetch);
-    const fetchBatch = vi.fn(async (urls: string[]) =>
-      urls.map((url) => ({
+    const fetchBatch = vi.fn(async (batchUrls: string[]) =>
+      batchUrls.map((url) => ({
         content: `exa:${url}`,
         title: "Exa batch",
         url,

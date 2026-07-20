@@ -38,7 +38,7 @@ function createToolErrorResponse(
 
   return {
     content: [
-      { type: textContentType, text: `${action} failed: ${errorMessage}` },
+      { text: `${action} failed: ${errorMessage}`, type: textContentType },
     ],
     isError: true,
   };

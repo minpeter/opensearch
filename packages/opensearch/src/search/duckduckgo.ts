@@ -79,12 +79,14 @@ async function getText(
       status: response.status,
     };
   } catch (error) {
+    // biome-ignore lint/style/useErrorCause: SearchEngineError receives the original cause in its fourth argument
     throw new SearchEngineError(
       ENGINE,
       "transient",
       `DuckDuckGo fetch failed: ${
         error instanceof Error ? error.message : String(error)
-      }`
+      }`,
+      { cause: error }
     );
   }
 }

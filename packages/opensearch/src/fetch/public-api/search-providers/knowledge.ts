@@ -95,7 +95,7 @@ async function fetchCrossrefSearch(url: URL) {
 
 async function fetchWikipediaSearch(url: URL) {
   const query = queryValue(url);
-  const language = url.hostname.split(".")[0];
+  const [language] = url.hostname.split(".");
   if (!(language && query)) {
     return null;
   }
@@ -110,12 +110,12 @@ async function fetchWikipediaSearch(url: URL) {
   if (!(parsed.success && parsed.data[1].length > 0)) {
     return null;
   }
-  const entries = parsed.data[1].map((title, index) => {
+  const entries = parsed.data[1].map((entryTitle, index) => {
     const description = parsed.data[2][index]
       ? `: ${parsed.data[2][index]}`
       : "";
     const link = parsed.data[3][index] ? ` · ${parsed.data[3][index]}` : "";
-    return `- ${title}${description}${link}`;
+    return `- ${entryTitle}${description}${link}`;
   });
   const title = `Wikipedia search ${query}`;
   return searchResult(

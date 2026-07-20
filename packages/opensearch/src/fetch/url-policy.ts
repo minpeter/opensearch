@@ -2,8 +2,8 @@ export function assertProviderSafeUrl(rawUrl: string): void {
   let url: URL;
   try {
     url = new URL(rawUrl);
-  } catch {
-    throw new TypeError("Fetch URL must be an absolute URL");
+  } catch (error) {
+    throw new TypeError("Fetch URL must be an absolute URL", { cause: error });
   }
 
   if (url.protocol !== "http:" && url.protocol !== "https:") {

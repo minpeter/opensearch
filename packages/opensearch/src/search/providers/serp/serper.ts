@@ -12,7 +12,6 @@ export function createSerperProvider(
 ): SearchProvider | null {
   return createPooledJsonSearchProvider({
     apiKeyPool: getApiKeyPool("SERPER_API_KEY", env),
-    name: "Serper",
     buildRequest: (apiKey, query, numResults) => ({
       body: { num: numResults, q: query },
       headers: { "X-API-KEY": apiKey },
@@ -23,6 +22,7 @@ export function createSerperProvider(
         env
       ),
     }),
+    name: "Serper",
     parse: (payload) => parseCommonResultArray(payload, ["organic"]),
   });
 }

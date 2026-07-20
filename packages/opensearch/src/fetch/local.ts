@@ -76,6 +76,7 @@ async function fetchPage(
   let url = assertSafeHttpUrl(rawUrl, context.options.allowPrivateNetwork);
 
   for (let redirectCount = 0; ; redirectCount += 1) {
+    // biome-ignore lint/performance/noAwaitInLoops: each redirect URL depends on the previous response location
     const response = await fetch(url, {
       dispatcher: context.dispatcher,
       headers: buildRequestHeaders(url.toString()),
@@ -190,6 +191,7 @@ async function resolveContent(
     return markdown;
   }
   const reader =
+    // biome-ignore lint/suspicious/noUnnecessaryConditions: defensive fallback preserves the optional provider contract at runtime
     (
       await fetchJinaReader(url, {
         maxResponseBytes: context.options.maxDownloadBytes,
@@ -230,6 +232,7 @@ async function buildResultFromHtml(
         includeTransforms: false,
         maxResponseBytes: context.options.maxDownloadBytes,
       });
+      // biome-ignore lint/suspicious/noUnnecessaryConditions: defensive fallback preserves the optional feed result contract at runtime
       return feed?.content ?? null;
     }
   );
@@ -263,6 +266,7 @@ async function fetchLocalUrlWithContext(
   }
 
   const reader =
+    // biome-ignore lint/suspicious/noUnnecessaryConditions: defensive fallback preserves the optional provider contract at runtime
     (
       await fetchJinaReader(url, {
         maxResponseBytes: context.options.maxDownloadBytes,
