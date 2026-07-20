@@ -35,16 +35,16 @@
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.5",
-    "@biomejs/biome": "2.4.16",
+    "@biomejs/biome": "2.5.4",
     "@types/jsdom": "^28.0.3",
     "@types/node": "^25.9.5",
     "@types/turndown": "^5.0.6",
     "@vitest/coverage-v8": "^4.1.10",
     "tegami": "^1.2.5",
-    "tsdown": "^0.22.8",
+    "tsdown": "^0.22.12",
     "turbo": "^2.10.5",
     "typescript": "^7.0.2",
-    "ultracite": "7.8.1",
+    "ultracite": "7.9.4",
     "vitest": "^4.1.10"
   }
 }
