@@ -1,77 +1,30 @@
-export type OpenSearchOperation = "fetch" | "search";
+import type {
+  OpenSearchCacheEvent,
+  OpenSearchErrorDetails,
+  OpenSearchEventSink,
+  OpenSearchFallbackEvent,
+  OpenSearchObserver,
+  OpenSearchOperation,
+} from "./observability-events.ts";
+import { failureDetails } from "./observability-failure.ts";
+
+export type {
+  OpenSearchCacheEvent,
+  OpenSearchErrorDetails,
+  OpenSearchEvent,
+  OpenSearchEventSink,
+  OpenSearchFailureKind,
+  OpenSearchFallbackEvent,
+  OpenSearchObservabilityOptions,
+  OpenSearchObserver,
+  OpenSearchOperation,
+  OpenSearchOperationEvent,
+  OpenSearchProviderEvent,
+} from "./observability-events.ts";
+// biome-ignore lint/performance/noBarrelFile: observability.ts remains the single public entry after the internal split; consumers must not depend on sub-module layout.
+export { getFailureKind } from "./observability-failure.ts";
+
 let observerSequence = 0;
-export type OpenSearchFailureKind =
-  | "blocked"
-  | "misconfigured"
-  | "no-results"
-  | "transient"
-  | "unknown";
-
-export interface OpenSearchErrorDetails {
-  readonly name: string;
-}
-
-interface OpenSearchEventBase {
-  readonly operation: OpenSearchOperation;
-  readonly operationId: string;
-  readonly timestampMs: number;
-}
-
-export interface OpenSearchOperationEvent extends OpenSearchEventBase {
-  readonly durationMs?: number;
-  readonly error?: OpenSearchErrorDetails;
-  readonly inputCount: number;
-  readonly phase: "failure" | "start" | "success";
-  readonly resultCount?: number;
-  readonly type: "operation";
-}
-
-export interface OpenSearchCacheEvent extends OpenSearchEventBase {
-  readonly status: "bypass" | "hit" | "miss";
-  readonly type: "cache";
-}
-
-export interface OpenSearchProviderEvent extends OpenSearchEventBase {
-  readonly durationMs?: number;
-  readonly error?: OpenSearchErrorDetails;
-  readonly failureKind?: OpenSearchFailureKind;
-  readonly phase: "empty" | "failure" | "start" | "success";
-  readonly provider: string;
-  readonly resultCount?: number;
-  readonly status?: number;
-  readonly type: "provider";
-}
-
-export interface OpenSearchFallbackEvent extends OpenSearchEventBase {
-  readonly fromProvider: string;
-  readonly reason?: OpenSearchFailureKind | "empty";
-  readonly toProvider: string;
-  readonly type: "fallback";
-}
-
-export type OpenSearchEvent =
-  | OpenSearchCacheEvent
-  | OpenSearchFallbackEvent
-  | OpenSearchOperationEvent
-  | OpenSearchProviderEvent;
-
-export type OpenSearchEventSink = (
-  event: OpenSearchEvent
-) => PromiseLike<void> | void;
-
-export interface OpenSearchObservabilityOptions {
-  /**
-   * Receives structured lifecycle events. Inputs are intentionally omitted so
-   * metrics and traces do not leak queries or URLs by default.
-   */
-  readonly onEvent?: OpenSearchEventSink;
-}
-
-export interface OpenSearchObserver {
-  createOperationId: (operation: OpenSearchOperation) => string;
-  emit: (event: OpenSearchEvent) => void;
-  now: () => number;
-}
 
 interface ProviderAttemptContext {
   readonly operation: OpenSearchOperation;
@@ -101,10 +54,7 @@ export function createOpenSearchObserver(
         return;
       }
       try {
-        const pending = sink(event);
-        if (pending) {
-          Promise.resolve(pending).catch(() => undefined);
-        }
+        Promise.resolve(sink(event)).catch(() => undefined);
       } catch {
         // Observability must never alter search or fetch behavior.
       }
@@ -254,10 +204,6 @@ export function emitFallbackEvent(
   });
 }
 
-export function getFailureKind(error: unknown): OpenSearchFailureKind {
-  return failureDetails(error).kind;
-}
-
 function defaultResultCount(result: unknown): number {
   if (result === null || result === undefined) {
     return 0;
@@ -270,32 +216,4 @@ function errorDetails(error: unknown): OpenSearchErrorDetails {
     return { name: error.name };
   }
   return { name: "UnknownError" };
-}
-
-function failureDetails(error: unknown): {
-  readonly kind: OpenSearchFailureKind;
-  readonly status?: number;
-} {
-  if (!(error instanceof Error)) {
-    return { kind: "unknown" };
-  }
-
-  const candidate = error as Error & {
-    readonly kind?: unknown;
-    readonly status?: unknown;
-  };
-  const kind = isFailureKind(candidate.kind) ? candidate.kind : "unknown";
-  return typeof candidate.status === "number"
-    ? { kind, status: candidate.status }
-    : { kind };
-}
-
-function isFailureKind(value: unknown): value is OpenSearchFailureKind {
-  return (
-    value === "blocked" ||
-    value === "misconfigured" ||
-    value === "no-results" ||
-    value === "transient" ||
-    value === "unknown"
-  );
 }
