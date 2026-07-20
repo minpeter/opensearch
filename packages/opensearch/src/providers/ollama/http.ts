@@ -4,14 +4,23 @@ import { DEFAULT_MAX_DOWNLOAD_BYTES } from "../../fetch/local-options.ts";
 import { readResponseText } from "../../response-body.ts";
 import { OllamaHttpError } from "./config.ts";
 
+const DELTA_SECONDS_REGEX = /^\d+$/u;
+
 function parseRetryAfter(response: Response): number | null {
-  const header = response.headers.get("retry-after");
+  const header = response.headers.get("retry-after")?.trim();
   if (!header) {
     return null;
   }
 
-  const parsed = Number.parseInt(header, 10);
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+  if (DELTA_SECONDS_REGEX.test(header)) {
+    return Number.parseInt(header, 10);
+  }
+
+  const dateMs = Date.parse(header);
+  if (Number.isNaN(dateMs)) {
+    return null;
+  }
+  return Math.max(0, Math.round((dateMs - Date.now()) / 1000));
 }
 
 async function ensureOk(

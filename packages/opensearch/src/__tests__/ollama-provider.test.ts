@@ -97,6 +97,12 @@ describe("Ollama client", () => {
       )
     ).toBe("http://localhost:11434");
   });
+
+  it("rejects single-slash non-HTTP schemes like file:/tmp", () => {
+    expect(
+      resolveLocalBaseUrl(createEnvironmentReader({ OLLAMA_HOST: "file:/tmp" }))
+    ).toBe("http://localhost:11434");
+  });
 });
 
 describe("Ollama search provider", () => {

@@ -12,7 +12,7 @@ export const OPENSEARCH_DISABLE_OLLAMA_LOCAL_ENV =
 const DEFAULT_LOCAL_BASE_URL = "http://localhost:11434";
 
 const HAS_SCHEME_REGEX = /^https?:\/\//i;
-const ANY_SCHEME_REGEX = /^[a-z][a-z\d+.-]*:\/\//iu;
+const ANY_SCHEME_REGEX = /^[a-z][a-z\d+.-]*:\//iu;
 
 /**
  * Thrown for non-2xx HTTP responses. Network/connection failures (no daemon,
