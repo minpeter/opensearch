@@ -43,12 +43,7 @@ function redditUrl(data: Record<string, unknown>): string {
   return permalink ? `https://www.reddit.com${permalink}` : "";
 }
 
-function result(
-  url: string,
-  title: string,
-  content: string,
-  _name?: string
-): FetchResult {
+function result(url: string, title: string, content: string): FetchResult {
   return createFetchResult(url, content, title);
 }
 
@@ -94,8 +89,9 @@ function buildSubredditMarkdown(
       if (!title) {
         return "";
       }
+      const author = redditField(data, "author");
       const details = [
-        redditField(data, "author") && `by ${redditField(data, "author")}`,
+        author && `by ${author}`,
         `${redditNumber(data, "score")} points`,
         `${redditNumber(data, "num_comments")} comments`,
       ].filter(Boolean);
@@ -116,9 +112,7 @@ async function fetchReddit(url: URL): Promise<FetchResult | null> {
       return null;
     }
     const content = buildSubredditMarkdown(listing.heading, parsed.data);
-    return content
-      ? result(url.toString(), listing.title, content, listing.traceName)
-      : null;
+    return content ? result(url.toString(), listing.title, content) : null;
   }
 
   const path = url.pathname.replace(TRAILING_SLASH_REGEX, "");
@@ -128,16 +122,13 @@ async function fetchReddit(url: URL): Promise<FetchResult | null> {
     return null;
   }
   const { title, content } = buildRedditMarkdown(parsed.data);
-  return content
-    ? result(url.toString(), title, content, "public-api:reddit:comments")
-    : null;
+  return content ? result(url.toString(), title, content) : null;
 }
 
 interface RedditListingRequest {
   readonly apiUrl: string;
   readonly heading: string;
   readonly title: string;
-  readonly traceName: string;
 }
 
 function listingRequest(url: URL): RedditListingRequest | null {
@@ -158,7 +149,6 @@ function listingRequest(url: URL): RedditListingRequest | null {
       apiUrl: `https://www.reddit.com/r/${subreddit}/search.json?${params.toString()}`,
       heading: `r/${subreddit} search`,
       title: `r/${subreddit} search "${query}"`,
-      traceName: "public-api:reddit:search",
     };
   }
 
@@ -171,11 +161,11 @@ function listingRequest(url: URL): RedditListingRequest | null {
   if (!subreddit) {
     return null;
   }
+  const label = `r/${subreddit} ${sort}`;
   return {
     apiUrl: `https://www.reddit.com/r/${subreddit}/${sort}.json?limit=${MAX_REDDIT_LISTING_ITEMS}`,
-    heading: `r/${subreddit} ${sort}`,
-    title: `r/${subreddit} ${sort}`,
-    traceName: `public-api:reddit:${sort}`,
+    heading: label,
+    title: label,
   };
 }
 

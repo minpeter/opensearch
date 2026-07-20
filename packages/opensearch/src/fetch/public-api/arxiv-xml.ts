@@ -17,7 +17,11 @@ export function parseArxivEntries(xml: string): string[] {
       const title = xmlElementText(entry, ARXIV_TITLE_REGEX);
       const id = xmlElementText(entry, ARXIV_ID_REGEX);
       const summary = xmlElementText(entry, ARXIV_SUMMARY_REGEX);
-      return title ? `- [${title}](${id})${summary ? `: ${summary}` : ""}` : "";
+      if (!title) {
+        return "";
+      }
+      const summarySuffix = summary ? `: ${summary}` : "";
+      return `- [${title}](${id})${summarySuffix}`;
     })
     .filter(Boolean);
 }

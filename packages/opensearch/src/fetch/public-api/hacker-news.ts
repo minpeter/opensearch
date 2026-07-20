@@ -22,32 +22,26 @@ const HN_LIST_ROUTES = {
   "/": {
     endpoint: "topstories",
     title: "Hacker News top stories",
-    traceName: "public-api:hn:topstories",
   },
   "/ask": {
     endpoint: "askstories",
     title: "Hacker News ask stories",
-    traceName: "public-api:hn:askstories",
   },
   "/best": {
     endpoint: "beststories",
     title: "Hacker News best stories",
-    traceName: "public-api:hn:beststories",
   },
   "/newest": {
     endpoint: "newstories",
     title: "Hacker News new stories",
-    traceName: "public-api:hn:newstories",
   },
   "/news": {
     endpoint: "topstories",
     title: "Hacker News top stories",
-    traceName: "public-api:hn:topstories",
   },
   "/show": {
     endpoint: "showstories",
     title: "Hacker News show stories",
-    traceName: "public-api:hn:showstories",
   },
 } as const;
 
@@ -84,9 +78,7 @@ async function fetchHackerNews(url: URL): Promise<FetchResult | null> {
     parts.push(`Link: ${item.url}`);
   }
   const content = parts.join("\n\n");
-  return content
-    ? result(url.toString(), item.title ?? "", content, "public-api:hn:item")
-    : null;
+  return content ? result(url.toString(), item.title ?? "", content) : null;
 }
 
 async function fetchHackerNewsList(
@@ -115,9 +107,7 @@ async function fetchHackerNewsList(
     .filter(Boolean);
   const content =
     entries.length > 0 ? `## ${route.title}\n\n${entries.join("\n")}` : "";
-  return content
-    ? result(url.toString(), route.title, content, route.traceName)
-    : null;
+  return content ? result(url.toString(), route.title, content) : null;
 }
 
 function storyEntry(item: z.infer<typeof hnItemSchema>): string {
@@ -133,12 +123,7 @@ function storyEntry(item: z.infer<typeof hnItemSchema>): string {
   return `- [${item.title}](${item.url ?? "#"})${details.length > 0 ? ` — ${details.join(" · ")}` : ""}`;
 }
 
-function result(
-  url: string,
-  title: string,
-  content: string,
-  _name?: string
-): FetchResult {
+function result(url: string, title: string, content: string): FetchResult {
   return createFetchResult(url, content, title);
 }
 

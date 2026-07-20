@@ -9,9 +9,7 @@ export function queryValue(url: URL): string | null {
 export function searchResult(
   url: string,
   title: string,
-  content: string,
-  _profileUsed?: string,
-  _name?: string
+  content: string
 ): FetchResult {
   return createFetchResult(url, content, title);
 }

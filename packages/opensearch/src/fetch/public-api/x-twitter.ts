@@ -19,7 +19,6 @@ const oembedSchema = z.object({
   author_name: z.string().optional(),
   author_url: z.string().optional(),
   html: z.string(),
-  url: z.string().optional(),
 });
 
 function decodeHtml(text: string): string {

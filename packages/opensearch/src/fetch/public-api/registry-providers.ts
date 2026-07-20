@@ -52,13 +52,7 @@ const waybackSchema = z.object({
     .optional(),
 });
 
-function result(
-  url: string,
-  title: string,
-  content: string,
-  _profileUsed?: string,
-  _name?: string
-): FetchResult {
+function result(url: string, title: string, content: string): FetchResult {
   return createFetchResult(url, content, title);
 }
 
@@ -79,13 +73,7 @@ async function fetchNpm(url: URL): Promise<FetchResult | null> {
   ]
     .filter(Boolean)
     .join("\n\n");
-  return result(
-    url.toString(),
-    parsed.data.name,
-    content,
-    "public-api:npm",
-    "public-api:npm:latest"
-  );
+  return result(url.toString(), parsed.data.name, content);
 }
 
 async function fetchPyPi(url: URL): Promise<FetchResult | null> {
@@ -107,13 +95,7 @@ async function fetchPyPi(url: URL): Promise<FetchResult | null> {
   ]
     .filter(Boolean)
     .join("\n\n");
-  return result(
-    url.toString(),
-    info.name,
-    content,
-    "public-api:pypi",
-    "public-api:pypi:json"
-  );
+  return result(url.toString(), info.name, content);
 }
 
 async function fetchGitHubReleases(url: URL): Promise<FetchResult | null> {
@@ -136,13 +118,7 @@ async function fetchGitHubReleases(url: URL): Promise<FetchResult | null> {
     return `- ${name}${prerelease}${published}${link}`;
   });
   const title = `${owner}/${repo} releases`;
-  return result(
-    url.toString(),
-    title,
-    `## ${title}\n\n${entries.join("\n")}`,
-    "public-api:github",
-    "public-api:github:releases"
-  );
+  return result(url.toString(), title, `## ${title}\n\n${entries.join("\n")}`);
 }
 
 async function fetchWayback(url: URL): Promise<FetchResult | null> {
@@ -167,13 +143,7 @@ async function fetchWayback(url: URL): Promise<FetchResult | null> {
   ]
     .filter(Boolean)
     .join("\n\n");
-  return result(
-    url.toString(),
-    title,
-    content,
-    "public-api:wayback",
-    "public-api:wayback:available"
-  );
+  return result(url.toString(), title, content);
 }
 
 function isRegistryProvider(url: URL): boolean {

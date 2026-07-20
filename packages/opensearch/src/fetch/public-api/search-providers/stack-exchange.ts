@@ -56,8 +56,6 @@ export async function fetchStackExchangeSearchProvider(url: URL) {
   return searchResult(
     url.toString(),
     title,
-    `## ${title}\n\n${entries.join("\n")}`,
-    "public-api:stack-exchange-search",
-    "public-api:stack-exchange:search"
+    `## ${title}\n\n${entries.join("\n")}`
   );
 }

@@ -56,9 +56,7 @@ async function fetchOpenLibrarySearch(url: URL) {
   return searchResult(
     url.toString(),
     title,
-    `## ${title}\n\n${entries.join("\n")}`,
-    "public-api:openlibrary-search",
-    "public-api:openlibrary:search"
+    `## ${title}\n\n${entries.join("\n")}`
   );
 }
 
@@ -87,9 +85,7 @@ async function fetchCrossrefSearch(url: URL) {
   return searchResult(
     url.toString(),
     title,
-    `## ${title}\n\n${entries.join("\n")}`,
-    "public-api:crossref-search",
-    "public-api:crossref:search"
+    `## ${title}\n\n${entries.join("\n")}`
   );
 }
 
@@ -121,9 +117,7 @@ async function fetchWikipediaSearch(url: URL) {
   return searchResult(
     url.toString(),
     title,
-    `## ${title}\n\n${entries.join("\n")}`,
-    "public-api:wikipedia-search",
-    "public-api:wikipedia:opensearch"
+    `## ${title}\n\n${entries.join("\n")}`
   );
 }
 
