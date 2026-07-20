@@ -11,6 +11,7 @@ import {
 import {
   createFetchToolResult,
   createSearchToolResult,
+  createToolErrorResponse,
   getFetchMaxCharacters,
   getSearchResultCount,
   webFetchInputSchema,
@@ -25,25 +26,6 @@ const eventSink = createMcpEventSink();
 const client = createOpenSearch(
   eventSink ? { observability: { onEvent: eventSink } } : {}
 );
-
-const textContentType = "text" as const;
-
-function createToolErrorResponse(
-  toolName: string,
-  action: string,
-  error: unknown
-) {
-  const toolError = error instanceof Error ? error : new Error(String(error));
-  const errorMessage = toolError.message;
-  console.error(`[opensearch] ${toolName} failed: ${errorMessage}`);
-
-  return {
-    content: [
-      { text: `${action} failed: ${errorMessage}`, type: textContentType },
-    ],
-    isError: true,
-  };
-}
 
 server.registerTool(
   "web_search",

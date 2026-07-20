@@ -123,3 +123,32 @@ export function createFetchToolResult(results: FetchResult | FetchResult[]) {
     ],
   };
 }
+
+function errorMessageOf(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error === "object" && error !== null && "message" in error) {
+    const { message } = error;
+    if (typeof message === "string") {
+      return message;
+    }
+  }
+  return String(error);
+}
+
+export function createToolErrorResponse(
+  toolName: string,
+  action: string,
+  error: unknown
+) {
+  const errorMessage = errorMessageOf(error);
+  console.error(`[opensearch] ${toolName} failed: ${errorMessage}`);
+
+  return {
+    content: [
+      { text: `${action} failed: ${errorMessage}`, type: textContentType },
+    ],
+    isError: true,
+  };
+}
