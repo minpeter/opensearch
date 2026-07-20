@@ -41,7 +41,7 @@ const EXPECTED_TINYFISH_PROVIDER_FILES = [
   "search.ts",
 ] as const;
 const EXPECTED_EXA_MCP_PROVIDER_FILES = ["client.ts", "content.ts"] as const;
-const EXPECTED_FIRECRAWL_PROVIDER_FILES = ["client.ts"] as const;
+const EXPECTED_FIRECRAWL_PROVIDER_FILES = ["client.ts", "request.ts"] as const;
 const EXPECTED_PARALLEL_MCP_PROVIDER_FILES = [
   "client.ts",
   "content.ts",
