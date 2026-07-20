@@ -54,6 +54,7 @@ const LEGACY_ROOT_PROVIDER_FILES = [
 ] as const;
 const ALLOWED_DIRECT_RESPONSE_BODY_READ_FILES = new Set([
   "node/tls-executor.ts",
+  "node/wreq.ts",
 ]);
 
 describe("test structure", () => {
