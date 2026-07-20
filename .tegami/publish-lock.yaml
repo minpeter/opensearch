@@ -1,20 +1,15 @@
 core:changelogs:
-  - content: "---\npackages:\n  npm:@minpeter/opensearch:\n    type: patch\n---\n\n### Bump undici to v8\n\nUpgrade the HTTP client from undici 7 to undici 8. No API changes —\n`Agent` and `Dispatcher` usage is unchanged. Requires Node >= 22.19.0.\n"
-    filename: 2026-07-20-c3a3ee0c.md
-    v: 0.0.0
-  - content: "---\npackages:\n  npm:opensearch-ai-sdk:\n    type: patch\n---\n\n### Adapt to ai SDK v7 types\n\nUpdate type definitions for ai SDK v7 compatibility:\n`ToolExecutionOptions` is now generic, `OpenSearchToolSet` no longer\nextends ai's `ToolSet` (index signature incompatibility), and method\nsignatures use property-style for stricter function type checking.\n"
-    filename: 2026-07-20-c8e44592.md
+  - content: "---\npackages:\n  npm:@minpeter/opensearch:\n    type: patch\n---\n\n### Bump biome to 2.5.4 and ultracite to 7.9.4\n\nAdopt biome 2.5.x lint rules across the codebase: property-style method\nsignatures, error cause propagation, destructuring, and targeted\nsuppressions for intentional sequential awaits and defensive guards.\n"
+    filename: 2026-07-20-b10me254.md
     v: 0.0.0
 core:packages:
   - id: npm:opensearch-workspace
     updated: false
   - changelogIds:
-      - 2026-07-20-c3a3ee0c.md
+      - 2026-07-20-b10me254.md
     id: npm:@minpeter/opensearch
     updated: true
-  - changelogIds:
-      - 2026-07-20-c8e44592.md
-    id: npm:opensearch-ai-sdk
+  - id: npm:opensearch-ai-sdk
     updated: true
   - id: npm:opensearch-mcp
     updated: true
