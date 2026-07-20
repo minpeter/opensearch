@@ -2,7 +2,7 @@ import type { EnvironmentReader } from "../environment.ts";
 import { processEnvironmentReader } from "../environment.ts";
 import { fetchExaMcp, fetchExaMcpBatch } from "../providers/exa-mcp/client.ts";
 import { OPENSEARCH_ENABLE_EXA_MCP_ENV } from "./config.ts";
-import type { ExaMcpFetchProvider } from "./provider-fallback.ts";
+import type { ExaMcpFetchProvider } from "./provider-context.ts";
 import { createFetchResult, type FetchResult } from "./result.ts";
 
 export function isExaMcpEnabled(env: EnvironmentReader): boolean {
