@@ -69,11 +69,12 @@ export async function cleanupPlaywrightContext(
   context: BrowserContext | undefined,
   temporaryProfileDir: string | undefined
 ): Promise<void> {
-  try {
-    await context?.close();
-  } finally {
-    if (temporaryProfileDir) {
-      await rm(temporaryProfileDir, { force: true, recursive: true });
-    }
+  // Cleanup is best-effort: a close/removal failure must never mask the
+  // primary fetch outcome in the caller's finally block.
+  await context?.close().catch(() => undefined);
+  if (temporaryProfileDir) {
+    await rm(temporaryProfileDir, { force: true, recursive: true }).catch(
+      () => undefined
+    );
   }
 }
