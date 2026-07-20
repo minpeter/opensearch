@@ -15,10 +15,6 @@ const defaultTinyFishApiKeyPool = createTinyFishApiKeyPool(
   processEnvironmentReader
 );
 
-export function hasTinyFishApiKeys(): boolean {
-  return defaultTinyFishApiKeyPool.hasApiKeys();
-}
-
 export function getTinyFishApiKeyAttemptOrder(): readonly string[] {
   return defaultTinyFishApiKeyPool.getAttemptOrder();
 }

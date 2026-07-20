@@ -1,4 +1,9 @@
 import { requireTrustedProviderBaseUrl } from "../shared/base-url.ts";
+import {
+  cleanProviderText,
+  dedupeProviderResults,
+  MAX_PROVIDER_SNIPPET_LENGTH,
+} from "../shared/result.ts";
 
 export const DEFAULT_EXA_MCP_SERVER_URL = "https://mcp.exa.ai/mcp";
 export const DEFAULT_EXA_MCP_FETCH_TOOL = "web_fetch_exa";
@@ -9,7 +14,6 @@ const EXA_FETCH_URL_PREFIX = "URL:";
 const EXA_FETCH_PUBLISHED_PREFIX = "Published:";
 const EXA_FETCH_AUTHOR_PREFIX = "Author:";
 const SEARCH_RESULT_SEPARATOR = /\n\s*---\s*\n/gu;
-const MAX_SNIPPET_LENGTH = 280;
 
 export interface ExaMcpSearchResult {
   engine: "Exa";
@@ -55,10 +59,13 @@ export function parseExaMcpContentItems(
   }
 
   const results = content
-    .filter((item) => item.type === "text" && typeof item.text === "string")
-    .flatMap((item) => parseExaMcpSearchToolText(item.text ?? ""));
+    .filter(
+      (item): item is ExaMcpContentItem & { text: string } =>
+        item.type === "text" && typeof item.text === "string"
+    )
+    .flatMap((item) => parseExaMcpSearchToolText(item.text));
 
-  return dedupeByUrl(results);
+  return dedupeProviderResults(results);
 }
 
 export function parseExaMcpFetchContentItem(
@@ -75,8 +82,11 @@ export function parseExaMcpFetchContentItems(
   }
 
   return content
-    .filter((item) => item.type === "text" && typeof item.text === "string")
-    .map((item) => parseExaMcpFetchText(item.text ?? ""))
+    .filter(
+      (item): item is ExaMcpContentItem & { text: string } =>
+        item.type === "text" && typeof item.text === "string"
+    )
+    .map((item) => parseExaMcpFetchText(item.text))
     .filter((result): result is ExaMcpFetchResult => result !== null);
 }
 
@@ -93,7 +103,7 @@ export function parseExaMcpSearchToolText(text: string): ExaMcpSearchResult[] {
     .map((block) => parseExaMcpResultBlock(block))
     .filter((result): result is ExaMcpSearchResult => result !== null);
 
-  return dedupeByUrl(results);
+  return dedupeProviderResults(results);
 }
 
 function parseExaMcpResultBlock(block: string): ExaMcpSearchResult | null {
@@ -152,8 +162,8 @@ function parseExaMcpResultBlock(block: string): ExaMcpSearchResult | null {
   }
 
   const normalizedSnippet = truncateText(
-    cleanText(highlightLines[0] ?? snippet),
-    MAX_SNIPPET_LENGTH
+    cleanProviderText(highlightLines[0] ?? snippet),
+    MAX_PROVIDER_SNIPPET_LENGTH
   );
 
   if (!(title && url && normalizedSnippet)) {
@@ -166,19 +176,6 @@ function parseExaMcpResultBlock(block: string): ExaMcpSearchResult | null {
     title,
     url,
   };
-}
-
-function dedupeByUrl(results: ExaMcpSearchResult[]): ExaMcpSearchResult[] {
-  const seenUrls = new Set<string>();
-
-  return results.filter((result) => {
-    if (seenUrls.has(result.url)) {
-      return false;
-    }
-
-    seenUrls.add(result.url);
-    return true;
-  });
 }
 
 export function parseExaMcpFetchText(text: string): ExaMcpFetchResult | null {
@@ -197,9 +194,10 @@ export function parseExaMcpFetchText(text: string): ExaMcpFetchResult | null {
     return null;
   }
 
+  const urlLineIndex = lines.indexOf(urlLine);
   const contentStartIndex = lines.findIndex(
     (line, index) =>
-      index > lines.indexOf(urlLine) &&
+      index > urlLineIndex &&
       !line.startsWith(EXA_FETCH_PUBLISHED_PREFIX) &&
       !line.startsWith(EXA_FETCH_AUTHOR_PREFIX) &&
       line.trim().length > 0
@@ -220,10 +218,6 @@ export function parseExaMcpFetchText(text: string): ExaMcpFetchResult | null {
     title: titleLine.slice(EXA_FETCH_TITLE_PREFIX.length).trim(),
     url: urlLine.slice(EXA_FETCH_URL_PREFIX.length).trim(),
   };
-}
-
-function cleanText(text: string): string {
-  return text.replace(/\s+/gu, " ").trim();
 }
 
 function truncateText(text: string, maxLength: number): string {
