@@ -1,4 +1,5 @@
-import { barChartSvg, scatterSvg, tierListSvg } from "./charts.ts";
+import { barChartSvg } from "./bar-chart.ts";
+import { scatterSvg, tierListSvg } from "./charts.ts";
 import { assignTiers, TIER_COLORS } from "./tiers.ts";
 import type { BenchReport } from "./types.ts";
 
