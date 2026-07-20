@@ -257,8 +257,7 @@ async function readFirecrawlJson(
   response: Response
 ): Promise<unknown> {
   try {
-    const payload = await readResponseJson(response);
-    return payload;
+    return await readResponseJson(response);
   } catch (error) {
     throw new Error(
       `Firecrawl ${endpoint} returned invalid JSON: ${

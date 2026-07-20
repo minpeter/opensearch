@@ -115,15 +115,7 @@ function parseBraveResults(responseBody: string): ParsedResult[] {
   const parsed = braveResponseSchema.safeParse(
     parseJsonResponse(responseBody, "Brave")
   );
-  if (!parsed.success) {
-    throw new SearchEngineError(
-      "Brave",
-      "transient",
-      "Brave returned an unexpected response shape"
-    );
-  }
-
-  if (!parsed.data.web) {
+  if (!(parsed.success && parsed.data.web)) {
     throw new SearchEngineError(
       "Brave",
       "transient",

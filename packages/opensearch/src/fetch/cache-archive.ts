@@ -248,21 +248,24 @@ export async function fetchArchiveFallback(
   rawUrl: string,
   fetcher: ArchiveFetcher = fetch
 ): Promise<ArchiveFetchResult | null> {
-  for (const candidate of staticArchiveCandidates(rawUrl)) {
-    try {
-      // biome-ignore lint/performance/noAwaitInLoops: archive candidates are tried sequentially to stop after the first success
-      const response = await fetcher(candidate.url);
-      if (response?.ok) {
-        return { candidate, response };
-      }
-      await response?.body?.cancel();
-    } catch (error) {
-      if (!(error instanceof Error)) {
-        throw error;
-      }
-    }
+  const staticResult = await tryArchiveCandidates(
+    staticArchiveCandidates(rawUrl),
+    fetcher
+  );
+  if (staticResult) {
+    return staticResult;
   }
-  for (const candidate of await dynamicArchiveCandidates(rawUrl, fetcher)) {
+  return tryArchiveCandidates(
+    await dynamicArchiveCandidates(rawUrl, fetcher),
+    fetcher
+  );
+}
+
+async function tryArchiveCandidates(
+  candidates: readonly ArchiveCandidate[],
+  fetcher: ArchiveFetcher
+): Promise<ArchiveFetchResult | null> {
+  for (const candidate of candidates) {
     try {
       // biome-ignore lint/performance/noAwaitInLoops: archive candidates are tried sequentially to stop after the first success
       const response = await fetcher(candidate.url);

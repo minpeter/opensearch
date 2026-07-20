@@ -122,7 +122,7 @@ function resultFromText(
   text: string,
   mode: JinaReaderMode
 ): JinaReaderResult | null {
-  if (!(text.length > 0) || isChallengePage(text)) {
+  if (text.length === 0 || isChallengePage(text)) {
     return null;
   }
   return { alternates: [], content: text, mode };
@@ -135,7 +135,7 @@ function resultFromJson(text: string): JinaReaderResult | null {
   }
   const content =
     parsed.data.data.content ?? parsed.data.data.description ?? "";
-  if (!(content.length > 0) || isChallengePage(content)) {
+  if (content.length === 0 || isChallengePage(content)) {
     return null;
   }
   return {

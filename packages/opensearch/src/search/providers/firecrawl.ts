@@ -9,7 +9,11 @@ import {
 import { getHttpStatus } from "../../providers/shared/error.ts";
 import { getErrorMessage, SearchEngineError } from "../errors.ts";
 import { attachEngine, dedupeResults, normalizeResult } from "../text.ts";
-import type { ParsedResult, SearchProvider } from "../types.ts";
+import type {
+  EngineFailureKind,
+  ParsedResult,
+  SearchProvider,
+} from "../types.ts";
 
 export function createFirecrawlSearchProvider(
   env: EnvironmentReader = processEnvironmentReader
@@ -54,12 +58,14 @@ export function createFirecrawlSearchProvider(
   };
 }
 
-function classifyFirecrawlFailure(status: number | undefined) {
+function classifyFirecrawlFailure(
+  status: number | undefined
+): EngineFailureKind {
   if (status === 401 || status === 402) {
-    return "misconfigured" as const;
+    return "misconfigured";
   }
   if (status === 403 || status === 451) {
-    return "blocked" as const;
+    return "blocked";
   }
-  return "transient" as const;
+  return "transient";
 }
