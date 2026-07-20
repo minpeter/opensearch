@@ -1,5 +1,4 @@
-import type { ToolExecutionOptions, ToolSet } from "ai";
-import { tool } from "ai";
+import type { ToolExecutionOptions } from "ai";
 import {
   DEFAULT_SEARCH_RESULT_COUNT,
   type WebFetchInput,
@@ -20,12 +19,15 @@ export interface OpenSearchClientLike<
   TSearchResult extends WebSearchResult = WebSearchResult,
   TFetchResult extends WebFetchResult = WebFetchResult,
 > {
-  fetch(url: string, options?: OpenSearchFetchOptions): Promise<TFetchResult>;
-  fetch(
-    urls: readonly string[],
+  fetch: ((
+    url: string,
     options?: OpenSearchFetchOptions
-  ): Promise<TFetchResult[]>;
-  search(query: string, maxResults?: number): Promise<TSearchResult[]>;
+  ) => Promise<TFetchResult>) &
+    ((
+      urls: readonly string[],
+      options?: OpenSearchFetchOptions
+    ) => Promise<TFetchResult[]>);
+  search: (query: string, maxResults?: number) => Promise<TSearchResult[]>;
 }
 
 export interface OpenSearchToolsOptions<
@@ -52,10 +54,10 @@ export interface WebSearchTool<
   TSearchResult extends WebSearchResult = WebSearchResult,
 > {
   readonly description: string;
-  execute(
+  execute: (
     input: WebSearchInput,
-    options: ToolExecutionOptions
-  ): Promise<TSearchResult[]>;
+    options: ToolExecutionOptions<unknown>
+  ) => Promise<TSearchResult[]>;
   readonly inputSchema: typeof webSearchInputSchema;
   readonly outputSchema: typeof webSearchOutputSchema;
 }
@@ -64,10 +66,10 @@ export interface WebFetchTool<
   TFetchResult extends WebFetchResult = WebFetchResult,
 > {
   readonly description: string;
-  execute(
+  execute: (
     input: WebFetchInput,
-    options: ToolExecutionOptions
-  ): Promise<TFetchResult[]>;
+    options: ToolExecutionOptions<unknown>
+  ) => Promise<TFetchResult[]>;
   readonly inputSchema: typeof webFetchInputSchema;
   readonly outputSchema: typeof webFetchOutputSchema;
 }
@@ -75,7 +77,7 @@ export interface WebFetchTool<
 export interface OpenSearchToolSet<
   TSearchResult extends WebSearchResult = WebSearchResult,
   TFetchResult extends WebFetchResult = WebFetchResult,
-> extends ToolSet {
+> {
   readonly web_fetch: WebFetchTool<TFetchResult>;
   readonly web_search: WebSearchTool<TSearchResult>;
 }
@@ -102,7 +104,7 @@ export function createOpenSearchToolsForRuntime<
   const tools = {
     web_search: createWebSearchToolForClient(client),
     web_fetch: createWebFetchToolForClient(client),
-  } satisfies OpenSearchToolSet<TSearchResult, TFetchResult> & ToolSet;
+  } satisfies OpenSearchToolSet<TSearchResult, TFetchResult>;
 
   return tools;
 }
@@ -154,13 +156,11 @@ function createWebSearchToolForClient<TSearchResult extends WebSearchResult>(
 ): WebSearchTool<TSearchResult> {
   const toolConfig: WebSearchTool<TSearchResult> = {
     description: webSearchDescription,
-    inputSchema: webSearchInputSchema,
-    outputSchema: webSearchOutputSchema,
     execute: async (input) =>
       client.search(input.query, getSearchResultCount(input)),
+    inputSchema: webSearchInputSchema,
+    outputSchema: webSearchOutputSchema,
   };
-
-  tool(toolConfig);
 
   return toolConfig;
 }
@@ -170,12 +170,10 @@ function createWebFetchToolForClient<TFetchResult extends WebFetchResult>(
 ): WebFetchTool<TFetchResult> {
   const toolConfig: WebFetchTool<TFetchResult> = {
     description: webFetchDescription,
+    execute: async (input) => client.fetch(input.urls, getFetchOptions(input)),
     inputSchema: webFetchInputSchema,
     outputSchema: webFetchOutputSchema,
-    execute: async (input) => client.fetch(input.urls, getFetchOptions(input)),
   };
-
-  tool(toolConfig);
 
   return toolConfig;
 }

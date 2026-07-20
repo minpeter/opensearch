@@ -5,7 +5,7 @@ import type {
   OpenSearchEvent,
   SearchResult,
 } from "@minpeter/opensearch";
-import type { ToolExecutionOptions, ToolSet } from "ai";
+import type { ToolExecutionOptions } from "ai";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createOpenSearchTools as createRootOpenSearchTools,
@@ -35,7 +35,8 @@ interface FakeOpenSearchClientOptions {
   readonly searchResults?: readonly SearchResult[];
 }
 
-const toolExecutionOptions: ToolExecutionOptions = {
+const toolExecutionOptions: ToolExecutionOptions<unknown> = {
+  context: undefined,
   messages: [],
   toolCallId: "tool-call-test",
 };
@@ -131,11 +132,8 @@ describe("OpenSearch AI SDK tools", () => {
 
     const rootTools = createRootOpenSearchTools({ client });
     const nodeTools = createNodeOpenSearchTools({ client });
-    const rootToolSet: ToolSet = rootTools;
-    const nodeToolSet: ToolSet = nodeTools;
-
-    expect(Object.keys(rootToolSet)).toStrictEqual(["web_search", "web_fetch"]);
-    expect(Object.keys(nodeToolSet)).toStrictEqual(["web_search", "web_fetch"]);
+    expect(Object.keys(rootTools)).toStrictEqual(["web_search", "web_fetch"]);
+    expect(Object.keys(nodeTools)).toStrictEqual(["web_search", "web_fetch"]);
     expect(typeof rootTools.web_search.execute).toBe("function");
     expect(typeof nodeTools.web_fetch.execute).toBe("function");
     expect(typeof createNodeWebFetchTool).toBe("function");
