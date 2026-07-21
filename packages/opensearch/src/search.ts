@@ -177,55 +177,109 @@ export function createSearchService(
   ): AsyncGenerator<SearchResult[], void, undefined> {
     const providers = configuredProviders ?? resolveProviders(env);
     const operationId = observer.createOperationId("search");
+    const startedAt = observer.now();
     const failures: SearchEngineError[] = [];
+    observer.emit({
+      inputCount: 1,
+      operation: "search",
+      operationId,
+      phase: "start",
+      timestampMs: startedAt,
+      type: "operation",
+    });
 
-    const pending = providers.map((provider) => ({
-      attempt: observeProviderAttempt(
-        observer,
-        { operation: "search", operationId, provider: provider.name },
-        async () => {
-          try {
-            const results = await provider.search(query, numResults);
-            return results.slice(0, numResults);
-          } catch (error) {
-            if (error instanceof SearchEngineError) {
-              failures.push(error);
-            } else {
-              failures.push(
-                new SearchEngineError(
-                  provider.name,
-                  "transient",
-                  `${provider.name} search failed: ${
-                    error instanceof Error ? error.message : String(error)
-                  }`
-                )
-              );
-            }
-            return null;
-          }
+    try {
+      let delivered = 0;
+      const queue = providers.map((provider) => ({
+        attempt: attemptStreamProvider(
+          provider,
+          query,
+          numResults,
+          operationId,
+          failures
+        ),
+        provider,
+      }));
+      while (queue.length > 0) {
+        // biome-ignore lint/performance/noAwaitInLoops: results are yielded in completion order, so each provider's settlement is awaited one at a time
+        const settled = await Promise.race(queue.map((entry) => entry.attempt));
+        queue.splice(
+          queue.findIndex((entry) => entry.provider === settled.provider),
+          1
+        );
+        if (settled.results !== null && settled.results.length > 0) {
+          delivered += 1;
+          yield settled.results;
         }
-      ),
-    }));
-
-    let delivered = 0;
-    const queue = [...pending];
-    while (queue.length > 0) {
-      // biome-ignore lint/performance/noAwaitInLoops: results are yielded in completion order, so each provider's settlement is awaited one at a time
-      const settled = await Promise.race(
-        queue.map((entry) =>
-          entry.attempt.then((results) => ({ entry, results }))
-        )
-      );
-      queue.splice(queue.indexOf(settled.entry), 1);
-      if (settled.results !== null && settled.results.length > 0) {
-        delivered += 1;
-        yield settled.results;
       }
-    }
 
-    if (delivered === 0) {
-      throw createSearchExecutionError(failures);
+      if (delivered === 0) {
+        throw createSearchExecutionError(failures);
+      }
+      observer.emit({
+        durationMs: observer.now() - startedAt,
+        inputCount: 1,
+        operation: "search",
+        operationId,
+        phase: "success",
+        resultCount: delivered,
+        timestampMs: observer.now(),
+        type: "operation",
+      });
+    } catch (error) {
+      observer.emit({
+        durationMs: observer.now() - startedAt,
+        error:
+          error instanceof Error
+            ? { name: error.name }
+            : { name: "UnknownError" },
+        inputCount: 1,
+        operation: "search",
+        operationId,
+        phase: "failure",
+        timestampMs: observer.now(),
+        type: "operation",
+      });
+      throw error;
     }
+  }
+
+  async function attemptStreamProvider(
+    provider: SearchProvider,
+    query: string,
+    numResults: number,
+    operationId: string,
+    failures: SearchEngineError[]
+  ): Promise<{ provider: SearchProvider; results: SearchResult[] | null }> {
+    const results = await observeProviderAttempt(
+      observer,
+      { operation: "search", operationId, provider: provider.name },
+      async () => {
+        try {
+          const found = await provider.search(query, numResults);
+          return found.slice(0, numResults);
+        } catch (error) {
+          if (error instanceof SearchEngineError) {
+            if (error.status === 451) {
+              throw error;
+            }
+            failures.push(error);
+          } else {
+            failures.push(
+              new SearchEngineError(
+                provider.name,
+                "transient",
+                `${provider.name} search failed: ${
+                  error instanceof Error ? error.message : String(error)
+                }`
+              )
+            );
+          }
+          return null;
+        }
+      }
+    );
+    return { provider, results };
   }
 
   return {

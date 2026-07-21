@@ -77,11 +77,74 @@ describe("searchStream", () => {
     ]);
   });
 
+  it("propagates HTTP 451 instead of yielding other providers", async () => {
+    const restricted = deferred<SearchResult[]>();
+    const ok = deferred<SearchResult[]>();
+    const { getSearchProviders } = await import("../search/providers.ts");
+    const { SearchEngineError } = await import("../search/errors.ts");
+    vi.mocked(getSearchProviders).mockReturnValue([
+      { name: "Brave", search: vi.fn().mockReturnValue(restricted.promise) },
+      { name: "Exa", search: vi.fn().mockReturnValue(ok.promise) },
+    ]);
+
+    const { searchStream } = await import("../search.ts");
+    const consume = (async () => {
+      const collected: SearchResult[][] = [];
+      for await (const batch of searchStream("restricted", 3)) {
+        collected.push(batch);
+      }
+      return collected;
+    })();
+
+    restricted.reject(
+      new SearchEngineError("Brave", "blocked", "HTTP 451", { status: 451 })
+    );
+    ok.resolve(results("Exa"));
+
+    await expect(consume).rejects.toMatchObject({ status: 451 });
+  });
+
+  it("emits operation lifecycle events around the stream", async () => {
+    const { getSearchProviders } = await import("../search/providers.ts");
+    const fast = deferred<SearchResult[]>();
+    vi.mocked(getSearchProviders).mockReturnValue([
+      { name: "Brave", search: vi.fn().mockReturnValue(fast.promise) },
+    ]);
+    const events: { phase?: string; type?: string }[] = [];
+    const { createOpenSearchObserver } = await import("../observability.ts");
+    const { createSearchService } = await import("../search.ts");
+    const observer = createOpenSearchObserver((event) => {
+      events.push(event as { phase?: string; type?: string });
+    });
+    const service = createSearchService(
+      { read: () => undefined },
+      {
+        observer,
+        providers: () => [
+          { name: "Brave", search: vi.fn().mockReturnValue(fast.promise) },
+        ],
+      }
+    );
+
+    const consume = (async () => {
+      for await (const _batch of service.searchStream("observed", 3)) {
+        // drain
+      }
+    })();
+    fast.resolve(results("Brave"));
+    await consume;
+
+    const operationPhases = events
+      .filter((event) => event.type === "operation")
+      .map((event) => event.phase);
+    expect(operationPhases).toEqual(["start", "success"]);
+  });
+
   it("throws the aggregated error when every provider fails", async () => {
     const { searchStream } = await import("../search.ts");
     const failing = deferred<SearchResult[]>();
     const { getSearchProviders } = await import("../search/providers.ts");
-    vi.mocked(getSearchProviders).mockReturnValueOnce([
+    vi.mocked(getSearchProviders).mockReturnValue([
       { name: "Brave", search: vi.fn().mockReturnValue(failing.promise) },
     ]);
 
