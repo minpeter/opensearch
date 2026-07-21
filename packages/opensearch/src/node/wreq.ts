@@ -1,5 +1,5 @@
 import { DEFAULT_MAX_DOWNLOAD_BYTES } from "../fetch/local-options.ts";
-import { assertTextByteLimit, readResponseText } from "../response-body.ts";
+import { readResponseText } from "../response-body.ts";
 
 const DEFAULT_MAX_REDIRECTS = 5;
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
@@ -66,20 +66,14 @@ export async function fetchWreqWithRedirectPolicy(
   }
 }
 
-export async function readWreqText(
+export function readWreqText(
   response: WreqResponse,
   maxResponseBytes = DEFAULT_MAX_DOWNLOAD_BYTES
 ): Promise<string> {
-  if (response.body) {
-    return readResponseText(
-      { body: response.body, headers: toHeaders(response.headers) },
-      maxResponseBytes
-    );
-  }
-
-  const text = await response.text();
-  assertTextByteLimit(text, maxResponseBytes);
-  return text;
+  return readResponseText(
+    { body: response.body ?? null, headers: toHeaders(response.headers) },
+    maxResponseBytes
+  );
 }
 
 export function toHeaders(input: unknown): Headers {

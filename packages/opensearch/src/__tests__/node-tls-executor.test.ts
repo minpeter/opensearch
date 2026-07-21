@@ -9,6 +9,15 @@ import {
   type WreqLoader,
 } from "../node/tls-executor.ts";
 
+function streamOf(content: string): ReadableStream<Uint8Array> {
+  return new ReadableStream({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode(content));
+      controller.close();
+    },
+  });
+}
+
 function loaderWithFetch(
   fetchImpl: Awaited<ReturnType<WreqLoader>>["fetch"],
   profiles: readonly string[] = ["chrome_131", "chrome_142"]
@@ -86,11 +95,13 @@ describe("fetchViaTlsImpersonation", () => {
     const fetchImpl = vi
       .fn()
       .mockResolvedValueOnce({
+        body: streamOf("<html>Just a moment...</html>"),
         headers: new Headers({ server: "cloudflare" }),
         status: 200,
         text: async () => "<html>Just a moment...</html>",
       })
       .mockResolvedValueOnce({
+        body: streamOf("<main>Recovered content</main>"),
         headers: new Headers({ "content-type": "text/html" }),
         status: 200,
         text: async () => "<main>Recovered content</main>",

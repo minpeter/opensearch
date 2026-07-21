@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { fetchWreqWithRedirectPolicy } from "../node/wreq.ts";
+import { fetchWreqWithRedirectPolicy, readWreqText } from "../node/wreq.ts";
+import { ResponseSizeLimitError } from "../response-body.ts";
 
 function redirectResponse(location: string) {
   return {
@@ -75,5 +76,35 @@ describe("fetchWreqWithRedirectPolicy", () => {
 
     expect(validateUrl).toHaveBeenCalledWith("https://example.com/start");
     expect(validateUrl).toHaveBeenCalledWith("https://evil.example/");
+  });
+});
+
+describe("readWreqText", () => {
+  it("does not call response.text when wreq exposes no body", async () => {
+    const text = vi.fn().mockResolvedValue("unexpected");
+
+    await expect(
+      readWreqText({ body: null, headers: new Headers(), status: 204, text })
+    ).resolves.toBe("");
+
+    expect(text).not.toHaveBeenCalled();
+  });
+
+  it("rejects oversized declared null-body responses before text fallback", async () => {
+    const text = vi.fn().mockResolvedValue("small");
+
+    await expect(
+      readWreqText(
+        {
+          body: null,
+          headers: new Headers({ "Content-Length": "101" }),
+          status: 200,
+          text,
+        },
+        100
+      )
+    ).rejects.toBeInstanceOf(ResponseSizeLimitError);
+
+    expect(text).not.toHaveBeenCalled();
   });
 });
