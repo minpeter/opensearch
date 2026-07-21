@@ -1,4 +1,4 @@
-export type OpenSearchOperation = "fetch" | "search";
+export type OpenSearchOperation = "code_search" | "fetch" | "search";
 
 export type OpenSearchFailureKind =
   | "blocked"
