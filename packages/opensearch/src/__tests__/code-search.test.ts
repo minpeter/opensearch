@@ -135,8 +135,19 @@ describe("code search provider parsers", () => {
     );
 
     expect(url.searchParams.get("q")).toBe(
-      '/isError\\s*:\\s*true/ repo:"owner/repo" path:"src/" language:"TypeScript"'
+      '/isError\\\\s*:\\\\s*true/ repo:"owner/repo" path:"src/" language:"TypeScript"'
     );
+  });
+
+  it("escapes backslashes before regexp delimiters so escaped slashes cannot break out", async () => {
+    const { buildGitHubCodeSearchUrl } = await import(
+      "../code-search/providers/github.ts"
+    );
+    const url = new URL(
+      buildGitHubCodeSearchUrl("a\\/b/c", { useRegexp: true })
+    );
+
+    expect(url.searchParams.get("q")).toBe("/a\\\\\\/b\\/c/");
   });
 
   it("parses GitHub code search items into file-level results", async () => {

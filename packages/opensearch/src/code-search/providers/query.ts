@@ -7,7 +7,10 @@ export function formatSearchPattern(
   useRegexp: boolean | undefined
 ): string {
   if (useRegexp) {
-    return `/${query.replace(FORWARD_SLASH_REGEX, "\\/")}/`;
+    const escaped = query
+      .replace(BACKSLASH_REGEX, "\\\\")
+      .replace(FORWARD_SLASH_REGEX, "\\/");
+    return `/${escaped}/`;
   }
   return quoteSearchValue(query);
 }
