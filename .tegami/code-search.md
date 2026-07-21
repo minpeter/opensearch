@@ -1,11 +1,11 @@
 ---
 packages:
   npm:@minpeter/opensearch:
-    type: minor
+    type: patch
   npm:opensearch-mcp:
-    type: minor
+    type: patch
   npm:opensearch-ai-sdk:
-    type: minor
+    type: patch
 ---
 
 ### Add multi-provider code search
