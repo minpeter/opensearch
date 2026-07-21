@@ -1,11 +1,14 @@
-import type { FetchResult } from "@minpeter/opensearch";
+import type { CodeSearchResult, FetchResult } from "@minpeter/opensearch";
 import { normalizeObjectSchema } from "@modelcontextprotocol/sdk/server/zod-compat.js";
 import { toJsonSchemaCompat } from "@modelcontextprotocol/sdk/server/zod-json-schema-compat.js";
 import { describe, expect, it } from "vitest";
 
 import {
+  codeSearchInputSchema,
+  createCodeSearchToolResult,
   createFetchToolResult,
   createSearchContent,
+  getCodeSearchOptions,
   getFetchMaxCharacters,
   getSearchResultCount,
   webFetchInputSchema,
@@ -21,6 +24,35 @@ function createFetchResult(overrides: Partial<FetchResult> = {}): FetchResult {
     ...overrides,
   };
 }
+
+describe("codeSearchInputSchema", () => {
+  it("maps provider-neutral filters", () => {
+    const input = codeSearchInputSchema.parse({
+      language: "TypeScript",
+      numResults: 7,
+      path: "src/",
+      query: "isError: true",
+      repo: "f/prompts.chat",
+      sources: ["github", "grep"],
+      useRegexp: false,
+    });
+
+    expect(getCodeSearchOptions(input)).toEqual({
+      language: "TypeScript",
+      numResults: 7,
+      path: "src/",
+      repo: "f/prompts.chat",
+      sources: ["github", "grep"],
+      useRegexp: false,
+    });
+  });
+
+  it("rejects an unknown provider", () => {
+    expect(() =>
+      codeSearchInputSchema.parse({ query: "isError", sources: ["unknown"] })
+    ).toThrow();
+  });
+});
 
 describe("webFetchInputSchema", () => {
   it("accepts Exa-style numResults for search result limits", () => {
@@ -239,5 +271,36 @@ describe("createToolErrorResponse", () => {
     );
 
     expect(response.content[0]?.text).toContain("raw string failure");
+  });
+});
+
+describe("createCodeSearchToolResult", () => {
+  it("preserves repository, path, provider, lines, and snippets for agents", () => {
+    const results: CodeSearchResult[] = [
+      {
+        language: "TypeScript",
+        matches: [{ lineEnd: 366, lineStart: 364, snippet: "isError: true" }],
+        path: "src/pages/api/mcp.ts",
+        provider: "grep",
+        repo: "f/prompts.chat",
+        url: "https://github.com/f/prompts.chat/blob/main/src/pages/api/mcp.ts",
+      },
+    ];
+
+    const toolResult = createCodeSearchToolResult(results);
+
+    expect(toolResult.content[0]).toEqual({
+      text: [
+        "Repository: f/prompts.chat",
+        "Path: src/pages/api/mcp.ts",
+        "URL: https://github.com/f/prompts.chat/blob/main/src/pages/api/mcp.ts",
+        "Provider: grep",
+        "Language: TypeScript",
+        "",
+        "Lines 364-366:",
+        "isError: true",
+      ].join("\n"),
+      type: "text",
+    });
   });
 });

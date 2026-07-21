@@ -1,5 +1,10 @@
 import type { ToolExecutionOptions } from "ai";
 import {
+  type CodeSearchInput,
+  type CodeSearchResult,
+  codeSearchInputSchema,
+  codeSearchOutputSchema,
+  DEFAULT_CODE_SEARCH_RESULT_COUNT,
   DEFAULT_SEARCH_RESULT_COUNT,
   type WebFetchInput,
   type WebFetchResult,
@@ -11,6 +16,17 @@ import {
   webSearchOutputSchema,
 } from "./tool-schemas.ts";
 
+type CodeSearchProviderName = NonNullable<CodeSearchInput["sources"]>[number];
+
+export interface OpenSearchCodeSearchOptions {
+  readonly language?: string;
+  readonly numResults?: number;
+  readonly path?: string;
+  readonly repo?: string;
+  readonly sources?: readonly CodeSearchProviderName[];
+  readonly useRegexp?: boolean;
+}
+
 export interface OpenSearchFetchOptions {
   readonly maxCharacters?: number;
 }
@@ -18,7 +34,12 @@ export interface OpenSearchFetchOptions {
 export interface OpenSearchClientLike<
   TSearchResult extends WebSearchResult = WebSearchResult,
   TFetchResult extends WebFetchResult = WebFetchResult,
+  TCodeSearchResult extends CodeSearchResult = CodeSearchResult,
 > {
+  codeSearch: (
+    query: string,
+    options?: OpenSearchCodeSearchOptions
+  ) => Promise<TCodeSearchResult[]>;
   fetch: ((
     url: string,
     options?: OpenSearchFetchOptions
@@ -50,6 +71,18 @@ export interface OpenSearchToolRuntime<
   readonly createOpenSearch: CreateOpenSearch<TClient, TOpenSearchOptions>;
 }
 
+export interface CodeSearchTool<
+  TCodeSearchResult extends CodeSearchResult = CodeSearchResult,
+> {
+  readonly description: string;
+  execute: (
+    input: CodeSearchInput,
+    options: ToolExecutionOptions<unknown>
+  ) => Promise<TCodeSearchResult[]>;
+  readonly inputSchema: typeof codeSearchInputSchema;
+  readonly outputSchema: typeof codeSearchOutputSchema;
+}
+
 export interface WebSearchTool<
   TSearchResult extends WebSearchResult = WebSearchResult,
 > {
@@ -77,10 +110,16 @@ export interface WebFetchTool<
 export interface OpenSearchToolSet<
   TSearchResult extends WebSearchResult = WebSearchResult,
   TFetchResult extends WebFetchResult = WebFetchResult,
+  TCodeSearchResult extends CodeSearchResult = CodeSearchResult,
 > {
+  readonly code_search: CodeSearchTool<TCodeSearchResult>;
   readonly web_fetch: WebFetchTool<TFetchResult>;
   readonly web_search: WebSearchTool<TSearchResult>;
 }
+
+export const codeSearchDescription = `Search public source code and code documentation for real implementations, symbols, repository paths, line-numbered snippets, and code patterns.
+
+Prefer it over web_search when the answer should come from source code. Narrow results by repository, path, language, regular expression, or provider.`;
 
 export const webSearchDescription = `Search the web and return ranked search results with titles, URLs, highlights, and source labels.
 
@@ -94,20 +133,43 @@ Use it after web_search when a result needs full-page content, or call it direct
 export function createOpenSearchToolsForRuntime<
   TSearchResult extends WebSearchResult,
   TFetchResult extends WebFetchResult,
-  TClient extends OpenSearchClientLike<TSearchResult, TFetchResult>,
+  TCodeSearchResult extends CodeSearchResult,
+  TClient extends OpenSearchClientLike<
+    TSearchResult,
+    TFetchResult,
+    TCodeSearchResult
+  >,
   TOpenSearchOptions,
 >(
   runtime: OpenSearchToolRuntime<TClient, TOpenSearchOptions>,
   options: OpenSearchToolsOptions<TClient, TOpenSearchOptions> = {}
-): OpenSearchToolSet<TSearchResult, TFetchResult> {
+): OpenSearchToolSet<TSearchResult, TFetchResult, TCodeSearchResult> {
   const client = resolveClient(runtime, options);
   // biome-ignore assist/source/useSortedKeys: Tool registration order is part of the public API.
   const tools = {
     web_search: createWebSearchToolForClient(client),
     web_fetch: createWebFetchToolForClient(client),
-  } satisfies OpenSearchToolSet<TSearchResult, TFetchResult>;
+    code_search: createCodeSearchToolForClient(client),
+  } satisfies OpenSearchToolSet<TSearchResult, TFetchResult, TCodeSearchResult>;
 
   return tools;
+}
+
+export function createCodeSearchToolForRuntime<
+  TSearchResult extends WebSearchResult,
+  TFetchResult extends WebFetchResult,
+  TCodeSearchResult extends CodeSearchResult,
+  TClient extends OpenSearchClientLike<
+    TSearchResult,
+    TFetchResult,
+    TCodeSearchResult
+  >,
+  TOpenSearchOptions,
+>(
+  runtime: OpenSearchToolRuntime<TClient, TOpenSearchOptions>,
+  options: OpenSearchToolsOptions<TClient, TOpenSearchOptions> = {}
+): CodeSearchTool<TCodeSearchResult> {
+  return createCodeSearchToolForClient(resolveClient(runtime, options));
 }
 
 export function createWebSearchToolForRuntime<
@@ -152,6 +214,23 @@ function resolveClient<
   return client ?? runtime.createOpenSearch(openSearchOptions);
 }
 
+function createCodeSearchToolForClient<
+  TCodeSearchResult extends CodeSearchResult,
+>(
+  client: Pick<
+    OpenSearchClientLike<WebSearchResult, WebFetchResult, TCodeSearchResult>,
+    "codeSearch"
+  >
+): CodeSearchTool<TCodeSearchResult> {
+  return {
+    description: codeSearchDescription,
+    execute: async (input) =>
+      client.codeSearch(input.query, getCodeSearchOptions(input)),
+    inputSchema: codeSearchInputSchema,
+    outputSchema: codeSearchOutputSchema,
+  };
+}
+
 function createWebSearchToolForClient<TSearchResult extends WebSearchResult>(
   client: Pick<OpenSearchClientLike<TSearchResult, WebFetchResult>, "search">
 ): WebSearchTool<TSearchResult> {
@@ -177,6 +256,19 @@ function createWebFetchToolForClient<TFetchResult extends WebFetchResult>(
   };
 
   return toolConfig;
+}
+
+export function getCodeSearchOptions(
+  input: CodeSearchInput
+): OpenSearchCodeSearchOptions {
+  return {
+    ...(input.language ? { language: input.language } : {}),
+    numResults: input.numResults ?? DEFAULT_CODE_SEARCH_RESULT_COUNT,
+    ...(input.path ? { path: input.path } : {}),
+    ...(input.repo ? { repo: input.repo } : {}),
+    ...(input.sources ? { sources: input.sources } : {}),
+    ...(input.useRegexp === undefined ? {} : { useRegexp: input.useRegexp }),
+  };
 }
 
 export function getSearchResultCount(input: WebSearchInput): number {

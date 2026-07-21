@@ -3,6 +3,11 @@ import {
   type OpenSearchClient,
   type OpenSearchOptions,
 } from "./client.ts";
+import { createCodeSearchService } from "./code-search/service.ts";
+import type {
+  CodeSearchOptions,
+  CodeSearchResult,
+} from "./code-search/types.ts";
 import { processEnvironmentReader } from "./environment.ts";
 import { exaMcpFetchProvider } from "./fetch/exa-mcp-provider.ts";
 import { createLocalFetch } from "./fetch/local.ts";
@@ -26,6 +31,15 @@ export type {
   OpenSearchOptions,
 } from "./client.ts";
 // biome-ignore lint/performance/noBarrelFile: this Node entrypoint intentionally mirrors the edge package surface.
+export {
+  CODE_SEARCH_PROVIDER_NAMES,
+  type CodeSearchMatch,
+  type CodeSearchOptions,
+  type CodeSearchProviderName,
+  type CodeSearchResult,
+  codeSearchResultSchema,
+  codeSearchResultsSchema,
+} from "./code-search/types.ts";
 export { NoFetchProviderError } from "./fetch/errors.ts";
 export type { FetchOptions, FetchResult } from "./fetch.ts";
 export { fetchResultSchema } from "./fetch.ts";
@@ -48,6 +62,7 @@ export {
   searchResultsSchema,
 } from "./search.ts";
 
+const nodeCodeSearchService = createCodeSearchService(processEnvironmentReader);
 const nodeFetchService = createFetchService(processEnvironmentReader, {
   exaMcpFetchProvider,
   localFetch: createLocalFetch(),
@@ -56,6 +71,13 @@ const nodeFetchService = createFetchService(processEnvironmentReader, {
 const nodeSearchService = createSearchService(processEnvironmentReader, {
   providers: getNodeSearchProviders,
 });
+
+export function codeSearch(
+  query: string,
+  options?: CodeSearchOptions
+): Promise<CodeSearchResult[]> {
+  return nodeCodeSearchService.codeSearch(query, options);
+}
 
 export function fetch(
   url: string,

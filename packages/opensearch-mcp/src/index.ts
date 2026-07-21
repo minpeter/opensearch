@@ -3,15 +3,20 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 
 import pkg from "../package.json" with { type: "json" };
+import { resolveGitHubToken } from "./github-token.ts";
 import { createMcpEventSink } from "./observability.ts";
 import {
+  codeSearchDescription,
   webFetchDescription,
   webSearchDescription,
 } from "./tool-descriptions.ts";
 import {
+  codeSearchInputSchema,
+  createCodeSearchToolResult,
   createFetchToolResult,
   createSearchToolResult,
   createToolErrorResponse,
+  getCodeSearchOptions,
   getFetchMaxCharacters,
   getSearchResultCount,
   webFetchInputSchema,
@@ -23,8 +28,27 @@ const server = new McpServer({
   version: pkg.version,
 });
 const eventSink = createMcpEventSink();
-const client = createOpenSearch(
-  eventSink ? { observability: { onEvent: eventSink } } : {}
+const githubToken = await resolveGitHubToken();
+const client = createOpenSearch({
+  ...(githubToken ? { codeSearch: { githubToken } } : {}),
+  ...(eventSink ? { observability: { onEvent: eventSink } } : {}),
+});
+
+server.registerTool(
+  "code_search",
+  {
+    description: codeSearchDescription,
+    inputSchema: codeSearchInputSchema,
+  },
+  async (input) => {
+    try {
+      return createCodeSearchToolResult(
+        await client.codeSearch(input.query, getCodeSearchOptions(input))
+      );
+    } catch (error) {
+      return createToolErrorResponse("code_search", "Code search", error);
+    }
+  }
 );
 
 server.registerTool(

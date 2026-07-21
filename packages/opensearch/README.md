@@ -116,6 +116,33 @@ The module-level `searchStream` is exported from both entrypoints alongside
 `search`. If every provider fails, the stream throws the same aggregated
 `SearchExecutionError` as `search`.
 
+## Code search
+
+`codeSearch` searches real source code and code documentation in parallel. It
+uses grep.app, Exa Code, and Sourcegraph without keys; GitHub's native code
+search joins when `GITHUB_TOKEN`, `GH_TOKEN`, or a per-client token is present.
+Results are grouped by repository and file with line-numbered snippets and
+provider labels:
+
+```ts
+const client = createOpenSearch({
+  codeSearch: { githubToken: process.env.GITHUB_TOKEN },
+});
+
+const results = await client.codeSearch("isError: true", {
+  language: "TypeScript",
+  numResults: 12,
+  repo: "modelcontextprotocol/typescript-sdk",
+  sources: ["github", "grep", "sourcegraph", "exa-code"],
+});
+```
+
+The providers fan out concurrently and results are round-robin merged so a
+large source cannot monopolize the result cap. Use `useRegexp: true` for literal
+code-pattern searches (Exa's semantic provider is skipped), or
+`cache: "bypass"` for a fresh query. Repeated and concurrent identical searches
+share the same 3-minute cache and single-flight behavior as web search.
+
 ## Ollama web tools
 
 Ollama search and fetch are opt-in:

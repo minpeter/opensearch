@@ -1,4 +1,10 @@
 import type { CacheOptions } from "./cache.ts";
+import { createCodeSearchService } from "./code-search/service.ts";
+import type {
+  CodeSearchOptions,
+  CodeSearchResult,
+  CodeSearchService,
+} from "./code-search/types.ts";
 import {
   createEnvironmentReader,
   type OpenSearchEnvironment,
@@ -33,6 +39,14 @@ export type {
 } from "./observability.ts";
 
 export interface OpenSearchOptions {
+  readonly codeSearch?: {
+    /** Per-client code search cache policy. */
+    readonly cache?: CacheOptions;
+    /** GitHub code search token (e.g. from `gh auth token`). */
+    readonly githubToken?: string;
+    /** Optional Sourcegraph token for higher unauthenticated limits. */
+    readonly sourcegraphToken?: string;
+  };
   readonly env?: OpenSearchEnvironment;
   readonly fetch?: {
     /** Allow Node local fetches to reach private networks. Defaults to false. */
@@ -74,6 +88,10 @@ export interface OpenSearchRuntime {
 }
 
 export interface OpenSearchClient {
+  codeSearch: (
+    query: string,
+    options?: CodeSearchOptions
+  ) => Promise<CodeSearchResult[]>;
   fetch: ((url: string, options?: FetchOptions) => Promise<FetchResult>) &
     ((
       urls: readonly string[],
@@ -95,6 +113,7 @@ export interface OpenSearchClient {
 }
 
 class ConfiguredOpenSearchClient implements OpenSearchClient {
+  readonly #codeSearchService: CodeSearchService;
   readonly #fetchService: FetchService;
   readonly #searchService: SearchService;
 
@@ -120,6 +139,19 @@ class ConfiguredOpenSearchClient implements OpenSearchClient {
       observer,
       providers: runtime.searchProviders,
     });
+    this.#codeSearchService = createCodeSearchService(env, {
+      cache: options.codeSearch?.cache,
+      githubToken: options.codeSearch?.githubToken,
+      observer,
+      sourcegraphToken: options.codeSearch?.sourcegraphToken,
+    });
+  }
+
+  codeSearch(
+    query: string,
+    options?: CodeSearchOptions
+  ): Promise<CodeSearchResult[]> {
+    return this.#codeSearchService.codeSearch(query, options);
   }
 
   search(
