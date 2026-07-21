@@ -1,4 +1,6 @@
 import type {
+  CodeSearchOptions,
+  CodeSearchResult,
   FetchOptions,
   FetchResult,
   OpenSearchClient,
@@ -79,6 +81,13 @@ class FakeOpenSearchClient implements OpenSearchClient {
     return this.#searchCalls;
   }
 
+  codeSearch(
+    _query: string,
+    _options?: CodeSearchOptions
+  ): Promise<CodeSearchResult[]> {
+    return Promise.resolve([]);
+  }
+
   fetch(url: string, options?: FetchOptions): Promise<FetchResult>;
   fetch(
     urls: readonly string[],
@@ -142,13 +151,21 @@ describe("OpenSearch AI SDK tools", () => {
     vi.unstubAllGlobals();
   });
 
-  it("exposes web_search and web_fetch from root and node factories", () => {
+  it("exposes web_search, web_fetch, and code_search from root and node factories", () => {
     const client = new FakeOpenSearchClient();
 
     const rootTools = createRootOpenSearchTools({ client });
     const nodeTools = createNodeOpenSearchTools({ client });
-    expect(Object.keys(rootTools)).toStrictEqual(["web_search", "web_fetch"]);
-    expect(Object.keys(nodeTools)).toStrictEqual(["web_search", "web_fetch"]);
+    expect(Object.keys(rootTools)).toStrictEqual([
+      "web_search",
+      "web_fetch",
+      "code_search",
+    ]);
+    expect(Object.keys(nodeTools)).toStrictEqual([
+      "web_search",
+      "web_fetch",
+      "code_search",
+    ]);
     expect(typeof rootTools.web_search.execute).toBe("function");
     expect(typeof nodeTools.web_fetch.execute).toBe("function");
     expect(typeof createNodeWebFetchTool).toBe("function");

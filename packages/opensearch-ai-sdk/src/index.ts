@@ -1,4 +1,5 @@
 import {
+  type CodeSearchResult,
   createOpenSearch as createEdgeOpenSearch,
   type FetchResult,
   type OpenSearchClient,
@@ -6,9 +7,11 @@ import {
   type SearchResult,
 } from "@minpeter/opensearch";
 import {
+  createCodeSearchToolForRuntime,
   createOpenSearchToolsForRuntime,
   createWebFetchToolForRuntime,
   createWebSearchToolForRuntime,
+  type CodeSearchTool as SharedCodeSearchTool,
   type CreateOpenSearch as SharedCreateOpenSearch,
   type OpenSearchToolRuntime as SharedOpenSearchToolRuntime,
   type OpenSearchToolSet as SharedOpenSearchToolSet,
@@ -18,12 +21,23 @@ import {
 } from "./tool-factory.ts";
 
 export type {
+  CodeSearchResult,
   FetchResult,
   OpenSearchClient,
   OpenSearchOptions,
   SearchResult,
 } from "@minpeter/opensearch";
-export type { WebFetchInput, WebSearchInput } from "./tool-schemas.ts";
+export type {
+  CodeSearchInput,
+  WebFetchInput,
+  WebSearchInput,
+} from "./tool-schemas.ts";
+// biome-ignore lint/performance/noBarrelFile: this package entrypoint intentionally exposes the shared code-search schemas.
+export {
+  CODE_SEARCH_PROVIDER_NAMES,
+  codeSearchInputSchema,
+  codeSearchOutputSchema,
+} from "./tool-schemas.ts";
 
 export type CreateOpenSearch = SharedCreateOpenSearch<
   OpenSearchClient,
@@ -39,8 +53,10 @@ export type OpenSearchToolsOptions = SharedOpenSearchToolsOptions<
 >;
 export type OpenSearchToolSet = SharedOpenSearchToolSet<
   SearchResult,
-  FetchResult
+  FetchResult,
+  CodeSearchResult
 >;
+export type CodeSearchTool = SharedCodeSearchTool<CodeSearchResult>;
 export type WebFetchTool = SharedWebFetchTool<FetchResult>;
 export type WebSearchTool = SharedWebSearchTool<SearchResult>;
 
@@ -52,6 +68,12 @@ export function createOpenSearchTools(
   options: OpenSearchToolsOptions = {}
 ): OpenSearchToolSet {
   return createOpenSearchToolsForRuntime(edgeRuntime, options);
+}
+
+export function createCodeSearchTool(
+  options: OpenSearchToolsOptions = {}
+): CodeSearchTool {
+  return createCodeSearchToolForRuntime(edgeRuntime, options);
 }
 
 export function createWebSearchTool(
