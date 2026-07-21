@@ -15,7 +15,7 @@ export const PACKAGE_SPECS = [
     imports: [],
     mcp: {
       serverName: "opensearch",
-      tools: ["web_fetch", "web_search"],
+      tools: ["code_search", "web_fetch", "web_search"],
     },
     name: "opensearch-mcp",
   },
