@@ -34,11 +34,21 @@ export const searchResultsSchema = searchResultsSchemaValue;
 const SEARCH_CACHE_TTL_MS = 3 * 60 * 1000;
 const SEARCH_CACHE_MAX_ENTRIES = 256;
 
+export interface SearchCallOptions {
+  /** Skip the response cache for this call. Retry behavior is unchanged. */
+  readonly cache?: "bypass";
+}
+
 export interface SearchService {
   search: (query: string, numResults?: number) => Promise<SearchResult[]>;
+  searchStream: (
+    query: string,
+    numResults?: number
+  ) => AsyncGenerator<SearchResult[], void, undefined>;
   searchWithRetryAndCache: (
     query: string,
-    maxResults?: number
+    maxResults?: number,
+    options?: SearchCallOptions
   ) => Promise<SearchResult[]>;
 }
 
@@ -129,7 +139,8 @@ export function createSearchService(
 
   function searchWithCache(
     query: string,
-    maxResults = 10
+    maxResults = 10,
+    callOptions: SearchCallOptions = {}
   ): Promise<SearchResult[]> {
     return observeOperation(
       observer,
@@ -143,7 +154,7 @@ export function createSearchService(
             retries: 2,
             shouldRetry: ({ error }) => shouldRetrySearchError(error),
           });
-        if (searchCache === null) {
+        if (searchCache === null || callOptions.cache === "bypass") {
           emitCacheEvent(observer, "search", operationId, "bypass");
           return (await execute()).slice(0, maxResults);
         }
@@ -160,8 +171,66 @@ export function createSearchService(
     );
   }
 
+  async function* searchStreamImpl(
+    query: string,
+    numResults = 10
+  ): AsyncGenerator<SearchResult[], void, undefined> {
+    const providers = configuredProviders ?? resolveProviders(env);
+    const operationId = observer.createOperationId("search");
+    const failures: SearchEngineError[] = [];
+
+    const pending = providers.map((provider) => ({
+      attempt: observeProviderAttempt(
+        observer,
+        { operation: "search", operationId, provider: provider.name },
+        async () => {
+          try {
+            const results = await provider.search(query, numResults);
+            return results.slice(0, numResults);
+          } catch (error) {
+            if (error instanceof SearchEngineError) {
+              failures.push(error);
+            } else {
+              failures.push(
+                new SearchEngineError(
+                  provider.name,
+                  "transient",
+                  `${provider.name} search failed: ${
+                    error instanceof Error ? error.message : String(error)
+                  }`
+                )
+              );
+            }
+            return null;
+          }
+        }
+      ),
+    }));
+
+    let delivered = 0;
+    const queue = [...pending];
+    while (queue.length > 0) {
+      // biome-ignore lint/performance/noAwaitInLoops: results are yielded in completion order, so each provider's settlement is awaited one at a time
+      const settled = await Promise.race(
+        queue.map((entry) =>
+          entry.attempt.then((results) => ({ entry, results }))
+        )
+      );
+      queue.splice(queue.indexOf(settled.entry), 1);
+      if (settled.results !== null && settled.results.length > 0) {
+        delivered += 1;
+        yield settled.results;
+      }
+    }
+
+    if (delivered === 0) {
+      throw createSearchExecutionError(failures);
+    }
+  }
+
   return {
     search: searchOnce,
+    searchStream: searchStreamImpl,
     searchWithRetryAndCache: searchWithCache,
   };
 }
@@ -170,14 +239,26 @@ export function search(
   query: string,
   numResults = 10
 ): Promise<SearchResult[]> {
-  return defaultSearchService.search(query, numResults);
+  return defaultSearchService.searchWithRetryAndCache(query, numResults);
 }
 
 export function searchWithRetryAndCache(
   query: string,
-  maxResults = 10
+  maxResults = 10,
+  options?: SearchCallOptions
 ): Promise<SearchResult[]> {
-  return defaultSearchService.searchWithRetryAndCache(query, maxResults);
+  return defaultSearchService.searchWithRetryAndCache(
+    query,
+    maxResults,
+    options
+  );
+}
+
+export function searchStream(
+  query: string,
+  numResults = 10
+): AsyncGenerator<SearchResult[], void, undefined> {
+  return defaultSearchService.searchStream(query, numResults);
 }
 
 function shouldRetrySearchError(error: Error): boolean {

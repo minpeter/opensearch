@@ -90,6 +90,32 @@ Every event has an `operationId`, `timestampMs`, and `operation`. Provider and
 operation completion events include a `durationMs` latency measurement; cache
 events report `hit`, `miss`, or `bypass`.
 
+## Caching and streaming
+
+`search` retries transient failures and caches results for 3 minutes on both
+the edge and Node entrypoints; `fetch` caches per URL as well. Concurrent
+calls for the same query or URL coalesce into one provider request. Pass
+`cache: "bypass"` when a call must hit the provider:
+
+```ts
+await client.search("breaking news", 10, { cache: "bypass" });
+await client.fetch("https://example.com", { cache: "bypass" });
+```
+
+For consumers that want every provider's perspective, `searchStream` fans out
+to all configured providers concurrently and yields each provider's results as
+they arrive, instead of stopping at the fallback chain's first success:
+
+```ts
+for await (const results of client.searchStream("model context protocol", 5)) {
+  console.log(results[0]?.engine, results.length);
+}
+```
+
+The module-level `searchStream` is exported from both entrypoints alongside
+`search`. If every provider fails, the stream throws the same aggregated
+`SearchExecutionError` as `search`.
+
 ## Ollama web tools
 
 Ollama search and fetch are opt-in:

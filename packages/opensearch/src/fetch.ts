@@ -27,6 +27,8 @@ const FETCH_CACHE_TTL_MS = 3 * 60 * 1000;
 const FETCH_CACHE_MAX_ENTRIES = 256;
 
 export interface FetchOptions {
+  /** Skip the response cache for this call. */
+  readonly cache?: "bypass";
   /**
    * Maximum extracted characters returned per page. Defaults to 12,000 and is
    * enforced after every provider and fallback.
@@ -41,7 +43,11 @@ export interface FetchService {
     ((
       urls: readonly string[],
       options?: FetchOptions
-    ) => Promise<FetchResult[]>);
+    ) => Promise<FetchResult[]>) &
+    ((
+      input: string | readonly string[],
+      options?: FetchOptions
+    ) => Promise<FetchResult | FetchResult[]>);
   fetchUrl: (url: string) => Promise<FetchResult>;
   fetchUrls: (
     urls: string[],
