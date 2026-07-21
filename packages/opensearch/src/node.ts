@@ -16,7 +16,6 @@ import { getNodeSearchProviders } from "./search/node-providers.ts";
 import type { SearchResult } from "./search/types.ts";
 import { createSearchService } from "./search.ts";
 
-// Stable surface re-exported verbatim from the edge core.
 export type {
   CacheOptions,
   OpenSearchClient,

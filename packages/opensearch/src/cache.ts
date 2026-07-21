@@ -1,11 +1,8 @@
 const DEFAULT_MAX_ENTRIES = 256;
 
 export interface CacheOptions {
-  /** Disable caching for this client. */
   readonly enabled?: boolean;
-  /** Maximum resolved entries retained by this client. */
   readonly maxEntries?: number;
-  /** Time-to-live for resolved entries in milliseconds. */
   readonly ttlMs?: number;
 }
 

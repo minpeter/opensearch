@@ -32,12 +32,7 @@ const feedSchema = z.object({
   ),
 });
 
-function result(
-  url: string,
-  title: string,
-  content: string,
-  _name?: string
-): FetchResult {
+function result(url: string, title: string, content: string): FetchResult {
   return createFetchResult(url, content, title);
 }
 
@@ -79,7 +74,7 @@ async function fetchProfile(
   ]
     .filter(Boolean)
     .join("\n\n");
-  return result(url.toString(), title, content, "public-api:bluesky:profile");
+  return result(url.toString(), title, content);
 }
 
 async function fetchAuthorFeed(
@@ -111,9 +106,7 @@ async function fetchAuthorFeed(
   const title = `Bluesky feed ${actor}`;
   const content =
     entries.length > 0 ? `## ${title}\n\n${entries.join("\n")}` : "";
-  return content
-    ? result(url.toString(), title, content, "public-api:bluesky:feed")
-    : null;
+  return content ? result(url.toString(), title, content) : null;
 }
 
 function isBluesky(url: URL): boolean {

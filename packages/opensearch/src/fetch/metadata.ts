@@ -136,8 +136,7 @@ export function extractMetadata(dom: JSDOM): PageMetadata {
         'meta[property="og:title"]',
         'meta[name="twitter:title"]',
       ]) ||
-      doc.title?.trim() ||
-      "",
+      doc.title.trim(),
   };
 }
 

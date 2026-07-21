@@ -3,14 +3,16 @@ import {
   processEnvironmentReader,
 } from "../../environment.ts";
 import {
-  isOllamaEnabled,
-  isOllamaHttpError,
-  isOllamaLocalEnabled,
   type OllamaSearchItem,
   ollamaCloudSearch,
   ollamaLocalSearch,
-  readOllamaApiKey,
 } from "../../providers/ollama/client.ts";
+import {
+  isOllamaEnabled,
+  isOllamaHttpError,
+  isOllamaLocalEnabled,
+  readOllamaApiKey,
+} from "../../providers/ollama/config.ts";
 import { SearchEngineError } from "../errors.ts";
 import { attachEngine, dedupeResults, normalizeResult } from "../text.ts";
 import type {

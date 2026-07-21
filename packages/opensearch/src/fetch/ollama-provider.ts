@@ -4,13 +4,15 @@ import {
 } from "../environment.ts";
 import type { OpenSearchFailureKind } from "../observability.ts";
 import {
+  ollamaCloudFetch,
+  ollamaLocalFetch,
+} from "../providers/ollama/client.ts";
+import {
   isOllamaEnabled,
   isOllamaHttpError,
   isOllamaLocalEnabled,
-  ollamaCloudFetch,
-  ollamaLocalFetch,
   readOllamaApiKey,
-} from "../providers/ollama/client.ts";
+} from "../providers/ollama/config.ts";
 import { DEFAULT_MAX_CHARACTERS } from "./config.ts";
 import { createFetchResult, type FetchResult } from "./result.ts";
 

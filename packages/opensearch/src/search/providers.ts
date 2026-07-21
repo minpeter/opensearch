@@ -2,6 +2,7 @@ import {
   type EnvironmentReader,
   processEnvironmentReader,
 } from "../environment.ts";
+import { compactProviders } from "./api-key-provider.ts";
 import {
   createBraveSearchProvider,
   createTinyFishSearchProvider,
@@ -17,14 +18,6 @@ import type { SearchProvider } from "./types.ts";
 const EXA_MCP_OPT_OUT_ENV = "OPENSEARCH_ENABLE_EXA_MCP";
 const PARALLEL_MCP_OPT_OUT_ENV = "OPENSEARCH_ENABLE_PARALLEL_MCP";
 
-function isExaMcpEnabled(env: EnvironmentReader): boolean {
-  return env.read(EXA_MCP_OPT_OUT_ENV) !== "false";
-}
-
-function isParallelMcpEnabled(env: EnvironmentReader): boolean {
-  return env.read(PARALLEL_MCP_OPT_OUT_ENV) !== "false";
-}
-
 export interface GetSearchProvidersOptions {
   /**
    * Factory for the DuckDuckGo provider. It relies on `node:vm` to solve the
@@ -35,7 +28,6 @@ export interface GetSearchProvidersOptions {
   readonly duckDuckGoFactory?: (env: EnvironmentReader) => SearchProvider;
   readonly exaMcpFactory?: (env: EnvironmentReader) => SearchProvider;
   readonly parallelMcpFactory?: (env: EnvironmentReader) => SearchProvider;
-  /** Enable local-daemon Ollama probing in Node runtimes. */
   readonly useOllamaLocal?: boolean;
 }
 
@@ -43,44 +35,24 @@ export function getSearchProviders(
   env: EnvironmentReader = processEnvironmentReader,
   options: GetSearchProvidersOptions = {}
 ): SearchProvider[] {
-  const providers: SearchProvider[] = [];
-
-  pushProvider(
-    providers,
+  return compactProviders([
     createOllamaSearchProvider(env, {
       localEnabled: options.useOllamaLocal ?? false,
-    })
-  );
-  pushProvider(providers, createTinyFishSearchProvider(env));
-  providers.push(...createLlmNativeProviders(env));
-  providers.push(...createSerpProviders(env));
-
-  pushProvider(providers, createBraveSearchProvider(env));
-
-  if (options.parallelMcpFactory && isParallelMcpEnabled(env)) {
-    providers.push(options.parallelMcpFactory(env));
-  }
-
-  if (options.exaMcpFactory && isExaMcpEnabled(env)) {
-    providers.push(options.exaMcpFactory(env));
-  }
-
-  pushProvider(providers, createExaSearchProvider(env));
-  providers.push(...createIndependentProviders(env));
-  pushProvider(providers, createFirecrawlSearchProvider(env));
-
-  if (options.duckDuckGoFactory) {
-    providers.push(options.duckDuckGoFactory(env));
-  }
-
-  return providers;
-}
-
-function pushProvider(
-  providers: SearchProvider[],
-  provider: SearchProvider | null
-): void {
-  if (provider) {
-    providers.push(provider);
-  }
+    }),
+    createTinyFishSearchProvider(env),
+    ...createLlmNativeProviders(env),
+    ...createSerpProviders(env),
+    createBraveSearchProvider(env),
+    ...(options.parallelMcpFactory &&
+    env.read(PARALLEL_MCP_OPT_OUT_ENV) !== "false"
+      ? [options.parallelMcpFactory(env)]
+      : []),
+    ...(options.exaMcpFactory && env.read(EXA_MCP_OPT_OUT_ENV) !== "false"
+      ? [options.exaMcpFactory(env)]
+      : []),
+    createExaSearchProvider(env),
+    ...createIndependentProviders(env),
+    createFirecrawlSearchProvider(env),
+    ...(options.duckDuckGoFactory ? [options.duckDuckGoFactory(env)] : []),
+  ]);
 }

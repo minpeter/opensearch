@@ -2,10 +2,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   ampCacheUrl,
   archiveTodayUrls,
-  fetchArchiveFallback,
   waybackAvailabilityUrl,
   waybackCdxUrl,
-} from "../fetch/cache-archive.ts";
+} from "../fetch/archive-candidates.ts";
+import { fetchArchiveFallback } from "../fetch/cache-archive.ts";
 import { fetchLocalUrl } from "../fetch/local.ts";
 import { ARTICLE_HTML, JINA_URL_REGEX } from "./fetch-test-helpers.ts";
 

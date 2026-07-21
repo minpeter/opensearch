@@ -25,7 +25,7 @@ function text($node: CheerioSelection): string {
 
 function attr($node: CheerioSelection, name: string): string | undefined {
   const value = $node.first().attr(name)?.trim();
-  return value ? value : undefined;
+  return value || undefined;
 }
 
 function feedEntry(

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { barChartSvg, scatterSvg, tierListSvg } from "../charts.ts";
+import { barChartSvg } from "../bar-chart.ts";
+import { scatterSvg, tierListSvg } from "../charts.ts";
 import { buildCharts } from "../render.ts";
 import { buildReport } from "../report.ts";
 import { assignTiers } from "../tiers.ts";

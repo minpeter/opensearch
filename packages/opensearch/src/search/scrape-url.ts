@@ -14,12 +14,10 @@ const SEARCH_ENGINE_HOSTS: Record<ScrapeEngineName, string[]> = {
 const SEARCH_ENGINE_INTERNAL_URL_RULES: Record<
   ScrapeEngineName,
   {
-    readonly alwaysIgnoreHostPatterns: readonly RegExp[];
     readonly ownedHostPatterns: readonly RegExp[];
   }
 > = {
   DuckDuckGo: {
-    alwaysIgnoreHostPatterns: [],
     ownedHostPatterns: [/\bduckduckgo\.com$/u],
   },
 };
@@ -47,7 +45,7 @@ const INTERNAL_QUERY_PARAMETER_KEYS = new Set([
   "ved",
 ]);
 
-export function hasHttpProtocol(url: string): boolean {
+function hasHttpProtocol(url: string): boolean {
   return HTTP_PROTOCOL_PREFIXES.some((prefix) => url.startsWith(prefix));
 }
 
@@ -95,14 +93,6 @@ export function isIgnoredSearchEngineUrl(
   const internalUrlRules = SEARCH_ENGINE_INTERNAL_URL_RULES[engine];
 
   if (SEARCH_ENGINE_HOSTS[engine].includes(hostname)) {
-    return true;
-  }
-
-  if (
-    internalUrlRules.alwaysIgnoreHostPatterns.some((pattern) =>
-      pattern.test(hostname)
-    )
-  ) {
     return true;
   }
 

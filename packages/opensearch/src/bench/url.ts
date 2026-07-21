@@ -80,8 +80,7 @@ function labelPath(label: string): string {
   if (url === null) {
     return "";
   }
-  const path = url.pathname.replace(TRAILING_SLASHES_PATTERN, "");
-  return path === "/" ? "" : path;
+  return url.pathname.replace(TRAILING_SLASHES_PATTERN, "");
 }
 
 /**

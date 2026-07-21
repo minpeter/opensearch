@@ -206,3 +206,38 @@ describe("createSearchContent", () => {
     expect(content).toContain("Highlights: Example snippet");
   });
 });
+
+describe("createToolErrorResponse", () => {
+  it("preserves the message from plain-object errors", async () => {
+    const { createToolErrorResponse } = await import("../tool-io.ts");
+    const response = createToolErrorResponse("web_search", "Search", {
+      message: "quota exceeded",
+    });
+
+    expect(response.isError).toBe(true);
+    expect(response.content[0]?.text).toContain("quota exceeded");
+    expect(response.content[0]?.text).not.toContain("[object Object]");
+  });
+
+  it("passes Error instances through unchanged", async () => {
+    const { createToolErrorResponse } = await import("../tool-io.ts");
+    const response = createToolErrorResponse(
+      "web_fetch",
+      "Fetch",
+      new Error("network down")
+    );
+
+    expect(response.content[0]?.text).toContain("network down");
+  });
+
+  it("falls back to String() for primitives", async () => {
+    const { createToolErrorResponse } = await import("../tool-io.ts");
+    const response = createToolErrorResponse(
+      "web_fetch",
+      "Fetch",
+      "raw string failure"
+    );
+
+    expect(response.content[0]?.text).toContain("raw string failure");
+  });
+});

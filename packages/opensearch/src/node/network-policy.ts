@@ -61,7 +61,7 @@ export function assertSafeHttpUrl(
   rawUrl: string | URL,
   allowPrivateNetwork = false
 ): URL {
-  const url = rawUrl instanceof URL ? new URL(rawUrl) : new URL(rawUrl);
+  const url = new URL(rawUrl);
   if (url.protocol !== "http:" && url.protocol !== "https:") {
     throw new NetworkPolicyError("Only HTTP and HTTPS URLs are allowed");
   }

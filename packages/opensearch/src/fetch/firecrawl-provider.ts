@@ -32,10 +32,7 @@ export function fetchUrlsViaFirecrawl(
       const result = await fetchFirecrawlUrl(url, maxCharacters, env);
       return createFetchResult(url, result.content, result.title);
     } catch (error) {
-      if (!(error instanceof Error)) {
-        throw error;
-      }
-      if (getHttpStatus(error) === 451) {
+      if (!(error instanceof Error) || getHttpStatus(error) === 451) {
         throw error;
       }
       if (fallback) {
@@ -58,10 +55,7 @@ export async function tryFetchUrlViaFirecrawl(
   try {
     return await fetchUrlViaFirecrawl(url, env);
   } catch (error) {
-    if (!(error instanceof Error)) {
-      throw error;
-    }
-    if (getHttpStatus(error) === 451) {
+    if (!(error instanceof Error) || getHttpStatus(error) === 451) {
       throw error;
     }
     return null;
@@ -88,10 +82,7 @@ export async function tryFetchUrlsViaFirecrawl(
       maxConcurrency
     );
   } catch (error) {
-    if (!(error instanceof Error)) {
-      throw error;
-    }
-    if (getHttpStatus(error) === 451) {
+    if (!(error instanceof Error) || getHttpStatus(error) === 451) {
       throw error;
     }
     return null;

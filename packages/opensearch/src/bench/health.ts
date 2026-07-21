@@ -14,11 +14,7 @@ export interface MonitorHealthOptions {
   readonly minSuccessfulProviders?: number;
 }
 
-/**
- * Availability gate for noisy live probes. A provider is healthy only when at
- * least half of its queries work by default; drift against a previous run is a
- * separate gate so one provider outage cannot be hidden by aggregate averages.
- */
+/** Evaluate providers individually so aggregate averages cannot hide outages. */
 export function evaluateMonitorHealth(
   report: BenchReport,
   options: MonitorHealthOptions = {}

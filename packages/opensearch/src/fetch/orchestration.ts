@@ -17,15 +17,15 @@ import {
   EXA_API_KEY_ENV,
   requireMaxCharacters,
 } from "./config.ts";
+import { fetchUrlsViaProviders } from "./provider-chain-batch.ts";
+import { fetchUrlViaProviders } from "./provider-chain-single.ts";
 import {
   type ExaMcpFetchProvider,
   type FetchPipelineContext,
   type FetchUrlValidator,
-  fetchUrlsViaProviders,
-  fetchUrlViaProviders,
   getFirstFetchProviderName,
   type LocalFetch,
-} from "./provider-fallback.ts";
+} from "./provider-context.ts";
 import { fetchViaPublicApi } from "./public-api.ts";
 import { type FetchResult, limitFetchResult } from "./result.ts";
 import { assertProviderSafeUrl } from "./url-policy.ts";
@@ -34,7 +34,7 @@ export type {
   ExaMcpFetchProvider,
   FetchUrlValidator,
   LocalFetch,
-} from "./provider-fallback.ts";
+} from "./provider-context.ts";
 
 export interface FetchOperations {
   fetchUrl: (url: string, operationId?: string) => Promise<FetchResult>;

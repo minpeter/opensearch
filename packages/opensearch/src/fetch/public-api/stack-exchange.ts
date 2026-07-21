@@ -31,7 +31,6 @@ const answersSchema = z.object({
         })
         .optional(),
       score: z.number().optional(),
-      title: z.string().optional(),
     })
   ),
 });
@@ -60,9 +59,6 @@ async function fetchStackExchange(url: URL): Promise<FetchResult | null> {
     return null;
   }
   const questionId = match[1] ?? "";
-  if (!questionId) {
-    return null;
-  }
 
   const endpoint = new URL(
     `https://api.stackexchange.com/2.3/questions/${questionId}/answers`

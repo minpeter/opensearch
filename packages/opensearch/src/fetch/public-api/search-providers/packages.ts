@@ -52,9 +52,7 @@ async function fetchGitHubSearch(url: URL) {
   return searchResult(
     url.toString(),
     title,
-    `## ${title}\n\n${entries.join("\n")}`,
-    "public-api:github-search",
-    "public-api:github:search"
+    `## ${title}\n\n${entries.join("\n")}`
   );
 }
 
@@ -79,9 +77,7 @@ async function fetchNpmSearch(url: URL) {
   return searchResult(
     url.toString(),
     title,
-    `## ${title}\n\n${entries.join("\n")}`,
-    "public-api:npm-search",
-    "public-api:npm:search"
+    `## ${title}\n\n${entries.join("\n")}`
   );
 }
 

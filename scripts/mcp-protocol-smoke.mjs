@@ -49,8 +49,8 @@ export const verifyMcpServer = async ({
   });
   let stderrOutput = "";
   const stderr = transport.stderr;
-  stderr?.setEncoding("utf8");
-  stderr?.on("data", (chunk) => {
+  stderr.setEncoding("utf8");
+  stderr.on("data", (chunk) => {
     stderrOutput = `${stderrOutput}${chunk}`.slice(-MAX_STDERR_CHARACTERS);
   });
 

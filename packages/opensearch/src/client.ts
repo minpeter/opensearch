@@ -100,8 +100,7 @@ class ConfiguredOpenSearchClient implements OpenSearchClient {
       localFetch: localFetch ?? runtime.localFetch,
       maxConcurrency: options.fetch?.maxConcurrency,
       observer,
-      validateUrl:
-        runtime.fetchUrlValidatorFactory?.(localFetchOptions) ?? undefined,
+      validateUrl: runtime.fetchUrlValidatorFactory?.(localFetchOptions),
     });
     this.#searchService = createSearchService(env, {
       cache: options.search?.cache,

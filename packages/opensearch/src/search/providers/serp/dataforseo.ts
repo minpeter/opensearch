@@ -1,7 +1,4 @@
-import {
-  type CredentialPair,
-  getCredentialPairPool,
-} from "../../../credentials/credential-pairs.ts";
+import { getCredentialPairPool } from "../../../credentials/credential-pairs.ts";
 import type { EnvironmentReader } from "../../../environment.ts";
 import { createPooledCredentialPairSearchProvider } from "../../api-key-provider.ts";
 import {
@@ -23,42 +20,32 @@ export function createDataForSeoProvider(
     ),
     name: "DataForSEO",
     searchWithCredentials(credentials, query, numResults) {
-      return createDataForSeoProviderWithCredentials(credentials, env).search(
-        query,
-        numResults
-      );
+      const [login, password] = credentials;
+      return createJsonSearchProvider({
+        buildRequest: (requestQuery, requestNumResults) => ({
+          body: [
+            {
+              depth: requestNumResults,
+              keyword: requestQuery,
+              language_code: "en",
+              location_code: 2840,
+            },
+          ],
+          headers: { Authorization: createBasicAuthHeader(login, password) },
+          method: "POST",
+          url: getBaseUrl(
+            "OPENSEARCH_DATAFORSEO_URL",
+            "https://api.dataforseo.com/v3/serp/google/organic/live/advanced",
+            env
+          ),
+        }),
+        name: "DataForSEO",
+        parse: (payload) =>
+          parseArrayFromAnyPath(payload, [
+            ["tasks", "0", "result", "0", "items"],
+            ["items"],
+          ]),
+      }).search(query, numResults);
     },
-  });
-}
-
-function createDataForSeoProviderWithCredentials(
-  credentials: CredentialPair,
-  env: EnvironmentReader
-): SearchProvider {
-  const [login, password] = credentials;
-  return createJsonSearchProvider({
-    buildRequest: (query, numResults) => ({
-      body: [
-        {
-          depth: numResults,
-          keyword: query,
-          language_code: "en",
-          location_code: 2840,
-        },
-      ],
-      headers: { Authorization: createBasicAuthHeader(login, password) },
-      method: "POST",
-      url: getBaseUrl(
-        "OPENSEARCH_DATAFORSEO_URL",
-        "https://api.dataforseo.com/v3/serp/google/organic/live/advanced",
-        env
-      ),
-    }),
-    name: "DataForSEO",
-    parse: (payload) =>
-      parseArrayFromAnyPath(payload, [
-        ["tasks", "0", "result", "0", "items"],
-        ["items"],
-      ]),
   });
 }

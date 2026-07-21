@@ -43,13 +43,7 @@ const v2exTopicSchema = z.array(
   })
 );
 
-function result(
-  url: string,
-  title: string,
-  content: string,
-  _profileUsed?: string,
-  _name?: string
-): FetchResult {
+function result(url: string, title: string, content: string): FetchResult {
   return createFetchResult(url, content, title);
 }
 
@@ -76,13 +70,7 @@ async function fetchDevTo(url: URL): Promise<FetchResult | null> {
     return `- ${article.title}${author} · ${article.public_reactions_count ?? 0} reactions · ${article.reading_time_minutes ?? 0} min${tags}${link}`;
   });
   const title = `dev.to ${tag}`;
-  return result(
-    url.toString(),
-    title,
-    `## ${title}\n\n${entries.join("\n")}`,
-    "public-api:devto",
-    "public-api:devto:tag"
-  );
+  return result(url.toString(), title, `## ${title}\n\n${entries.join("\n")}`);
 }
 
 async function fetchLobsters(url: URL): Promise<FetchResult | null> {
@@ -107,13 +95,7 @@ async function fetchLobsters(url: URL): Promise<FetchResult | null> {
     return `- ${story.title} · ${story.score ?? 0} points · ${story.comment_count ?? 0} comments${tags}${link}`;
   });
   const title = tag ? `Lobsters ${tag}` : "Lobsters stories";
-  return result(
-    url.toString(),
-    title,
-    `## ${title}\n\n${entries.join("\n")}`,
-    "public-api:lobsters",
-    "public-api:lobsters:stories"
-  );
+  return result(url.toString(), title, `## ${title}\n\n${entries.join("\n")}`);
 }
 
 async function fetchV2ex(url: URL): Promise<FetchResult | null> {
@@ -134,9 +116,7 @@ async function fetchV2ex(url: URL): Promise<FetchResult | null> {
   return result(
     url.toString(),
     "V2EX hot topics",
-    `## V2EX hot topics\n\n${entries.join("\n")}`,
-    "public-api:v2ex",
-    "public-api:v2ex:hot"
+    `## V2EX hot topics\n\n${entries.join("\n")}`
   );
 }
 
@@ -162,13 +142,7 @@ async function fetchNaverFinance(url: URL): Promise<FetchResult | null> {
     return null;
   }
   const title = `Naver Finance ${code}`;
-  return result(
-    url.toString(),
-    title,
-    `## ${title}\n\n${rows.join("\n")}`,
-    "public-api:naver-finance",
-    "public-api:naver-finance:sise"
-  );
+  return result(url.toString(), title, `## ${title}\n\n${rows.join("\n")}`);
 }
 
 function isCommunityProvider(url: URL): boolean {

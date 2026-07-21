@@ -30,6 +30,29 @@ describe("fetchViaPublicApi knowledge provider routes", () => {
     expect(result?.content).toContain("Transformer Paper");
   });
 
+  it("parses arXiv entries with missing fields, entities, and whitespace", async () => {
+    const xml = [
+      "<feed>",
+      "<entry><title>No summary</title><id>https://arxiv.org/abs/2</id></entry>",
+      "<entry><id>https://arxiv.org/abs/3</id><summary>untitled</summary></entry>",
+      "<entry><title> A &amp; B\n   spaced </title><id>https://arxiv.org/abs/4</id><summary> kept </summary></entry>",
+      "</feed>",
+    ].join("\n");
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValue(new Response(xml, { status: 200 }));
+    vi.stubGlobal("fetch", mockFetch);
+
+    const result = await fetchViaPublicApi(
+      "https://arxiv.org/search/?query=transformer"
+    );
+
+    expect(result?.title).toBe("arXiv search transformer");
+    expect(result?.content).toBe(
+      "## arXiv search transformer\n\n- [No summary](https://arxiv.org/abs/2)\n- [A & B spaced](https://arxiv.org/abs/4): kept"
+    );
+  });
+
   it("routes DOI URLs through CrossRef works", async () => {
     const mockFetch = vi.fn().mockResolvedValue(
       okJsonResponse({

@@ -235,9 +235,6 @@ function compositeQualityScore(
     components.push([QUALITY_SCORE_WEIGHTS.consensus, consensus]);
   }
   const weightSum = components.reduce((sum, [weight]) => sum + weight, 0);
-  if (weightSum === 0) {
-    return 0;
-  }
   const weighted = components.reduce(
     (sum, [weight, value]) => sum + weight * value,
     0

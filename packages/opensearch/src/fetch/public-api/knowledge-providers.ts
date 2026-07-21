@@ -52,13 +52,7 @@ const wikipediaSummarySchema = z.object({
   title: z.string(),
 });
 
-function result(
-  url: string,
-  title: string,
-  content: string,
-  _profileUsed?: string,
-  _name?: string
-): FetchResult {
+function result(url: string, title: string, content: string): FetchResult {
   return createFetchResult(url, content, title);
 }
 
@@ -82,13 +76,7 @@ async function fetchArxiv(url: URL): Promise<FetchResult | null> {
     return null;
   }
   const title = `arXiv search ${query}`;
-  return result(
-    url.toString(),
-    title,
-    `## ${title}\n\n${entries.join("\n")}`,
-    "public-api:arxiv",
-    "public-api:arxiv:query"
-  );
+  return result(url.toString(), title, `## ${title}\n\n${entries.join("\n")}`);
 }
 
 async function fetchCrossref(url: URL): Promise<FetchResult | null> {
@@ -120,13 +108,7 @@ async function fetchCrossref(url: URL): Promise<FetchResult | null> {
   ]
     .filter(Boolean)
     .join("\n\n");
-  return result(
-    url.toString(),
-    title,
-    content,
-    "public-api:crossref",
-    "public-api:crossref:doi"
-  );
+  return result(url.toString(), title, content);
 }
 
 async function fetchOpenLibrary(url: URL): Promise<FetchResult | null> {
@@ -156,13 +138,7 @@ async function fetchOpenLibrary(url: URL): Promise<FetchResult | null> {
   ]
     .filter(Boolean)
     .join("\n\n");
-  return result(
-    url.toString(),
-    book.title,
-    content,
-    "public-api:openlibrary",
-    "public-api:openlibrary:isbn"
-  );
+  return result(url.toString(), book.title, content);
 }
 
 async function fetchWikipedia(url: URL): Promise<FetchResult | null> {
@@ -187,13 +163,7 @@ async function fetchWikipedia(url: URL): Promise<FetchResult | null> {
   ]
     .filter(Boolean)
     .join("\n\n");
-  return result(
-    url.toString(),
-    page.title,
-    content,
-    "public-api:wikipedia",
-    "public-api:wikipedia:summary"
-  );
+  return result(url.toString(), page.title, content);
 }
 
 function isKnowledgeProvider(url: URL): boolean {

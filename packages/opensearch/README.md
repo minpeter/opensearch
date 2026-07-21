@@ -87,8 +87,8 @@ const client = createOpenSearch({
 ```
 
 Every event has an `operationId`, `timestampMs`, and `operation`. Provider and
-operation completion events include elapsed milliseconds; cache events report
-`hit`, `miss`, or `bypass`.
+operation completion events include a `durationMs` latency measurement; cache
+events report `hit`, `miss`, or `bypass`.
 
 ## Ollama web tools
 

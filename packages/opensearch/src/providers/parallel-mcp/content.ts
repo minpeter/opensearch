@@ -1,6 +1,9 @@
 import { z } from "zod";
 
-import { normalizeProviderResult } from "../shared/result.ts";
+import {
+  dedupeProviderResults,
+  normalizeProviderResult,
+} from "../shared/result.ts";
 
 export const DEFAULT_PARALLEL_MCP_SERVER_URL = "https://search.parallel.ai/mcp";
 export const DEFAULT_PARALLEL_MCP_SEARCH_TOOL = "web_search";
@@ -61,7 +64,7 @@ export function parseParallelMcpPayload(
     })
     .filter((result): result is ParallelMcpSearchResult => result !== null);
 
-  return dedupeByUrl(results);
+  return dedupeProviderResults(results);
 }
 
 export function parseParallelMcpToolText(
@@ -84,23 +87,11 @@ export function parseParallelMcpContentItems(
   }
 
   const results = parsed.data
-    .filter((item) => item.type === "text" && item.text)
-    .flatMap((item) => parseParallelMcpToolText(item.text ?? ""));
+    .filter(
+      (item): item is { text: string; type?: string } =>
+        item.type === "text" && Boolean(item.text)
+    )
+    .flatMap((item) => parseParallelMcpToolText(item.text));
 
-  return dedupeByUrl(results);
-}
-
-function dedupeByUrl(
-  results: readonly ParallelMcpSearchResult[]
-): ParallelMcpSearchResult[] {
-  const seenUrls = new Set<string>();
-
-  return results.filter((result) => {
-    if (seenUrls.has(result.url)) {
-      return false;
-    }
-
-    seenUrls.add(result.url);
-    return true;
-  });
+  return dedupeProviderResults(results);
 }

@@ -53,11 +53,7 @@ export function isFeedResponse(contentType: string): boolean {
   return FEED_CONTENT_TYPES.some((type) => normalized.includes(type));
 }
 
-export function parseFeed(
-  url: string,
-  xml: string,
-  _name = "feed:parse"
-): FetchResult | null {
+export function parseFeed(url: string, xml: string): FetchResult | null {
   const draft = parseFeedXml(xml);
   return draft ? feedResult(url, draft) : null;
 }
@@ -143,8 +139,7 @@ export async function fetchDiscoveredFeed(
       }
       const parsed = parseFeed(
         candidate.url,
-        await readResponseText(response, maxResponseBytes),
-        candidate.name
+        await readResponseText(response, maxResponseBytes)
       );
       if (parsed) {
         return parsed;
