@@ -97,7 +97,7 @@ importers:
   packages/opensearch-ai-sdk:
     dependencies:
       '@minpeter/opensearch':
-        specifier: ^0.0.10
+        specifier: ^0.1.0
         version: link:../opensearch
       zod:
         specifier: ^4.4.3
@@ -110,7 +110,7 @@ importers:
   packages/opensearch-mcp:
     dependencies:
       '@minpeter/opensearch':
-        specifier: ^0.0.10
+        specifier: ^0.1.0
         version: link:../opensearch
       '@modelcontextprotocol/sdk':
         specifier: ^1.29.0

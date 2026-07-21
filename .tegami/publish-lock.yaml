@@ -1,22 +1,24 @@
 core:changelogs:
-  - content: "---\npackages:\n  npm:@minpeter/opensearch:\n    type: patch\n  npm:opensearch-mcp:\n    type: patch\n---\n\n### Remove AI slop, split oversized modules, and fix review findings\n\nBehavior-preserving cleanup across the codebase: deduplicated control flow,\nremoved dead code, and split every module over 250 pure LOC by responsibility\n(including the 560-line provider fallback chain). Also fixes from PR review:\n\n- Firecrawl endpoint resolution preserves proxy prefixes and query parameters\n- Batch fetch results map by requested URL and concurrent cache misses now\n  coalesce into single-flight work\n- TLS fallback always enforces the redirect limit and reads bodies through the\n  bounded reader\n- Playwright cleanup no longer masks fetch outcomes\n- Ollama rejects single-slash host schemes and parses Retry-After HTTP dates\n- MCP tool errors preserve messages from plain-object errors\n"
-    filename: remove-ai-slop-and-review-fixes.md
+  - content: "---\npackages:\n  npm:@minpeter/opensearch:\n    type: minor\n  npm:opensearch-mcp:\n    type: patch\n  npm:opensearch-ai-sdk:\n    type: patch\n---\n\n### Unify cache behavior and add streaming search\n\n- `search` now retries transient failures and caches results on every\n  entrypoint (previously the internal single-pass path was exposed\n  inconsistently), and repeated or overlapping calls coalesce into one\n  provider request.\n- New per-call `cache: \"bypass\"` option on `search`, `searchWithRetryAndCache`,\n  and `fetch` for calls that must hit the provider.\n- New `searchStream` async generator (module level and client) that fans out\n  to every configured provider concurrently and yields each provider's results\n  as they arrive; if every provider fails it throws the same aggregated\n  `SearchExecutionError` as `search`.\n- `fetch` overloads now accept a `string | readonly string[]` union argument\n  directly, and `OpenSearchClient.search` accepts an optional call-options\n  parameter.\n- Live bench monitor now uses the larger 8-query live fixture for tighter\n  latency percentiles, and PROVIDERS.md documents observed keyless quality and\n  rate-limit guidance.\n"
+    filename: dx-cache-stream-parity.md
     v: 0.0.0
 core:packages:
   - id: npm:opensearch-workspace
     updated: false
-  - id: npm:opensearch-ai-sdk
-    updated: true
   - changelogIds:
-      - remove-ai-slop-and-review-fixes.md
+      - dx-cache-stream-parity.md
     id: npm:@minpeter/opensearch
     updated: true
   - changelogIds:
-      - remove-ai-slop-and-review-fixes.md
+      - dx-cache-stream-parity.md
+    id: npm:opensearch-ai-sdk
+    updated: true
+  - changelogIds:
+      - dx-cache-stream-parity.md
     id: npm:opensearch-mcp
     updated: true
 npm:packages:
   - id: npm:opensearch-workspace
-  - id: npm:opensearch-ai-sdk
   - id: npm:@minpeter/opensearch
+  - id: npm:opensearch-ai-sdk
   - id: npm:opensearch-mcp
