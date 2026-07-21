@@ -1,18 +1,123 @@
-import type { FetchResult } from "@minpeter/opensearch";
+import {
+  CODE_SEARCH_PROVIDER_NAMES,
+  type CodeSearchOptions,
+  type CodeSearchResult,
+  type FetchResult,
+} from "@minpeter/opensearch";
 import { z } from "zod";
 
 const textContentType = "text" as const;
 const MAX_FETCH_URLS = 10;
+const DEFAULT_CODE_SEARCH_RESULT_COUNT = 10;
 const DEFAULT_SEARCH_RESULT_COUNT = 5;
+const MAX_CODE_SEARCH_RESULTS = 30;
 const MAX_SEARCH_RESULTS = 15;
 
 const searchResultCountSchema = z.int().positive().max(MAX_SEARCH_RESULTS);
+const codeSearchResultCountSchema = z
+  .int()
+  .positive()
+  .max(MAX_CODE_SEARCH_RESULTS);
 
 export interface SearchToolResultItem {
   engine: string;
   snippet: string;
   title: string;
   url: string;
+}
+
+export const codeSearchInputSchema = z.object({
+  language: z
+    .string()
+    .trim()
+    .min(1)
+    .optional()
+    .describe("Programming language filter, for example TypeScript or Go."),
+  numResults: codeSearchResultCountSchema
+    .optional()
+    .describe(
+      "Maximum file-level results to return (default: 10, range: 1-30)."
+    ),
+  path: z
+    .string()
+    .trim()
+    .min(1)
+    .optional()
+    .describe("File path or provider-supported path pattern."),
+  query: z
+    .string()
+    .trim()
+    .min(1)
+    .describe("Code, symbol, API, error text, or regular-expression query."),
+  repo: z
+    .string()
+    .trim()
+    .min(1)
+    .optional()
+    .describe("Repository filter, for example owner/repo."),
+  sources: z
+    .array(z.enum(CODE_SEARCH_PROVIDER_NAMES))
+    .min(1)
+    .optional()
+    .describe("Providers to query; defaults to every configured provider."),
+  useRegexp: z
+    .boolean()
+    .optional()
+    .describe("Treat query as a regular expression where supported."),
+});
+
+export type CodeSearchInput = z.infer<typeof codeSearchInputSchema>;
+
+export function getCodeSearchOptions(
+  input: CodeSearchInput
+): CodeSearchOptions {
+  return {
+    ...(input.language ? { language: input.language } : {}),
+    numResults: input.numResults ?? DEFAULT_CODE_SEARCH_RESULT_COUNT,
+    ...(input.path ? { path: input.path } : {}),
+    ...(input.repo ? { repo: input.repo } : {}),
+    ...(input.sources ? { sources: input.sources } : {}),
+    ...(input.useRegexp === undefined ? {} : { useRegexp: input.useRegexp }),
+  };
+}
+
+export function createCodeSearchToolResult(
+  results: readonly CodeSearchResult[]
+) {
+  return {
+    content: results.map((result) => ({
+      text: formatCodeSearchResult(result),
+      type: textContentType,
+    })),
+  };
+}
+
+function formatCodeSearchResult(result: CodeSearchResult): string {
+  const metadata = [
+    `Repository: ${result.repo}`,
+    `Path: ${result.path}`,
+    `URL: ${result.url}`,
+    `Provider: ${result.provider}`,
+    ...(result.language ? [`Language: ${result.language}`] : []),
+    ...(result.license ? [`License: ${result.license}`] : []),
+  ];
+  const matches = result.matches.flatMap((match) => {
+    const lineLabel = formatLineLabel(match.lineStart, match.lineEnd);
+    return ["", ...(lineLabel ? [lineLabel] : []), match.snippet];
+  });
+  return [...metadata, ...matches].join("\n");
+}
+
+function formatLineLabel(
+  lineStart: number | undefined,
+  lineEnd: number | undefined
+): string | undefined {
+  if (lineStart === undefined) {
+    return;
+  }
+  return lineEnd && lineEnd !== lineStart
+    ? `Lines ${lineStart}-${lineEnd}:`
+    : `Line ${lineStart}:`;
 }
 
 export const webSearchInputSchema = z.object({
