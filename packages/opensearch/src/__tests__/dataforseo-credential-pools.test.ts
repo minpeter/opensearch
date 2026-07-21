@@ -1,11 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { processEnvironmentReader } from "../environment.ts";
 import { createBasicAuthHeader } from "../providers/shared/base-url.ts";
-import { search } from "../search.ts";
+import { createSearchService } from "../search.ts";
 import {
   createMockJsonResponse,
   resetSearchEnv,
 } from "./search-test-helpers.ts";
+
+// These tests pin single-pass provider behavior, so they use the uncached
+// single-attempt path rather than the retrying, caching module-level search().
+const { search } = createSearchService(processEnvironmentReader);
 
 const SECRET_VALUE_PATTERN = /login-secret|password-secret/u;
 

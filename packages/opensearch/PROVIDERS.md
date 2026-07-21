@@ -34,6 +34,35 @@ These are the engines that can run with no user-supplied API key:
 **SearxNG** is keyless but only added when `OPENSEARCH_SEARXNG_URLS` is set, so it
 is config-gated rather than always-on.
 
+## Observed keyless quality (live bench, 2026-07)
+
+Measured with `pnpm bench:live` against real APIs (weekly monitor). Composite
+qualityScore blends cross-engine consensus, intrinsic heuristics, and labeled
+relevance; LIMIT rates are fractions of probes.
+
+| Engine | Success | p50 latency | qualityScore | Note |
+| --- | --- | --- | --- | --- |
+| Exa (keyed) | 1.00 | ~1.7s | 0.78 | Best keyless-adjacent quality when a key exists |
+| DuckDuckGo (keyless) | 1.00 | ~1.4s | 0.70 | Strongest always-on option; watch for bot challenges |
+| Parallel (MCP) | 1.00 | ~2.1s | 0.51 | Reliable fill, weaker relevance |
+| Firecrawl (free tier) | 0.00 | — | 0.00 | 429 on every probe; the chain falls back cleanly |
+
+Practical guidance:
+
+- **Keyless-only deployments** top out around DuckDuckGo + Parallel quality
+  (~0.5–0.7). Configure at least one keyed provider (Exa, Brave, TinyFish) for
+  the best results; the fallback chain only reaches them when they are set.
+- **Free-tier keys rate-limit fast.** A 429/blocked provider is skipped by the
+  fallback chain for that call, so a throttled Firecrawl does not fail searches
+  — it just contributes nothing until its quota recovers.
+- **Repeated or overlapping calls are cheap**: search and fetch both cache by
+  default (3-minute TTL) and concurrent misses coalesce into one provider call.
+  Pass `cache: "bypass"` per call when fresh results matter more than quota.
+- **Aggregating consumers** should use `searchStream`, which fans out to every
+  configured provider and yields each provider's results as they arrive — all
+  providers' results in about the slowest provider's time, instead of only the
+  fallback chain's first success.
+
 ## Keyed providers
 
 | Engine | Count param | 429 | Key pool | Cap | Timeout |

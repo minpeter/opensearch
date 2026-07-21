@@ -87,6 +87,10 @@ class FakeOpenSearchClient implements OpenSearchClient {
   fetch(
     input: string | readonly string[],
     options?: FetchOptions
+  ): Promise<FetchResult | FetchResult[]>;
+  fetch(
+    input: string | readonly string[],
+    options?: FetchOptions
   ): Promise<FetchResult | FetchResult[]> {
     if (this.#fetchError) {
       throw this.#fetchError;
@@ -119,6 +123,17 @@ class FakeOpenSearchClient implements OpenSearchClient {
     this.#searchCalls.push({ maxResults, query });
 
     return Promise.resolve([...this.#searchResults]);
+  }
+
+  // biome-ignore lint/suspicious/useAwait: the OpenSearchClient interface requires an async generator, so the fake stays async even though it yields synchronously
+  async *searchStream(
+    _query: string,
+    _numResults?: number
+  ): AsyncGenerator<SearchResult[], void, undefined> {
+    if (this.#searchError) {
+      throw this.#searchError;
+    }
+    yield [...this.#searchResults];
   }
 }
 

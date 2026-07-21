@@ -34,11 +34,21 @@ export const searchResultsSchema = searchResultsSchemaValue;
 const SEARCH_CACHE_TTL_MS = 3 * 60 * 1000;
 const SEARCH_CACHE_MAX_ENTRIES = 256;
 
+export interface SearchCallOptions {
+  /** Skip the response cache for this call. Retry behavior is unchanged. */
+  readonly cache?: "bypass";
+}
+
 export interface SearchService {
   search: (query: string, numResults?: number) => Promise<SearchResult[]>;
+  searchStream: (
+    query: string,
+    numResults?: number
+  ) => AsyncGenerator<SearchResult[], void, undefined>;
   searchWithRetryAndCache: (
     query: string,
-    maxResults?: number
+    maxResults?: number,
+    options?: SearchCallOptions
   ) => Promise<SearchResult[]>;
 }
 
@@ -129,7 +139,8 @@ export function createSearchService(
 
   function searchWithCache(
     query: string,
-    maxResults = 10
+    maxResults = 10,
+    callOptions: SearchCallOptions = {}
   ): Promise<SearchResult[]> {
     return observeOperation(
       observer,
@@ -143,7 +154,7 @@ export function createSearchService(
             retries: 2,
             shouldRetry: ({ error }) => shouldRetrySearchError(error),
           });
-        if (searchCache === null) {
+        if (searchCache === null || callOptions.cache === "bypass") {
           emitCacheEvent(observer, "search", operationId, "bypass");
           return (await execute()).slice(0, maxResults);
         }
@@ -160,8 +171,120 @@ export function createSearchService(
     );
   }
 
+  async function* searchStreamImpl(
+    query: string,
+    numResults = 10
+  ): AsyncGenerator<SearchResult[], void, undefined> {
+    const providers = configuredProviders ?? resolveProviders(env);
+    const operationId = observer.createOperationId("search");
+    const startedAt = observer.now();
+    const failures: SearchEngineError[] = [];
+    observer.emit({
+      inputCount: 1,
+      operation: "search",
+      operationId,
+      phase: "start",
+      timestampMs: startedAt,
+      type: "operation",
+    });
+
+    try {
+      let delivered = 0;
+      const queue = providers.map((provider) => ({
+        attempt: attemptStreamProvider(
+          provider,
+          query,
+          numResults,
+          operationId,
+          failures
+        ),
+        provider,
+      }));
+      while (queue.length > 0) {
+        // biome-ignore lint/performance/noAwaitInLoops: results are yielded in completion order, so each provider's settlement is awaited one at a time
+        const settled = await Promise.race(queue.map((entry) => entry.attempt));
+        queue.splice(
+          queue.findIndex((entry) => entry.provider === settled.provider),
+          1
+        );
+        if (settled.results !== null && settled.results.length > 0) {
+          delivered += 1;
+          yield settled.results;
+        }
+      }
+
+      if (delivered === 0) {
+        throw createSearchExecutionError(failures);
+      }
+      observer.emit({
+        durationMs: observer.now() - startedAt,
+        inputCount: 1,
+        operation: "search",
+        operationId,
+        phase: "success",
+        resultCount: delivered,
+        timestampMs: observer.now(),
+        type: "operation",
+      });
+    } catch (error) {
+      observer.emit({
+        durationMs: observer.now() - startedAt,
+        error:
+          error instanceof Error
+            ? { name: error.name }
+            : { name: "UnknownError" },
+        inputCount: 1,
+        operation: "search",
+        operationId,
+        phase: "failure",
+        timestampMs: observer.now(),
+        type: "operation",
+      });
+      throw error;
+    }
+  }
+
+  async function attemptStreamProvider(
+    provider: SearchProvider,
+    query: string,
+    numResults: number,
+    operationId: string,
+    failures: SearchEngineError[]
+  ): Promise<{ provider: SearchProvider; results: SearchResult[] | null }> {
+    const results = await observeProviderAttempt(
+      observer,
+      { operation: "search", operationId, provider: provider.name },
+      async () => {
+        try {
+          const found = await provider.search(query, numResults);
+          return found.slice(0, numResults);
+        } catch (error) {
+          if (error instanceof SearchEngineError) {
+            if (error.status === 451) {
+              throw error;
+            }
+            failures.push(error);
+          } else {
+            failures.push(
+              new SearchEngineError(
+                provider.name,
+                "transient",
+                `${provider.name} search failed: ${
+                  error instanceof Error ? error.message : String(error)
+                }`
+              )
+            );
+          }
+          return null;
+        }
+      }
+    );
+    return { provider, results };
+  }
+
   return {
     search: searchOnce,
+    searchStream: searchStreamImpl,
     searchWithRetryAndCache: searchWithCache,
   };
 }
@@ -170,14 +293,26 @@ export function search(
   query: string,
   numResults = 10
 ): Promise<SearchResult[]> {
-  return defaultSearchService.search(query, numResults);
+  return defaultSearchService.searchWithRetryAndCache(query, numResults);
 }
 
 export function searchWithRetryAndCache(
   query: string,
-  maxResults = 10
+  maxResults = 10,
+  options?: SearchCallOptions
 ): Promise<SearchResult[]> {
-  return defaultSearchService.searchWithRetryAndCache(query, maxResults);
+  return defaultSearchService.searchWithRetryAndCache(
+    query,
+    maxResults,
+    options
+  );
+}
+
+export function searchStream(
+  query: string,
+  numResults = 10
+): AsyncGenerator<SearchResult[], void, undefined> {
+  return defaultSearchService.searchStream(query, numResults);
 }
 
 function shouldRetrySearchError(error: Error): boolean {

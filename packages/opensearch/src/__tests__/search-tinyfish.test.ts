@@ -1,10 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { search } from "../search.ts";
+import { processEnvironmentReader } from "../environment.ts";
+import { createSearchService } from "../search.ts";
 import {
   createMockJsonResponse,
   resetSearchEnv,
 } from "./search-test-helpers.ts";
+
+// These tests pin single-pass provider behavior, so they use the uncached
+// single-attempt path rather than the retrying, caching module-level search().
+const { search } = createSearchService(processEnvironmentReader);
 
 describe("TinyFish search provider", () => {
   beforeEach(() => {

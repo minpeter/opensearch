@@ -23,5 +23,6 @@ export {
   SEARCH_ENGINE_NAMES,
   searchResultSchema,
   searchResultsSchema,
+  searchStream,
   searchWithRetryAndCache as search,
 } from "./search.ts";

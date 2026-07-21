@@ -20,6 +20,7 @@ import type { SearchResult } from "./search/types.ts";
 import {
   type CreateSearchServiceOptions,
   createSearchService,
+  type SearchCallOptions,
   type SearchService,
 } from "./search.ts";
 
@@ -77,8 +78,20 @@ export interface OpenSearchClient {
     ((
       urls: readonly string[],
       options?: FetchOptions
-    ) => Promise<FetchResult[]>);
-  search: (query: string, maxResults?: number) => Promise<SearchResult[]>;
+    ) => Promise<FetchResult[]>) &
+    ((
+      input: string | readonly string[],
+      options?: FetchOptions
+    ) => Promise<FetchResult | FetchResult[]>);
+  search: (
+    query: string,
+    maxResults?: number,
+    options?: SearchCallOptions
+  ) => Promise<SearchResult[]>;
+  searchStream: (
+    query: string,
+    numResults?: number
+  ) => AsyncGenerator<SearchResult[], void, undefined>;
 }
 
 class ConfiguredOpenSearchClient implements OpenSearchClient {
@@ -109,8 +122,23 @@ class ConfiguredOpenSearchClient implements OpenSearchClient {
     });
   }
 
-  search(query: string, maxResults?: number): Promise<SearchResult[]> {
-    return this.#searchService.searchWithRetryAndCache(query, maxResults);
+  search(
+    query: string,
+    maxResults?: number,
+    options?: SearchCallOptions
+  ): Promise<SearchResult[]> {
+    return this.#searchService.searchWithRetryAndCache(
+      query,
+      maxResults,
+      options
+    );
+  }
+
+  searchStream(
+    query: string,
+    numResults?: number
+  ): AsyncGenerator<SearchResult[], void, undefined> {
+    return this.#searchService.searchStream(query, numResults);
   }
 
   fetch(url: string, options?: FetchOptions): Promise<FetchResult>;
@@ -121,6 +149,10 @@ class ConfiguredOpenSearchClient implements OpenSearchClient {
   fetch(
     input: string | readonly string[],
     options?: FetchOptions
+  ): Promise<FetchResult | FetchResult[]>;
+  fetch(
+    input: string | readonly string[],
+    options: FetchOptions = {}
   ): Promise<FetchResult | FetchResult[]> {
     if (typeof input === "string") {
       return this.#fetchService.fetch(input, options);

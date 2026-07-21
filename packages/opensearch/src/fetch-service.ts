@@ -193,6 +193,10 @@ export function createFetchServiceForOperations(
   ): Promise<FetchResult[]>;
   function fetchInput(
     input: string | readonly string[],
+    options?: FetchOptions
+  ): Promise<FetchResult | FetchResult[]>;
+  function fetchInput(
+    input: string | readonly string[],
     options: FetchOptions = {}
   ): Promise<FetchResult | FetchResult[]> {
     const { maxCharacters } = options;
@@ -206,6 +210,14 @@ export function createFetchServiceForOperations(
       },
       async (operationId) => {
         assertValidMaxConcurrency(maxConcurrency);
+        if (options.cache === "bypass") {
+          return fetchWithoutCache(
+            input,
+            maxCharacters,
+            maxConcurrency,
+            operationId
+          );
+        }
         if (typeof input === "string") {
           if (maxCharacters === undefined) {
             return fetchSingleUrlWithCache(input, operationId);
@@ -231,6 +243,29 @@ export function createFetchServiceForOperations(
         );
       }
     );
+  }
+
+  async function fetchWithoutCache(
+    input: string | readonly string[],
+    maxCharacters: number | undefined,
+    maxConcurrency: number,
+    operationId?: string
+  ): Promise<FetchResult | FetchResult[]> {
+    emitFetchCacheBypass(operationId);
+    const results = await fetchMultipleUrls(
+      typeof input === "string" ? [input] : [...input],
+      maxCharacters,
+      maxConcurrency,
+      operationId
+    );
+    if (typeof input === "string") {
+      const [result] = results;
+      if (!result) {
+        throw new Error("Fetch returned no result.");
+      }
+      return result;
+    }
+    return results;
   }
 
   return {

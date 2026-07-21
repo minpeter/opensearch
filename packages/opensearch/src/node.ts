@@ -83,6 +83,13 @@ export function search(
   return nodeSearchService.searchWithRetryAndCache(query, maxResults);
 }
 
+export function searchStream(
+  query: string,
+  numResults = 10
+): AsyncGenerator<SearchResult[], void, undefined> {
+  return nodeSearchService.searchStream(query, numResults);
+}
+
 export function createOpenSearch(
   options: OpenSearchOptions = {}
 ): OpenSearchClient {

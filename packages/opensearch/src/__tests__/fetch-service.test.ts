@@ -12,7 +12,9 @@ function resultFor(url: string): FetchResult {
 
 function operationsReturning(results: FetchResult[]): FetchOperations {
   return {
-    fetchUrl: vi.fn(),
+    fetchUrl: vi
+      .fn()
+      .mockImplementation((url: string) => Promise.resolve(resultFor(url))),
     fetchUrls: vi.fn().mockResolvedValue(results),
   };
 }
@@ -162,6 +164,40 @@ describe("fetchUrlsWithCache result mapping", () => {
 
     await expect(batch).resolves.toHaveLength(2);
     await expect(single).resolves.toEqual(resultFor("https://b.example/"));
+  });
+
+  it("bypasses the cache when cache: 'bypass' is set per call", async () => {
+    const operations = operationsReturning([resultFor("https://a.example/")]);
+    const service = createFetchServiceForOperations(
+      operations,
+      4,
+      CACHE_OPTIONS,
+      createOpenSearchObserver()
+    );
+
+    await service.fetch("https://a.example/");
+    await service.fetch("https://a.example/");
+    await service.fetch("https://a.example/", { cache: "bypass" });
+
+    // First call populates the cache (1 provider call), second is a cache hit,
+    // and the bypass call hits the provider again through the batch path.
+    expect(operations.fetchUrl).toHaveBeenCalledTimes(1);
+    expect(operations.fetchUrls).toHaveBeenCalledTimes(1);
+  });
+
+  it("accepts a union of string and string[] at the type level", async () => {
+    const operations = operationsReturning([resultFor("https://a.example/")]);
+    const service = createFetchServiceForOperations(
+      operations,
+      4,
+      CACHE_OPTIONS,
+      createOpenSearchObserver()
+    );
+    const unionInput: string | readonly string[] = "https://a.example/";
+
+    const result = await service.fetch(unionInput);
+
+    expect(Array.isArray(result)).toBe(false);
   });
 
   it("does not poison the pending cache after a batch miss rejection", async () => {
