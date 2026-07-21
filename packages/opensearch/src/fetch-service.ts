@@ -130,23 +130,48 @@ export function createFetchServiceForOperations(
     }
 
     if (uncachedUrls.length > 0) {
-      const fetchedResults = await fetchMultipleUrls(
-        uncachedUrls,
-        undefined,
-        maxConcurrency,
-        operationId
-      );
+      // Single-flight: each miss goes through the cache's pending map, and the
+      // factories that actually run share one deferred batch fetch. Concurrent
+      // batch and single calls for the same URL join the same in-flight work.
+      const batchUrls: string[] = [];
+      let batchPromise: Promise<FetchResult[]> | undefined;
+      const fetchBatchOnce = (): Promise<FetchResult[]> => {
+        batchPromise ??= Promise.resolve().then(() =>
+          fetchMultipleUrls(
+            [...batchUrls],
+            undefined,
+            maxConcurrency,
+            operationId
+          )
+        );
+        return batchPromise;
+      };
 
       // Providers return results in request order; key by the requested URL
       // because a provider may canonicalize or redirect result.url.
-      for (const [index, result] of fetchedResults.entries()) {
-        const requestedUrl = uncachedUrls[index];
-        if (requestedUrl === undefined) {
-          throw new Error("Fetch returned more results than requested.");
-        }
-        activeCache.set(requestedUrl, result);
-        resultsByUrl.set(requestedUrl, result);
+      const pendingResultsByUrl = new Map<string, Promise<FetchResult>>();
+      for (const url of uncachedUrls) {
+        const resultPromise = activeCache.getOrSet(url, async () => {
+          const index = batchUrls.push(url) - 1;
+          const fetchedResults = await fetchBatchOnce();
+
+          if (fetchedResults.length > batchUrls.length) {
+            throw new Error("Fetch returned more results than requested.");
+          }
+          const result = fetchedResults[index];
+          if (result === undefined) {
+            throw new Error(`Fetch returned no result for ${url}.`);
+          }
+          return result;
+        });
+        pendingResultsByUrl.set(url, resultPromise);
       }
+
+      await Promise.all(
+        [...pendingResultsByUrl].map(async ([url, resultPromise]) => {
+          resultsByUrl.set(url, await resultPromise);
+        })
+      );
     }
 
     return urls.map((url) => {
