@@ -1,7 +1,7 @@
 {
   "$schema": "http://json.schemastore.org/package.json",
   "name": "opensearch-ai-sdk",
-  "version": "0.0.9",
+  "version": "0.0.10",
   "description": "AI SDK tools for OpenSearch web search and page fetch",
   "keywords": [
     "ai",
@@ -53,7 +53,7 @@
     "ai": "^6.0.0"
   },
   "dependencies": {
-    "@minpeter/opensearch": "^0.0.10",
+    "@minpeter/opensearch": "^0.1.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
