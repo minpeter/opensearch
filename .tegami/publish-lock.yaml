@@ -1,20 +1,20 @@
 core:changelogs:
-  - content: "---\npackages:\n  npm:@minpeter/opensearch:\n    type: minor\n  npm:opensearch-mcp:\n    type: patch\n  npm:opensearch-ai-sdk:\n    type: patch\n---\n\n### Unify cache behavior and add streaming search\n\n- `search` now retries transient failures and caches results on every\n  entrypoint (previously the internal single-pass path was exposed\n  inconsistently), and repeated or overlapping calls coalesce into one\n  provider request.\n- New per-call `cache: \"bypass\"` option on `search`, `searchWithRetryAndCache`,\n  and `fetch` for calls that must hit the provider.\n- New `searchStream` async generator (module level and client) that fans out\n  to every configured provider concurrently and yields each provider's results\n  as they arrive; if every provider fails it throws the same aggregated\n  `SearchExecutionError` as `search`.\n- `fetch` overloads now accept a `string | readonly string[]` union argument\n  directly, and `OpenSearchClient.search` accepts an optional call-options\n  parameter.\n- Live bench monitor now uses the larger 8-query live fixture for tighter\n  latency percentiles, and PROVIDERS.md documents observed keyless quality and\n  rate-limit guidance.\n"
-    filename: dx-cache-stream-parity.md
+  - content: "---\npackages:\n  npm:@minpeter/opensearch:\n    type: patch\n  npm:opensearch-mcp:\n    type: patch\n  npm:opensearch-ai-sdk:\n    type: patch\n---\n\n### Add multi-provider code search\n\n- Add `codeSearch` to the core client and both entrypoints, with parallel\n  providers for grep.app MCP, Exa Code Context, Sourcegraph GraphQL, and\n  GitHub's native code search API.\n- Return AI-friendly file-grouped results with repository, path, URL,\n  provider, line ranges, and snippets; round-robin providers before the result\n  cap, deduplicate files, cache repeated calls, and tolerate partial provider\n  failure.\n- Add `code_search` to the MCP and Vercel AI SDK surfaces with repository,\n  path, language, regexp, provider, and result-count filters.\n- The MCP server now detects `GITHUB_TOKEN` / `GH_TOKEN`, then falls back to\n  `gh auth token` without logging or mutating the environment, so signed-in GitHub\n  CLI users receive native GitHub code search automatically.\n"
+    filename: code-search.md
     v: 0.0.0
 core:packages:
   - id: npm:opensearch-workspace
     updated: false
   - changelogIds:
-      - dx-cache-stream-parity.md
+      - code-search.md
     id: npm:@minpeter/opensearch
     updated: true
   - changelogIds:
-      - dx-cache-stream-parity.md
+      - code-search.md
     id: npm:opensearch-ai-sdk
     updated: true
   - changelogIds:
-      - dx-cache-stream-parity.md
+      - code-search.md
     id: npm:opensearch-mcp
     updated: true
 npm:packages:
