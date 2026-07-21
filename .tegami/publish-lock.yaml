@@ -1,20 +1,22 @@
 core:changelogs:
-  - content: "---\npackages:\n  npm:@minpeter/opensearch:\n    type: patch\n---\n\n### Bump biome to 2.5.4 and ultracite to 7.9.4\n\nAdopt biome 2.5.x lint rules across the codebase: property-style method\nsignatures, error cause propagation, destructuring, and targeted\nsuppressions for intentional sequential awaits and defensive guards.\n"
-    filename: 2026-07-20-b10me254.md
+  - content: "---\npackages:\n  npm:@minpeter/opensearch:\n    type: patch\n  npm:opensearch-mcp:\n    type: patch\n---\n\n### Remove AI slop, split oversized modules, and fix review findings\n\nBehavior-preserving cleanup across the codebase: deduplicated control flow,\nremoved dead code, and split every module over 250 pure LOC by responsibility\n(including the 560-line provider fallback chain). Also fixes from PR review:\n\n- Firecrawl endpoint resolution preserves proxy prefixes and query parameters\n- Batch fetch results map by requested URL and concurrent cache misses now\n  coalesce into single-flight work\n- TLS fallback always enforces the redirect limit and reads bodies through the\n  bounded reader\n- Playwright cleanup no longer masks fetch outcomes\n- Ollama rejects single-slash host schemes and parses Retry-After HTTP dates\n- MCP tool errors preserve messages from plain-object errors\n"
+    filename: remove-ai-slop-and-review-fixes.md
     v: 0.0.0
 core:packages:
   - id: npm:opensearch-workspace
     updated: false
-  - changelogIds:
-      - 2026-07-20-b10me254.md
-    id: npm:@minpeter/opensearch
-    updated: true
   - id: npm:opensearch-ai-sdk
     updated: true
-  - id: npm:opensearch-mcp
+  - changelogIds:
+      - remove-ai-slop-and-review-fixes.md
+    id: npm:@minpeter/opensearch
+    updated: true
+  - changelogIds:
+      - remove-ai-slop-and-review-fixes.md
+    id: npm:opensearch-mcp
     updated: true
 npm:packages:
   - id: npm:opensearch-workspace
-  - id: npm:@minpeter/opensearch
   - id: npm:opensearch-ai-sdk
+  - id: npm:@minpeter/opensearch
   - id: npm:opensearch-mcp

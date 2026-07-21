@@ -1,7 +1,7 @@
 {
   "$schema": "http://json.schemastore.org/package.json",
   "name": "@minpeter/opensearch",
-  "version": "0.0.9",
+  "version": "0.0.10",
   "description": "Reusable web search and page fetch runtime for TypeScript clients",
   "keywords": [
     "ai",

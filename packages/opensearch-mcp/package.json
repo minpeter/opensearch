@@ -1,7 +1,7 @@
 {
   "$schema": "http://json.schemastore.org/package.json",
   "name": "opensearch-mcp",
-  "version": "0.2.10",
+  "version": "0.2.11",
   "description": "Zero-config web search and page fetch MCP backed by @minpeter/opensearch",
   "keywords": [
     "ai",
@@ -41,7 +41,7 @@
     "start": "node out/index.js"
   },
   "dependencies": {
-    "@minpeter/opensearch": "^0.0.9",
+    "@minpeter/opensearch": "^0.0.10",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "zod": "^4.4.3"
   }
