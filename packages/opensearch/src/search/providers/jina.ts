@@ -3,15 +3,16 @@ import {
   type EnvironmentReader,
   processEnvironmentReader,
 } from "../../environment.ts";
-import { getRandomUserAgent } from "../../user-agents.ts";
+import { getBaseUrl } from "../../providers/shared/base-url.ts";
 import {
-  compactProviders,
-  createPooledSearchProvider,
-} from "../api-key-provider.ts";
-import { getBaseUrl } from "../api-provider-utils.ts";
+  attachProviderEngine as attachEngine,
+  dedupeProviderResults as dedupeResults,
+  normalizeProviderResult as normalizeResult,
+} from "../../providers/shared/result.ts";
+import { getRandomUserAgent } from "../../user-agents.ts";
+import { createPooledSearchProvider } from "../api-key-provider.ts";
 import { SearchEngineError } from "../errors.ts";
 import { fetchSearchText, REQUEST_TIMEOUT_MS } from "../http.ts";
-import { attachEngine, dedupeResults, normalizeResult } from "../text.ts";
 import type { ParsedResult, SearchProvider, SearchResult } from "../types.ts";
 
 const JINA_SEARCH_FIELD_PATTERN =
@@ -25,17 +26,15 @@ interface JinaSearchDraft {
   url: string;
 }
 
-export function createJinaProviders(
+export function createJinaProvider(
   env: EnvironmentReader = processEnvironmentReader
-): SearchProvider[] {
-  return compactProviders([
-    createPooledSearchProvider({
-      apiKeyPool: getApiKeyPool("JINA_API_KEY", env),
-      name: "Jina",
-      searchWithApiKey: (apiKey, query, numResults) =>
-        searchJinaWithApiKey(apiKey, query, numResults, env),
-    }),
-  ]);
+): SearchProvider | null {
+  return createPooledSearchProvider({
+    apiKeyPool: getApiKeyPool("JINA_API_KEY", env),
+    name: "Jina",
+    searchWithApiKey: (apiKey, query, numResults) =>
+      searchJinaWithApiKey(apiKey, query, numResults, env),
+  });
 }
 
 async function searchJinaWithApiKey(

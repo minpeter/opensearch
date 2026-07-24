@@ -1,8 +1,5 @@
 import type { EnvironmentReader } from "../environment.ts";
-import {
-  fetchFirecrawlUrl,
-  isFirecrawlEnabled,
-} from "../providers/firecrawl/client.ts";
+import { fetchFirecrawlUrl } from "../providers/firecrawl/client.ts";
 import { getHttpStatus } from "../providers/shared/error.ts";
 import { mapWithConcurrency } from "./concurrency.ts";
 import { DEFAULT_MAX_CHARACTERS } from "./config.ts";
@@ -42,49 +39,4 @@ export function fetchUrlsViaFirecrawl(
       throw error;
     }
   });
-}
-
-export async function tryFetchUrlViaFirecrawl(
-  url: string,
-  env: EnvironmentReader
-): Promise<FetchResult | null> {
-  if (!isFirecrawlEnabled(env)) {
-    return null;
-  }
-
-  try {
-    return await fetchUrlViaFirecrawl(url, env);
-  } catch (error) {
-    if (!(error instanceof Error) || getHttpStatus(error) === 451) {
-      throw error;
-    }
-    return null;
-  }
-}
-
-export async function tryFetchUrlsViaFirecrawl(
-  urls: string[],
-  maxCharacters: number,
-  env: EnvironmentReader,
-  fallback: FetchFallback | undefined,
-  maxConcurrency: number
-): Promise<FetchResult[] | null> {
-  if (!isFirecrawlEnabled(env)) {
-    return null;
-  }
-
-  try {
-    return await fetchUrlsViaFirecrawl(
-      urls,
-      maxCharacters,
-      env,
-      fallback,
-      maxConcurrency
-    );
-  } catch (error) {
-    if (!(error instanceof Error) || getHttpStatus(error) === 451) {
-      throw error;
-    }
-    return null;
-  }
 }

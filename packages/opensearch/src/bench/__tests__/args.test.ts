@@ -63,7 +63,6 @@ describe("parseArgs", () => {
   });
 
   it("rejects non-integer count flags", () => {
-    // Regression (cubic P2): count flags are integers, not fractions.
     expect(() => parseArgs(["--num-results", "2.5"])).toThrow();
     expect(() => parseArgs(["--top-k", "1.5"])).toThrow();
     expect(() => parseArgs(["--concurrency", "0.5"])).toThrow();

@@ -6,9 +6,16 @@ import {
   isFirecrawlEnabled,
   searchFirecrawl,
 } from "../../providers/firecrawl/client.ts";
-import { getHttpStatus } from "../../providers/shared/error.ts";
-import { getErrorMessage, SearchEngineError } from "../errors.ts";
-import { attachEngine, dedupeResults, normalizeResult } from "../text.ts";
+import {
+  getErrorMessage,
+  getHttpStatus,
+} from "../../providers/shared/error.ts";
+import {
+  attachProviderEngine as attachEngine,
+  dedupeProviderResults as dedupeResults,
+  normalizeProviderResult as normalizeResult,
+} from "../../providers/shared/result.ts";
+import { SearchEngineError } from "../errors.ts";
 import type {
   EngineFailureKind,
   ParsedResult,

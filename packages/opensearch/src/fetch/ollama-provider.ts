@@ -13,6 +13,7 @@ import {
   isOllamaLocalEnabled,
   readOllamaApiKey,
 } from "../providers/ollama/config.ts";
+import { getErrorMessage } from "../providers/shared/error.ts";
 import { DEFAULT_MAX_CHARACTERS } from "./config.ts";
 import { createFetchResult, type FetchResult } from "./result.ts";
 
@@ -114,9 +115,7 @@ function toFetchError(
   }
   return new OllamaFetchError(
     "transient",
-    `Ollama ${path} fetch failed: ${
-      error instanceof Error ? error.message : String(error)
-    }`
+    `Ollama ${path} fetch failed: ${getErrorMessage(error)}`
   );
 }
 

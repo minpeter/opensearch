@@ -1,10 +1,12 @@
 import { getCredentialPairPool } from "../../../credentials/credential-pairs.ts";
 import type { EnvironmentReader } from "../../../environment.ts";
-import { createPooledCredentialPairSearchProvider } from "../../api-key-provider.ts";
 import {
   createBasicAuthHeader,
-  createJsonSearchProvider,
   getBaseUrl,
+} from "../../../providers/shared/base-url.ts";
+import { createPooledCredentialPairSearchProvider } from "../../api-key-provider.ts";
+import {
+  createJsonSearchProvider,
   parseArrayFromAnyPath,
 } from "../../api-provider-utils.ts";
 import type { SearchProvider } from "../../types.ts";

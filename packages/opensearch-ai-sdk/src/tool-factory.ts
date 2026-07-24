@@ -1,5 +1,13 @@
 import type { ToolExecutionOptions } from "ai";
 import {
+  type OpenSearchClientLike,
+  type OpenSearchCodeSearchOptions,
+  type OpenSearchFetchOptions,
+  type OpenSearchToolRuntime,
+  type OpenSearchToolsOptions,
+  resolveClient,
+} from "./tool-runtime.ts";
+import {
   type CodeSearchInput,
   type CodeSearchResult,
   codeSearchInputSchema,
@@ -16,59 +24,37 @@ import {
   webSearchOutputSchema,
 } from "./tool-schemas.ts";
 
-type CodeSearchProviderName = NonNullable<CodeSearchInput["sources"]>[number];
+export type {
+  CreateOpenSearch,
+  OpenSearchClientLike,
+  OpenSearchCodeSearchOptions,
+  OpenSearchFetchOptions,
+  OpenSearchToolRuntime,
+  OpenSearchToolsOptions,
+} from "./tool-runtime.ts";
 
-export interface OpenSearchCodeSearchOptions {
-  readonly language?: string;
-  readonly numResults?: number;
-  readonly path?: string;
-  readonly repo?: string;
-  readonly sources?: readonly CodeSearchProviderName[];
-  readonly useRegexp?: boolean;
+type CodeSearchClientLike<TCodeSearchResult extends CodeSearchResult> = Pick<
+  OpenSearchClientLike<WebSearchResult, WebFetchResult, TCodeSearchResult>,
+  "codeSearch"
+>;
+
+type WebFetchClientLike<TFetchResult extends WebFetchResult> = Pick<
+  OpenSearchClientLike<WebSearchResult, TFetchResult>,
+  "fetch"
+>;
+
+type WebSearchClientLike<TSearchResult extends WebSearchResult> = Pick<
+  OpenSearchClientLike<TSearchResult>,
+  "search"
+>;
+
+interface MethodToolRuntime<TClient, TOpenSearchOptions> {
+  readonly createOpenSearch: (options?: TOpenSearchOptions) => TClient;
 }
 
-export interface OpenSearchFetchOptions {
-  readonly maxCharacters?: number;
-}
-
-export interface OpenSearchClientLike<
-  TSearchResult extends WebSearchResult = WebSearchResult,
-  TFetchResult extends WebFetchResult = WebFetchResult,
-  TCodeSearchResult extends CodeSearchResult = CodeSearchResult,
-> {
-  codeSearch: (
-    query: string,
-    options?: OpenSearchCodeSearchOptions
-  ) => Promise<TCodeSearchResult[]>;
-  fetch: ((
-    url: string,
-    options?: OpenSearchFetchOptions
-  ) => Promise<TFetchResult>) &
-    ((
-      urls: readonly string[],
-      options?: OpenSearchFetchOptions
-    ) => Promise<TFetchResult[]>);
-  search: (query: string, maxResults?: number) => Promise<TSearchResult[]>;
-}
-
-export interface OpenSearchToolsOptions<
-  TClient extends OpenSearchClientLike = OpenSearchClientLike,
-  TOpenSearchOptions = unknown,
-> {
+interface MethodToolsOptions<TClient, TOpenSearchOptions> {
   readonly client?: TClient;
   readonly openSearchOptions?: TOpenSearchOptions;
-}
-
-export type CreateOpenSearch<
-  TClient extends OpenSearchClientLike = OpenSearchClientLike,
-  TOpenSearchOptions = unknown,
-> = (options?: TOpenSearchOptions) => TClient;
-
-export interface OpenSearchToolRuntime<
-  TClient extends OpenSearchClientLike = OpenSearchClientLike,
-  TOpenSearchOptions = unknown,
-> {
-  readonly createOpenSearch: CreateOpenSearch<TClient, TOpenSearchOptions>;
 }
 
 export interface CodeSearchTool<
@@ -147,80 +133,57 @@ export function createOpenSearchToolsForRuntime<
   const client = resolveClient(runtime, options);
   // biome-ignore assist/source/useSortedKeys: Tool registration order is part of the public API.
   const tools = {
-    web_search: createWebSearchToolForClient(client),
-    web_fetch: createWebFetchToolForClient(client),
-    code_search: createCodeSearchToolForClient(client),
+    web_search: createWebSearchToolForClient<TSearchResult>(client),
+    web_fetch: createWebFetchToolForClient<TFetchResult>(client),
+    code_search: createCodeSearchToolForClient<TCodeSearchResult>(client),
   } satisfies OpenSearchToolSet<TSearchResult, TFetchResult, TCodeSearchResult>;
 
   return tools;
 }
 
 export function createCodeSearchToolForRuntime<
-  TSearchResult extends WebSearchResult,
-  TFetchResult extends WebFetchResult,
   TCodeSearchResult extends CodeSearchResult,
-  TClient extends OpenSearchClientLike<
-    TSearchResult,
-    TFetchResult,
-    TCodeSearchResult
-  >,
+  TClient extends CodeSearchClientLike<TCodeSearchResult>,
   TOpenSearchOptions,
 >(
-  runtime: OpenSearchToolRuntime<TClient, TOpenSearchOptions>,
-  options: OpenSearchToolsOptions<TClient, TOpenSearchOptions> = {}
+  runtime: MethodToolRuntime<TClient, TOpenSearchOptions>,
+  options: MethodToolsOptions<TClient, TOpenSearchOptions> = {}
 ): CodeSearchTool<TCodeSearchResult> {
-  return createCodeSearchToolForClient(resolveClient(runtime, options));
+  return createCodeSearchToolForClient<TCodeSearchResult>(
+    resolveClient(runtime, options)
+  );
 }
 
 export function createWebSearchToolForRuntime<
   TSearchResult extends WebSearchResult,
-  TFetchResult extends WebFetchResult,
-  TClient extends OpenSearchClientLike<TSearchResult, TFetchResult>,
+  TClient extends WebSearchClientLike<TSearchResult>,
   TOpenSearchOptions,
 >(
-  runtime: OpenSearchToolRuntime<TClient, TOpenSearchOptions>,
-  options: OpenSearchToolsOptions<TClient, TOpenSearchOptions> = {}
+  runtime: MethodToolRuntime<TClient, TOpenSearchOptions>,
+  options: MethodToolsOptions<TClient, TOpenSearchOptions> = {}
 ): WebSearchTool<TSearchResult> {
-  return createWebSearchToolForClient(resolveClient(runtime, options));
+  return createWebSearchToolForClient<TSearchResult>(
+    resolveClient(runtime, options)
+  );
 }
 
 export function createWebFetchToolForRuntime<
-  TSearchResult extends WebSearchResult,
   TFetchResult extends WebFetchResult,
-  TClient extends OpenSearchClientLike<TSearchResult, TFetchResult>,
+  TClient extends WebFetchClientLike<TFetchResult>,
   TOpenSearchOptions,
 >(
-  runtime: OpenSearchToolRuntime<TClient, TOpenSearchOptions>,
-  options: OpenSearchToolsOptions<TClient, TOpenSearchOptions> = {}
+  runtime: MethodToolRuntime<TClient, TOpenSearchOptions>,
+  options: MethodToolsOptions<TClient, TOpenSearchOptions> = {}
 ): WebFetchTool<TFetchResult> {
-  return createWebFetchToolForClient(resolveClient(runtime, options));
-}
-
-function resolveClient<
-  TSearchResult extends WebSearchResult,
-  TFetchResult extends WebFetchResult,
-  TClient extends OpenSearchClientLike<TSearchResult, TFetchResult>,
-  TOpenSearchOptions,
->(
-  runtime: OpenSearchToolRuntime<TClient, TOpenSearchOptions>,
-  options: OpenSearchToolsOptions<TClient, TOpenSearchOptions>
-): TClient {
-  const { client, openSearchOptions } = options;
-
-  if (client && openSearchOptions) {
-    throw new Error("Provide either client or openSearchOptions, not both.");
-  }
-
-  return client ?? runtime.createOpenSearch(openSearchOptions);
+  return createWebFetchToolForClient<TFetchResult>(
+    resolveClient(runtime, options)
+  );
 }
 
 function createCodeSearchToolForClient<
   TCodeSearchResult extends CodeSearchResult,
 >(
-  client: Pick<
-    OpenSearchClientLike<WebSearchResult, WebFetchResult, TCodeSearchResult>,
-    "codeSearch"
-  >
+  client: CodeSearchClientLike<TCodeSearchResult>
 ): CodeSearchTool<TCodeSearchResult> {
   return {
     description: codeSearchDescription,
@@ -232,7 +195,7 @@ function createCodeSearchToolForClient<
 }
 
 function createWebSearchToolForClient<TSearchResult extends WebSearchResult>(
-  client: Pick<OpenSearchClientLike<TSearchResult, WebFetchResult>, "search">
+  client: WebSearchClientLike<TSearchResult>
 ): WebSearchTool<TSearchResult> {
   const toolConfig: WebSearchTool<TSearchResult> = {
     description: webSearchDescription,
@@ -246,7 +209,7 @@ function createWebSearchToolForClient<TSearchResult extends WebSearchResult>(
 }
 
 function createWebFetchToolForClient<TFetchResult extends WebFetchResult>(
-  client: Pick<OpenSearchClientLike<WebSearchResult, TFetchResult>, "fetch">
+  client: WebFetchClientLike<TFetchResult>
 ): WebFetchTool<TFetchResult> {
   const toolConfig: WebFetchTool<TFetchResult> = {
     description: webFetchDescription,

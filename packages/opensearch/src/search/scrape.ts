@@ -1,10 +1,15 @@
 import { type CheerioAPI, load } from "cheerio/slim";
 
+import { getErrorMessage } from "../providers/shared/error.ts";
+import {
+  attachProviderEngine as attachEngine,
+  dedupeProviderResults as dedupeResults,
+  normalizeProviderResult as normalizeResult,
+} from "../providers/shared/result.ts";
 import { cancelResponseBody, readResponseText } from "../response-body.ts";
-import { getErrorMessage, SearchEngineError } from "./errors.ts";
+import { SearchEngineError } from "./errors.ts";
 import { classifyStatusFailure, createSearchRequestInit } from "./http.ts";
 import { extractHeuristicResults } from "./scrape-heuristic.ts";
-import { attachEngine, dedupeResults, normalizeResult } from "./text.ts";
 import type {
   ParsedResult,
   SearchEngineName,

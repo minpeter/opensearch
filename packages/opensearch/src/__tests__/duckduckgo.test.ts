@@ -97,7 +97,6 @@ describe("createDuckDuckGoProvider", () => {
         url: "https://tokio.rs",
       },
     ]);
-    // The final request must carry the solved proof-of-work token.
     expect(String(mockFetch.mock.calls[3]?.[0])).toContain(
       "jsa_hash=deadbeef0123&jsa=42"
     );

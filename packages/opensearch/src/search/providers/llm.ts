@@ -4,36 +4,34 @@ import {
   processEnvironmentReader,
 } from "../../environment.ts";
 import { isFirecrawlEnabled } from "../../providers/firecrawl/client.ts";
+import { getBaseUrl } from "../../providers/shared/base-url.ts";
 import {
   compactProviders,
   createPooledJsonSearchProvider,
 } from "../api-key-provider.ts";
 import {
-  getBaseUrl,
   parseArrayFromAnyPath,
   parseCommonResultArray,
 } from "../api-provider-utils.ts";
 import { createSearchUrl } from "../http.ts";
 import type { SearchProvider } from "../types.ts";
-import { createJinaProviders } from "./jina.ts";
+import { createJinaProvider } from "./jina.ts";
 
 const PERPLEXITY_AUTH_FAILURE_STATUSES = new Set([401, 402, 403]);
 
 export function createLlmNativeProviders(
   env: EnvironmentReader = processEnvironmentReader
 ): SearchProvider[] {
-  return [
-    ...compactProviders([
-      createTavilyProvider(env),
-      createFirecrawlProvider(env),
-      createParallelProvider(env),
-      createYouProvider(env),
-      createPerplexityProvider(env),
-      createValyuProvider(env),
-      createLinkupProvider(env),
-    ]),
-    ...createJinaProviders(env),
-  ];
+  return compactProviders([
+    createTavilyProvider(env),
+    createFirecrawlProvider(env),
+    createParallelProvider(env),
+    createYouProvider(env),
+    createPerplexityProvider(env),
+    createValyuProvider(env),
+    createLinkupProvider(env),
+    createJinaProvider(env),
+  ]);
 }
 
 function createTavilyProvider(env: EnvironmentReader): SearchProvider | null {

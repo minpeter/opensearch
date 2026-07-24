@@ -1,7 +1,9 @@
-import { DEFAULT_MAX_DOWNLOAD_BYTES } from "../fetch/local-options.ts";
+import {
+  DEFAULT_MAX_DOWNLOAD_BYTES,
+  DEFAULT_MAX_REDIRECTS,
+} from "../fetch/local-options.ts";
 import { readResponseText } from "../response-body.ts";
 
-const DEFAULT_MAX_REDIRECTS = 5;
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 
 export interface WreqModule {

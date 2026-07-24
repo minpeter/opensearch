@@ -1,22 +1,18 @@
 import { z } from "zod";
+import { getErrorMessage } from "../providers/shared/error.ts";
 import {
-  type EnvironmentReader,
-  processEnvironmentReader,
-} from "../environment.ts";
-import {
-  createBasicAuthHeader as createSharedBasicAuthHeader,
-  getBaseUrl as getSharedBaseUrl,
-  requireTrustedProviderBaseUrl as requireSharedTrustedProviderBaseUrl,
-} from "../providers/shared/base-url.ts";
+  attachProviderEngine as attachEngine,
+  dedupeProviderResults as dedupeResults,
+  normalizeProviderResult as normalizeResult,
+} from "../providers/shared/result.ts";
 import { getRandomUserAgent } from "../user-agents.ts";
-import { getErrorMessage, SearchEngineError } from "./errors.ts";
+import { SearchEngineError } from "./errors.ts";
 import {
   fetchSearchText,
   parseJsonResponse,
   REQUEST_TIMEOUT_MS,
   unknownRecordSchema,
 } from "./http.ts";
-import { attachEngine, dedupeResults, normalizeResult } from "./text.ts";
 import type {
   ParsedResult,
   SearchEngineName,
@@ -174,26 +170,4 @@ export function parseArrayFromAnyPath(
   }
 
   return [];
-}
-
-export function getBaseUrl(
-  envName: string,
-  defaultBaseUrl: string,
-  env: EnvironmentReader = processEnvironmentReader
-): string {
-  return getSharedBaseUrl(envName, defaultBaseUrl, env);
-}
-
-export function requireTrustedProviderBaseUrl(
-  envName: string,
-  baseUrl: string
-): string {
-  return requireSharedTrustedProviderBaseUrl(envName, baseUrl);
-}
-
-export function createBasicAuthHeader(
-  username: string,
-  password: string
-): string {
-  return createSharedBasicAuthHeader(username, password);
 }

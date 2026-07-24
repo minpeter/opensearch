@@ -1,23 +1,11 @@
 import { z } from "zod";
-import {
-  type ApiKeyPool,
-  createApiKeyPool,
-} from "../credentials/api-key-pool.ts";
-import {
-  type EnvironmentReader,
-  processEnvironmentReader,
-} from "../environment.ts";
+import type { ApiKeyPool } from "../credentials/api-key-pool.ts";
 import { ProviderHttpError } from "../providers/shared/error.ts";
 import { cancelResponseBody, readResponseJson } from "../response-body.ts";
-import { DEFAULT_MAX_CHARACTERS, EXA_API_KEY_ENV } from "./config.ts";
 import { createFetchResult, type FetchResult } from "./result.ts";
 
 const EXA_API_TIMEOUT_MS = 10_000;
 const EXA_CONTENTS_API_URL = "https://api.exa.ai/contents";
-const defaultExaApiKeyPool = createApiKeyPool(
-  EXA_API_KEY_ENV,
-  processEnvironmentReader
-);
 
 const exaContentsResponseSchema = z.object({
   results: z
@@ -50,31 +38,6 @@ type ExaContentsStatus = z.infer<
 >["statuses"] extends (infer Status)[] | undefined
   ? Status
   : never;
-
-export async function fetchExaApi(
-  url: string,
-  env: EnvironmentReader = processEnvironmentReader
-): Promise<FetchResult> {
-  const [result] = await fetchExaApiBatchWithPool(
-    [url],
-    DEFAULT_MAX_CHARACTERS,
-    getExaApiKeyPool(env)
-  );
-
-  if (!result) {
-    throw new Error("Exa API fetch returned no text content");
-  }
-
-  return result;
-}
-
-export function fetchExaApiBatch(
-  urls: string[],
-  maxCharacters = DEFAULT_MAX_CHARACTERS,
-  env: EnvironmentReader = processEnvironmentReader
-): Promise<FetchResult[]> {
-  return fetchExaApiBatchWithPool(urls, maxCharacters, getExaApiKeyPool(env));
-}
 
 export async function fetchExaApiBatchWithPool(
   urls: string[],
@@ -176,12 +139,7 @@ async function parseExaContentsResponse(
       throw new Error(`Exa API fetch failed: ${errorTag}`);
     }
 
-    const result =
-      resultsByUrl.get(url) ??
-      payload.results.find(
-        (entry) => entry.text?.trim() && entry.url === url
-      ) ??
-      payload.results[index];
+    const result = resultsByUrl.get(url) ?? payload.results[index];
 
     if (!result?.text?.trim()) {
       throw new Error("Exa API fetch returned no text content");
@@ -193,10 +151,4 @@ async function parseExaContentsResponse(
   }
 
   return normalizedResults;
-}
-
-function getExaApiKeyPool(env: EnvironmentReader): ApiKeyPool {
-  return env === processEnvironmentReader
-    ? defaultExaApiKeyPool
-    : createApiKeyPool(EXA_API_KEY_ENV, env);
 }

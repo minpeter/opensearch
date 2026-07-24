@@ -4,7 +4,15 @@ import {
   type EnvironmentReader,
   processEnvironmentReader,
 } from "../../environment.ts";
-import { getHttpStatus } from "../../providers/shared/error.ts";
+import {
+  getErrorMessage,
+  getHttpStatus,
+} from "../../providers/shared/error.ts";
+import {
+  attachProviderEngine as attachEngine,
+  dedupeProviderResults as dedupeResults,
+  normalizeProviderResult as normalizeResult,
+} from "../../providers/shared/result.ts";
 import {
   createTinyFishApiKeyPool,
   type TinyFishApiKeyPool,
@@ -12,7 +20,7 @@ import {
 import { searchTinyFish } from "../../providers/tinyfish/search.ts";
 import { getRandomUserAgent } from "../../user-agents.ts";
 import { createPooledSearchProvider } from "../api-key-provider.ts";
-import { getErrorMessage, SearchEngineError } from "../errors.ts";
+import { SearchEngineError } from "../errors.ts";
 import {
   classifyApiStatusFailure,
   createSearchUrl,
@@ -20,7 +28,6 @@ import {
   parseJsonResponse,
   REQUEST_TIMEOUT_MS,
 } from "../http.ts";
-import { attachEngine, dedupeResults, normalizeResult } from "../text.ts";
 import type { ParsedResult, SearchProvider } from "../types.ts";
 
 const braveResponseSchema = z.object({

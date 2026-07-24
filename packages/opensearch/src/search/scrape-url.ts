@@ -50,7 +50,7 @@ function hasHttpProtocol(url: string): boolean {
 }
 
 export function normalizeHeuristicUrl(
-  engine: ScrapeEngineName,
+  _engine: ScrapeEngineName,
   url: string
 ): string {
   const trimmedUrl = url.trim();
@@ -65,14 +65,7 @@ export function normalizeHeuristicUrl(
     return "";
   }
 
-  switch (engine) {
-    case "DuckDuckGo": {
-      return hasHttpProtocol(trimmedUrl) ? trimmedUrl : "";
-    }
-    default: {
-      return "";
-    }
-  }
+  return hasHttpProtocol(trimmedUrl) ? trimmedUrl : "";
 }
 
 export function isIgnoredSearchEngineUrl(

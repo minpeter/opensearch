@@ -17,7 +17,6 @@ import {
   createSearchToolResult,
   createToolErrorResponse,
   getCodeSearchOptions,
-  getFetchMaxCharacters,
   getSearchResultCount,
   webFetchInputSchema,
   webSearchInputSchema,
@@ -78,7 +77,7 @@ server.registerTool(
   async (input) => {
     try {
       const results = await client.fetch(input.urls, {
-        maxCharacters: getFetchMaxCharacters(input),
+        maxCharacters: input.maxCharacters,
       });
       return createFetchToolResult(results);
     } catch (error) {

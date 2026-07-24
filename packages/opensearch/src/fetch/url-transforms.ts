@@ -11,19 +11,16 @@ const WWW_PREFIX = "www.";
 const ASSET_EXTENSION_REGEX =
   /\.(?:avif|css|csv|gif|gz|ico|jpe?g|js|json|mjs|mp[34]|pdf|png|svg|txt|webp|xml|zip)$/iu;
 
-export const URL_TRANSFORM_NAMES = [
-  "mobile_subdomain",
-  "drop_www",
-  "am_prefix",
-  "json_suffix",
-  "rss_path",
-  "feed_path",
-  "atom_xml_path",
-  "rss_xml_path",
-  "index_xml_path",
-] as const;
-
-export type UrlTransformName = (typeof URL_TRANSFORM_NAMES)[number];
+export type UrlTransformName =
+  | "mobile_subdomain"
+  | "drop_www"
+  | "am_prefix"
+  | "json_suffix"
+  | "rss_path"
+  | "feed_path"
+  | "atom_xml_path"
+  | "rss_xml_path"
+  | "index_xml_path";
 
 export interface UrlTransformAttempt {
   readonly name: UrlTransformName;
