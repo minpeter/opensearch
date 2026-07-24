@@ -25,6 +25,12 @@ export type { FetchOptions, FetchResult } from "./fetch.ts";
 export { fetch, fetchResultSchema } from "./fetch.ts";
 export { SearchEngineError, SearchExecutionError } from "./search/errors.ts";
 export type {
+  NativeSearchRegistry,
+  NativeSearchRoute,
+  NativeSearchRouteOptions,
+  NativeSearchRouteSnapshot,
+} from "./search/native-registry.ts";
+export type {
   EngineFailureKind,
   ParsedResult,
   SearchEngineName,

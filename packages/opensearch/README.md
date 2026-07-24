@@ -116,6 +116,17 @@ The module-level `searchStream` is exported from both entrypoints alongside
 `search`. If every provider fails, the stream throws the same aggregated
 `SearchExecutionError` as `search`.
 
+## Coding-agent subscription routes
+
+Coding-agent hosts can prepend their active model/session search route and other
+available subscription routes through `search.nativeRegistry`. OpenSearch
+de-duplicates stable route ids, keeps credentials inside host-owned closures,
+and reuses the existing provider fallback and observability policy.
+
+See [Native coding-agent search](./NATIVE_AGENT_INTEGRATION.md) for the PSS
+integration pattern, route/error contract, and the boundary between
+provider-native model tools and an external MCP server.
+
 ## Code search
 
 `codeSearch` searches real source code and code documentation in parallel. It

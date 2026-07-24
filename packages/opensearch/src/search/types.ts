@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const SEARCH_ENGINE_NAMES = [
+  "Anthropic",
   "Brave",
   "BrightData",
   "DataForSEO",
@@ -10,9 +11,11 @@ export const SEARCH_ENGINE_NAMES = [
   "Google",
   "Jina",
   "Kagi",
+  "Kimi",
   "Linkup",
   "Mojeek",
   "Ollama",
+  "OpenAI",
   "Parallel",
   "Perplexity",
   "ScrapingBee",
@@ -23,7 +26,9 @@ export const SEARCH_ENGINE_NAMES = [
   "Tavily",
   "TinyFish",
   "Valyu",
+  "xAI",
   "You",
+  "Z.ai",
 ] as const;
 
 export type SearchEngineName = (typeof SEARCH_ENGINE_NAMES)[number];
