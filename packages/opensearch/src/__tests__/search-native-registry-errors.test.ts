@@ -247,6 +247,6 @@ describe("native search registry", () => {
     await expect(stream.next()).rejects.toThrow(
       "invalid native stream request"
     );
-    expect(discoveredSearch).toHaveBeenCalledOnce();
+    expect(discoveredSearch).not.toHaveBeenCalled();
   });
 });

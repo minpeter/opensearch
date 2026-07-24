@@ -24,6 +24,7 @@ import {
   rethrowTerminalSearchError,
   shouldRetrySearchError,
 } from "./failures.ts";
+import { isNativeSearchProvider } from "./native-registry.ts";
 import { getSearchProviders } from "./providers.ts";
 import type { SearchProvider, SearchResult } from "./types.ts";
 
@@ -146,6 +147,14 @@ export function createSearchServiceForEnvironment(
     );
   }
 
+  async function resolveConfiguredProviders(): Promise<SearchProvider[]> {
+    try {
+      return await getConfiguredProviders();
+    } catch (error) {
+      rethrowTerminalSearchError(error);
+    }
+  }
+
   async function* searchStreamImpl(
     query: string,
     numResults = 10
@@ -163,34 +172,27 @@ export function createSearchServiceForEnvironment(
     });
 
     try {
-      let providers: SearchProvider[];
-      try {
-        providers = await getConfiguredProviders();
-      } catch (error) {
-        rethrowTerminalSearchError(error);
-      }
+      const providers = await resolveConfiguredProviders();
       let delivered = 0;
-      const queue = providers.map((provider) => ({
-        attempt: attemptStreamProvider(
-          provider,
-          query,
-          numResults,
-          operationId,
-          failures
-        ),
-        provider,
-      }));
-      while (queue.length > 0) {
-        // biome-ignore lint/performance/noAwaitInLoops: results are yielded in completion order, so each provider's settlement is awaited one at a time
-        const settled = await Promise.race(queue.map((entry) => entry.attempt));
-        queue.splice(
-          queue.findIndex((entry) => entry.provider === settled.provider),
-          1
-        );
-        if (settled.results !== null && settled.results.length > 0) {
-          delivered += 1;
-          yield settled.results;
-        }
+      for await (const results of streamNativeProviderResults(
+        providers,
+        query,
+        numResults,
+        operationId,
+        failures
+      )) {
+        delivered += 1;
+        yield results;
+      }
+      for await (const results of streamConcurrentProviderResults(
+        providers,
+        query,
+        numResults,
+        operationId,
+        failures
+      )) {
+        delivered += 1;
+        yield results;
       }
 
       if (delivered === 0) {
@@ -221,6 +223,62 @@ export function createSearchServiceForEnvironment(
         type: "operation",
       });
       throw error;
+    }
+  }
+
+  async function* streamNativeProviderResults(
+    providers: readonly SearchProvider[],
+    query: string,
+    numResults: number,
+    operationId: string,
+    failures: SearchEngineError[]
+  ): AsyncGenerator<SearchResult[], void, undefined> {
+    const nativeProviders = providers.filter(isNativeSearchProvider);
+    for (const provider of nativeProviders) {
+      // biome-ignore lint/performance/noAwaitInLoops: native routes must settle in priority order before any fallback receives the query
+      const settled = await attemptStreamProvider(
+        provider,
+        query,
+        numResults,
+        operationId,
+        failures
+      );
+      if (settled.results !== null && settled.results.length > 0) {
+        yield settled.results;
+      }
+    }
+  }
+
+  async function* streamConcurrentProviderResults(
+    providers: readonly SearchProvider[],
+    query: string,
+    numResults: number,
+    operationId: string,
+    failures: SearchEngineError[]
+  ): AsyncGenerator<SearchResult[], void, undefined> {
+    const concurrentProviders = providers.filter(
+      (provider) => !isNativeSearchProvider(provider)
+    );
+    const queue = concurrentProviders.map((provider) => ({
+      attempt: attemptStreamProvider(
+        provider,
+        query,
+        numResults,
+        operationId,
+        failures
+      ),
+      provider,
+    }));
+    while (queue.length > 0) {
+      // biome-ignore lint/performance/noAwaitInLoops: results are yielded in completion order, so each provider's settlement is awaited one at a time
+      const settled = await Promise.race(queue.map((entry) => entry.attempt));
+      queue.splice(
+        queue.findIndex((entry) => entry.provider === settled.provider),
+        1
+      );
+      if (settled.results !== null && settled.results.length > 0) {
+        yield settled.results;
+      }
     }
   }
 

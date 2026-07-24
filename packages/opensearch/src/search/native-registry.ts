@@ -7,6 +7,7 @@ import {
 } from "./types.ts";
 
 const DEFAULT_NATIVE_SEARCH_TIMEOUT_MS = 8000;
+const nativeSearchProviders = new WeakSet<SearchProvider>();
 
 export interface NativeSearchRouteOptions {
   readonly signal: AbortSignal;
@@ -55,10 +56,10 @@ export async function resolveNativeSearchProviders(
       throw terminalError;
     }
     return [
-      {
+      registerNativeSearchProvider({
         name: error.engine,
         search: () => Promise.reject(error),
-      },
+      }),
     ];
   }
   const routes = snapshot.active
@@ -72,23 +73,36 @@ export async function resolveNativeSearchProviders(
       continue;
     }
     seenRouteIds.add(route.id);
-    providers.push({
-      name: route.engine,
-      search: async (query, numResults) => {
-        try {
-          return await executeNativeSearchRoute(route, query, numResults);
-        } catch (error) {
-          if (error instanceof SearchEngineError) {
-            throw error;
+    providers.push(
+      registerNativeSearchProvider({
+        name: route.engine,
+        search: async (query, numResults) => {
+          try {
+            return await executeNativeSearchRoute(route, query, numResults);
+          } catch (error) {
+            if (error instanceof SearchEngineError) {
+              throw error;
+            }
+            const terminalError = new TerminalSearchError(error);
+            throw terminalError;
           }
-          const terminalError = new TerminalSearchError(error);
-          throw terminalError;
-        }
-      },
-    });
+        },
+      })
+    );
   }
 
   return providers;
+}
+
+export function isNativeSearchProvider(provider: SearchProvider): boolean {
+  return nativeSearchProviders.has(provider);
+}
+
+function registerNativeSearchProvider(
+  provider: SearchProvider
+): SearchProvider {
+  nativeSearchProviders.add(provider);
+  return provider;
 }
 
 async function executeNativeSearchRoute(
