@@ -207,7 +207,8 @@ function knownBadSizeReason(
 function unresolvedCookieReason(
   cookies: Readonly<Record<string, string>>
 ): string | null {
-  return cookies._abck?.includes("~-1~") ? "abck_unresolved" : null;
+  const abck = Object.hasOwn(cookies, "_abck") ? cookies._abck : undefined;
+  return abck?.includes("~-1~") ? "abck_unresolved" : null;
 }
 
 function normalizeHeaders(
