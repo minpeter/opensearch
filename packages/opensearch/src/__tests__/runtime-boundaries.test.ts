@@ -27,7 +27,9 @@ describe("runtime package boundaries", () => {
     expect(pkg.dependencies).not.toHaveProperty("playwright");
     expect(pkg.optionalDependencies).not.toHaveProperty("playwright");
     expect(pkg.peerDependencies?.playwright).toBeDefined();
-    expect(pkg.peerDependenciesMeta?.playwright?.optional).toBe(true);
+    expect(pkg.peerDependenciesMeta).toEqual({
+      playwright: { optional: true },
+    });
   });
 
   it("declares the package runtime and trusted publishing contract", () => {

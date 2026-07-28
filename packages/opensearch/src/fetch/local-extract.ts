@@ -120,7 +120,6 @@ async function buildResultFromHtml(
         includeTransforms: false,
         maxResponseBytes: context.options.maxDownloadBytes,
       });
-      // biome-ignore lint/suspicious/noUnnecessaryConditions: defensive fallback preserves the optional feed result contract at runtime
       return feed?.content ?? null;
     }
   );
