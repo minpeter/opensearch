@@ -70,7 +70,7 @@
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@mozilla/readability": "^0.6.0",
     "cheerio": "^1.2.0",
-    "jsdom": "^29.1.1",
+    "jsdom": "^30.0.1",
     "p-retry": "^8.0.0",
     "turndown": "^7.2.4",
     "turndown-plugin-gfm": "^1.0.2",
