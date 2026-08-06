@@ -46,7 +46,6 @@ function parseHttpUrl(rawUrl: string): URL | null {
     return null;
   }
 }
-
 export function ampCacheUrl(rawUrl: string): string | null {
   const url = parseHttpUrl(rawUrl);
   if (!url) {
@@ -187,7 +186,6 @@ async function readArchiveJson(response: Response): Promise<unknown | null> {
     return null;
   }
 }
-
 export async function dynamicArchiveCandidates(
   rawUrl: string,
   fetcher: ArchiveFetcher
@@ -219,22 +217,4 @@ async function resolveOptionalArchiveCandidate(
     }
     return null;
   }
-}
-
-export async function archiveCandidates(
-  rawUrl: string,
-  fetcher: ArchiveFetcher = fetch
-): Promise<ArchiveCandidate[]> {
-  const candidates = [
-    ...staticArchiveCandidates(rawUrl),
-    ...(await dynamicArchiveCandidates(rawUrl, fetcher)),
-  ];
-  const seen = new Set<string>();
-  return candidates.filter((candidate) => {
-    if (seen.has(candidate.url)) {
-      return false;
-    }
-    seen.add(candidate.url);
-    return true;
-  });
 }

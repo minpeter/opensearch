@@ -1,41 +1,31 @@
-import { runInNewContext } from "node:vm";
 import { load } from "cheerio";
-import { JSDOM } from "jsdom";
 import { z } from "zod";
 import {
   type EnvironmentReader,
   processEnvironmentReader,
 } from "../environment.ts";
+import {
+  attachProviderEngine as attachEngine,
+  dedupeProviderResults as dedupeResults,
+  normalizeProviderResult as normalizeResult,
+} from "../providers/shared/result.ts";
 import { readResponseText } from "../response-body.ts";
 import { getRandomUserAgent } from "../user-agents.ts";
+import {
+  extractDuckDuckGoVqd,
+  isDuckDuckGoChallenge,
+  solveDuckDuckGoChallenge,
+} from "./duckduckgo-challenge.ts";
 import { SearchEngineError } from "./errors.ts";
 import { classifyStatusFailure, REQUEST_TIMEOUT_MS } from "./http.ts";
 import { createScrapeSearchProvider, SCRAPE_SEARCH_ENGINES } from "./scrape.ts";
-import { attachEngine, dedupeResults, normalizeResult } from "./text.ts";
 import type { ParsedResult, SearchProvider, SearchResult } from "./types.ts";
 
 const ENGINE = "DuckDuckGo" as const;
 const HOME_URL = "https://duckduckgo.com/";
 const LINKS_URL = "https://links.duckduckgo.com/d.js";
 
-// DuckDuckGo's result endpoints (links/html) gate suspicious clients behind a
-// JS proof-of-work: a 202 body that computes `jsa` (partly from how an HTML
-// parser normalizes malformed tags) and calls DDG.deep.initialize(...). We solve
-// it headlessly with jsdom (already a dependency) + a locked-down vm sandbox,
-// then resubmit with the computed token. See solveChallenge for the safeguards.
 const POW_OPT_OUT_ENV = "OPENSEARCH_ENABLE_DUCKDUCKGO_POW";
-const CHALLENGE_MARKER = "DDG.deep.initialize";
-const CHALLENGE_MAX_BYTES = 50_000;
-const CHALLENGE_TIMEOUT_MS = 1000;
-const CAPTURED_PATTERN = /^0&jsa_hash=[a-f0-9]+&jsa=-?\d+$/;
-const LEADING_TOKEN_PREFIX = /^0&/;
-
-const VQD_PATTERNS = [
-  /vqd="([^"]+)"/,
-  /vqd='([^']+)'/,
-  /"vqd":"([^"]+)"/,
-  /vqd=([\d-][\w-]*)&/,
-] as const;
 
 const duckDuckGoResponseSchema = z.object({
   results: z
@@ -89,60 +79,6 @@ async function getText(
       { cause: error }
     );
   }
-}
-
-function extractVqd(html: string): string | null {
-  for (const pattern of VQD_PATTERNS) {
-    const match = html.match(pattern);
-    if (match?.[1]) {
-      return match[1];
-    }
-  }
-  return null;
-}
-
-/**
- * Compute the proof-of-work token by running DDG's challenge script in a
- * locked-down vm context whose only globals are a jsdom `document` (for the
- * HTML-normalization length math) and a DDG stub that captures the result.
- * eval/Function are disabled, the body is size-capped, and execution is
- * time-boxed. Returns the `jsa_hash=...&jsa=...` query fragment, or null if the
- * body is not a recognizable challenge or the output fails validation.
- */
-function solveChallenge(challenge: string): string | null {
-  if (
-    !challenge.includes(CHALLENGE_MARKER) ||
-    challenge.length > CHALLENGE_MAX_BYTES
-  ) {
-    return null;
-  }
-
-  const dom = new JSDOM("<!DOCTYPE html><body></body>");
-  let captured: unknown = null;
-  const sandbox = {
-    DDG: {
-      deep: {
-        initialize: (value: unknown) => {
-          captured = value;
-        },
-      },
-    },
-    document: dom.window.document,
-  };
-
-  try {
-    runInNewContext(challenge, sandbox, {
-      contextCodeGeneration: { strings: false, wasm: false },
-      timeout: CHALLENGE_TIMEOUT_MS,
-    });
-  } catch {
-    return null;
-  }
-
-  if (typeof captured !== "string" || !CAPTURED_PATTERN.test(captured)) {
-    return null;
-  }
-  return captured.replace(LEADING_TOKEN_PREFIX, "");
 }
 
 function cleanHtml(value: string): string {
@@ -199,7 +135,7 @@ async function searchViaLinks(
     `${HOME_URL}?q=${encodeURIComponent(query)}`,
     headers
   );
-  const vqd = extractVqd(home.body);
+  const vqd = extractDuckDuckGoVqd(home.body);
   if (!vqd) {
     throw new SearchEngineError(
       ENGINE,
@@ -211,8 +147,8 @@ async function searchViaLinks(
   const base = buildLinksUrl(query, vqd);
   let response = await getText(base, headers);
 
-  if (response.body.includes(CHALLENGE_MARKER)) {
-    const token = solveChallenge(response.body);
+  if (isDuckDuckGoChallenge(response.body)) {
+    const token = solveDuckDuckGoChallenge(response.body);
     if (!token) {
       throw new SearchEngineError(
         ENGINE,
@@ -221,7 +157,7 @@ async function searchViaLinks(
       );
     }
     response = await getText(`${base}&${token}`, headers);
-    if (response.body.includes(CHALLENGE_MARKER)) {
+    if (isDuckDuckGoChallenge(response.body)) {
       throw new SearchEngineError(
         ENGINE,
         "blocked",

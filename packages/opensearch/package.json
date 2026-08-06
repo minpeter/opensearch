@@ -45,7 +45,7 @@
     "check": "ultracite check",
     "fix": "ultracite fix",
     "test": "vitest run",
-    "test:coverage": "vitest run --coverage --coverage.reporter=text --coverage.reporter=json-summary --exclude 'src/__tests__/integration.test.ts'",
+    "test:coverage": "vitest run --coverage --maxWorkers=4 --coverage.reporter=text --coverage.reporter=json-summary --exclude 'src/__tests__/integration.test.ts'",
     "attw": "attw --pack . --profile esm-only",
     "bench": "node --experimental-strip-types src/bench/cli.ts",
     "bench:fetch-batch": "node --experimental-strip-types src/bench/fetch-batch.ts",

@@ -1,10 +1,8 @@
 import { getApiKeyPool } from "../../../credentials/api-key-pool.ts";
 import type { EnvironmentReader } from "../../../environment.ts";
+import { getBaseUrl } from "../../../providers/shared/base-url.ts";
 import { createPooledJsonSearchProvider } from "../../api-key-provider.ts";
-import {
-  getBaseUrl,
-  parseCommonResultArray,
-} from "../../api-provider-utils.ts";
+import { parseCommonResultArray } from "../../api-provider-utils.ts";
 import type { SearchProvider } from "../../types.ts";
 
 export function createSerperProvider(

@@ -1,19 +1,23 @@
 export const MAX_PROVIDER_SNIPPET_LENGTH = 280;
 
-const HTML_TAG_PATTERN = /<[^>]*>/gu;
-
 export interface ProviderResult {
   readonly snippet: string;
   readonly title: string;
   readonly url: string;
 }
 
-export function cleanProviderText(text: string): string {
-  return text.replace(/\s+/g, " ").trim();
+export function attachProviderEngine<
+  TEngine extends string,
+  TResult extends ProviderResult,
+>(
+  engine: TEngine,
+  results: readonly TResult[]
+): Array<TResult & { engine: TEngine }> {
+  return results.map((result) => ({ ...result, engine }));
 }
 
-export function stripProviderHtmlTags(text: string): string {
-  return cleanProviderText(text.replace(HTML_TAG_PATTERN, ""));
+export function cleanProviderText(text: string): string {
+  return text.replace(/\s+/g, " ").trim();
 }
 
 export function truncateProviderText(text: string, maxLength: number): string {

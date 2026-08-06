@@ -22,7 +22,7 @@
     "check": "turbo run check",
     "fix": "turbo run fix",
     "test": "turbo run test",
-    "test:coverage": "turbo run test:coverage",
+    "test:coverage": "turbo run test:coverage --concurrency=1",
     "test:release": "node --test scripts/tegami-config.test.mjs scripts/package-smoke.test.mjs",
     "verify:published": "node scripts/verify-published-packages.mjs",
     "verify:packed": "node scripts/verify-packed-packages.mjs",

@@ -42,10 +42,6 @@ const registry = (
 
 const readJson = async (path) => JSON.parse(await readFile(path, "utf8"));
 
-const delay = async (milliseconds) => {
-  await new Promise((resolve) => setTimeout(resolve, milliseconds));
-};
-
 const run = async (command, args, options = {}) => {
   await new Promise((resolve, reject) => {
     const child = spawn(command, args, {
@@ -74,42 +70,44 @@ const publishedMetadataUrl = (name) =>
 const waitForPublishedVersion = async ({ name, version }) => {
   let lastFailure = "not found";
 
-  for (let attempt = 1; attempt <= attempts; attempt += 1) {
-    try {
-      const response = await fetch(publishedMetadataUrl(name), {
-        cache: "no-store",
-        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-      });
+  await retryOperation({
+    attempts,
+    delayMs: retryDelayMs,
+    operation: async () => {
+      try {
+        const response = await fetch(publishedMetadataUrl(name), {
+          cache: "no-store",
+          signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+        });
 
-      if (response.ok) {
-        const metadata = await response.json();
-        const publishedVersion = metadata.versions?.[version];
-        if (
-          publishedVersion?.version === version &&
-          publishedVersion.dist?.integrity
-        ) {
-          process.stdout.write(`Registry contains ${name}@${version}.\n`);
-          return;
+        if (response.ok) {
+          const metadata = await response.json();
+          const publishedVersion = metadata.versions?.[version];
+          if (
+            publishedVersion?.version === version &&
+            publishedVersion.dist?.integrity
+          ) {
+            process.stdout.write(`Registry contains ${name}@${version}.\n`);
+            return;
+          }
+          lastFailure = "registry metadata was incomplete";
+        } else {
+          lastFailure = `HTTP ${response.status}`;
         }
-        lastFailure = "registry metadata was incomplete";
-      } else {
-        lastFailure = `HTTP ${response.status}`;
+      } catch (error) {
+        lastFailure = error instanceof Error ? error.message : String(error);
       }
-    } catch (error) {
-      lastFailure = error instanceof Error ? error.message : String(error);
-    }
 
-    if (attempt < attempts) {
+      throw new Error(
+        `${name}@${version} did not become available from ${registry}: ${lastFailure}`
+      );
+    },
+    onRetry: ({ attempt }) => {
       process.stdout.write(
         `Waiting for ${name}@${version} (${lastFailure}, attempt ${attempt}/${attempts})...\n`
       );
-      await delay(retryDelayMs);
-    }
-  }
-
-  throw new Error(
-    `${name}@${version} did not become available from ${registry}: ${lastFailure}`
-  );
+    },
+  });
 };
 
 const main = async () => {

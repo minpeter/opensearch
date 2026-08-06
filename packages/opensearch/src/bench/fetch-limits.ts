@@ -1,8 +1,8 @@
 import { createEnvironmentReader } from "../environment.ts";
+import { DEFAULT_MAX_CHARACTERS } from "../fetch/config.ts";
 import { createFetchResult } from "../fetch/result.ts";
 import { createFetchService, type FetchResult } from "../fetch.ts";
 
-const DEFAULT_MAX_CHARACTERS = 12_000;
 const EXPLICIT_MAX_CHARACTERS = 1000;
 const FIXTURE_CHARACTERS = 20_000;
 const ITERATIONS = 50;

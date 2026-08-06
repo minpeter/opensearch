@@ -4,15 +4,17 @@ import {
   processEnvironmentReader,
 } from "../../environment.ts";
 import {
+  getBaseUrl,
+  requireTrustedProviderBaseUrl,
+} from "../../providers/shared/base-url.ts";
+import {
   compactProviders,
   createPooledJsonSearchProvider,
 } from "../api-key-provider.ts";
 import {
   createJsonSearchProvider,
-  getBaseUrl,
   parseArrayFromAnyPath,
   parseCommonResultArray,
-  requireTrustedProviderBaseUrl,
 } from "../api-provider-utils.ts";
 import { createSearchUrl } from "../http.ts";
 import type { SearchProvider } from "../types.ts";

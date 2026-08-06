@@ -15,12 +15,9 @@ import {
 } from "./fixtures.ts";
 import { evaluateMonitorHealth } from "./health.ts";
 import { buildCharts } from "./render.ts";
-import {
-  buildReport,
-  diffBaseline,
-  toJsonReport,
-  toMarkdownTable,
-} from "./report.ts";
+import { buildReport, toJsonReport } from "./report.ts";
+import { diffBaseline } from "./report-diff.ts";
+import { toMarkdownTable } from "./report-format.ts";
 import type { BenchReport, ProviderReport } from "./types.ts";
 
 const DEFAULT_LIVE_NUM_RESULTS = 10;

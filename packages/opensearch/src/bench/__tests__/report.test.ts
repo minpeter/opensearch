@@ -1,10 +1,7 @@
 import { describe, expect, it } from "vitest";
-import {
-  buildReport,
-  diffBaseline,
-  roundProviderReport,
-  toMarkdownTable,
-} from "../report.ts";
+import { buildReport, roundProviderReport } from "../report.ts";
+import { diffBaseline } from "../report-diff.ts";
+import { toMarkdownTable } from "../report-format.ts";
 import type { ProviderReport } from "../types.ts";
 
 function baseReport(overrides: Partial<ProviderReport>): ProviderReport {

@@ -3,8 +3,9 @@ import {
   processEnvironmentReader,
 } from "../../environment.ts";
 import { searchExaMcp } from "../../providers/exa-mcp/client.ts";
-import { getErrorMessage, SearchEngineError } from "../errors.ts";
-import { attachEngine } from "../text.ts";
+import { getErrorMessage } from "../../providers/shared/error.ts";
+import { attachProviderEngine as attachEngine } from "../../providers/shared/result.ts";
+import { SearchEngineError } from "../errors.ts";
 import type { EngineFailureKind, SearchProvider } from "../types.ts";
 
 export function createExaMcpSearchProvider(

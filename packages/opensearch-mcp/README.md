@@ -29,6 +29,18 @@ Playwright is not installed automatically. If you want the optional Playwright
 fallback, install it alongside the MCP package and set
 `OPENSEARCH_ENABLE_PLAYWRIGHT_FALLBACK=true`.
 
+## Coding-agent subscriptions
+
+The MCP process auto-detects supported environment credentials, but it cannot
+access subscription sessions held only in a coding agent's in-memory model
+registry. Do not copy or scrape those credential files into MCP.
+
+For a PSS-style host, use
+[`@minpeter/opensearch`'s native registry bridge](../opensearch/NATIVE_AGENT_INTEGRATION.md)
+in process. Keep OpenAI/Anthropic provider-native server tools on the active
+model request, and let OpenSearch route callable subscription providers plus
+its API/keyless fallbacks.
+
 ## License
 
 MIT

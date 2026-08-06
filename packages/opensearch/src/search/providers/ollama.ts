@@ -13,8 +13,12 @@ import {
   isOllamaLocalEnabled,
   readOllamaApiKey,
 } from "../../providers/ollama/config.ts";
+import {
+  attachProviderEngine as attachEngine,
+  dedupeProviderResults as dedupeResults,
+  normalizeProviderResult as normalizeResult,
+} from "../../providers/shared/result.ts";
 import { SearchEngineError } from "../errors.ts";
-import { attachEngine, dedupeResults, normalizeResult } from "../text.ts";
 import type {
   EngineFailureKind,
   ParsedResult,

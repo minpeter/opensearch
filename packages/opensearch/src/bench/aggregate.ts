@@ -5,7 +5,7 @@ import {
   finalizeAccumulator,
   newAccumulator,
 } from "./aggregate-accumulator.ts";
-import { buildConsensus, otherParticipatingEngines } from "./metrics.ts";
+import { buildConsensus, otherParticipatingEngines } from "./consensus.ts";
 import type { BenchQuery, ProbeOutcome, ProviderReport } from "./types.ts";
 
 export function percentile(

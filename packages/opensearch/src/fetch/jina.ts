@@ -10,15 +10,7 @@ import { DEFAULT_MAX_DOWNLOAD_BYTES } from "./local-options.ts";
 
 const JINA_TIMEOUT_MS = 10_000;
 
-export const JINA_READER_MODES = [
-  "text",
-  "json",
-  "html",
-  "sse",
-  "screenshot",
-] as const;
-
-export type JinaReaderMode = (typeof JINA_READER_MODES)[number];
+export type JinaReaderMode = "text" | "json" | "html" | "sse" | "screenshot";
 
 export interface JinaReaderOptions {
   readonly cacheToleranceSeconds?: number;

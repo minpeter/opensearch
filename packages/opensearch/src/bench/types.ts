@@ -73,7 +73,6 @@ export interface ProviderReport {
   readonly engine: SearchEngineName;
   readonly failureCount: number;
 
-  // --- LIMIT axis ---
   readonly fillRate: number;
   readonly labeledQueryCount: number;
   readonly latencyMeanMs: number;
@@ -94,7 +93,6 @@ export interface ProviderReport {
   readonly rateLimitRate: number;
   readonly recallAtK: number | null;
 
-  // --- QUALITY axis ---
   readonly snippetFillRate: number;
   readonly successCount: number;
   readonly successRate: number;

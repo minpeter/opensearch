@@ -1,4 +1,4 @@
-import { getErrorMessage as getSharedErrorMessage } from "../providers/shared/error.ts";
+import { getErrorMessage } from "../providers/shared/error.ts";
 import type { EngineFailureKind, SearchEngineName } from "./types.ts";
 
 export class SearchExecutionError extends Error {
@@ -8,6 +8,18 @@ export class SearchExecutionError extends Error {
     super(message);
     this.name = "SearchExecutionError";
     this.retryable = retryable;
+  }
+}
+
+export class TerminalSearchError extends Error {
+  readonly originalError: unknown;
+
+  constructor(error: unknown) {
+    super(getErrorMessage(error), {
+      cause: error,
+    });
+    this.name = "TerminalSearchError";
+    this.originalError = error;
   }
 }
 
@@ -30,10 +42,6 @@ export class SearchEngineError extends Error {
       this.status = options.status;
     }
   }
-}
-
-export function getErrorMessage(error: unknown): string {
-  return getSharedErrorMessage(error);
 }
 
 export function formatFailureSummary(failures: SearchEngineError[]): string {

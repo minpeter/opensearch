@@ -21,7 +21,6 @@ const TIER_CUTOFFS: readonly { readonly tier: Tier; readonly min: number }[] = [
   { min: 0, tier: "D" },
 ];
 
-/** Weight of reliability (successRate) when folding it into the tier score. */
 const RELIABILITY_FLOOR = 0.5;
 
 export interface TierAssignment {

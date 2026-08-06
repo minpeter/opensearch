@@ -15,7 +15,6 @@ export interface CliOptions {
   readonly topK?: number;
 }
 
-/** Positive finite number, e.g. a deadline in milliseconds. */
 function parsePositiveNumber(value: string, flag: string): number {
   const parsed = Number(value);
   if (!(Number.isFinite(parsed) && parsed > 0)) {
@@ -24,7 +23,6 @@ function parsePositiveNumber(value: string, flag: string): number {
   return parsed;
 }
 
-/** Positive integer for count flags (--num-results / --top-k / --concurrency). */
 function parseCount(value: string, flag: string): number {
   const parsed = Number(value);
   if (!(Number.isInteger(parsed) && parsed > 0)) {

@@ -184,12 +184,6 @@ export function getSearchResultCount(
   return input.numResults ?? input.max_results ?? DEFAULT_SEARCH_RESULT_COUNT;
 }
 
-export function getFetchMaxCharacters(
-  input: z.infer<typeof webFetchInputSchema>
-): number | undefined {
-  return input.maxCharacters;
-}
-
 function createFetchContentBlock(result: FetchResult): string {
   const title = result.title || result.url;
 

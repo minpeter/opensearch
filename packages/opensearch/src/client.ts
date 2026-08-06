@@ -22,6 +22,11 @@ import {
   createOpenSearchObserver,
   type OpenSearchObservabilityOptions,
 } from "./observability.ts";
+import {
+  type NativeSearchRegistry,
+  resolveNativeSearchProviders,
+} from "./search/native-registry.ts";
+import { getSearchProviders } from "./search/providers.ts";
 import type { SearchResult } from "./search/types.ts";
 import {
   type CreateSearchServiceOptions,
@@ -67,6 +72,11 @@ export interface OpenSearchOptions {
   readonly search?: {
     /** Per-client search cache policy. */
     readonly cache?: CacheOptions;
+    /**
+     * Host-owned coding-agent session routes. The active route is prepended
+     * to auto-discovered routes and existing OpenSearch providers.
+     */
+    readonly nativeRegistry?: NativeSearchRegistry;
   };
 }
 
@@ -126,6 +136,15 @@ class ConfiguredOpenSearchClient implements OpenSearchClient {
       maxRedirects: options.fetch?.maxRedirects,
     } satisfies LocalFetchOptions;
     const localFetch = runtime.localFetchFactory?.(localFetchOptions);
+    const nativeRegistry = options.search?.nativeRegistry;
+    const baseSearchProviders = runtime.searchProviders ?? getSearchProviders;
+    const searchProviders: CreateSearchServiceOptions["providers"] =
+      nativeRegistry
+        ? async (providerEnv) => [
+            ...(await resolveNativeSearchProviders(nativeRegistry)),
+            ...(await baseSearchProviders(providerEnv)),
+          ]
+        : runtime.searchProviders;
     this.#fetchService = createFetchService(env, {
       cache: options.fetch?.cache,
       exaMcpFetchProvider: runtime.exaMcpFetchProvider,
@@ -137,7 +156,8 @@ class ConfiguredOpenSearchClient implements OpenSearchClient {
     this.#searchService = createSearchService(env, {
       cache: options.search?.cache,
       observer,
-      providers: runtime.searchProviders,
+      providers: searchProviders,
+      refreshProviders: nativeRegistry !== undefined,
     });
     this.#codeSearchService = createCodeSearchService(env, {
       cache: options.codeSearch?.cache,

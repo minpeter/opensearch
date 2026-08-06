@@ -1,5 +1,7 @@
 import type { SearchEngineName } from "../search/types.ts";
-import { computeGolden, computeIntrinsic, consensusScore } from "./metrics.ts";
+import { consensusScore } from "./consensus.ts";
+import { computeGolden } from "./golden-metrics.ts";
+import { computeIntrinsic } from "./metrics.ts";
 import {
   QUALITY_SCORE_VERSION,
   QUALITY_SCORE_WEIGHTS,

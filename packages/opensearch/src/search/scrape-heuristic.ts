@@ -1,14 +1,13 @@
 import type { CheerioAPI } from "cheerio/slim";
 import {
+  cleanProviderText as cleanText,
+  dedupeProviderResults as dedupeResults,
+  normalizeProviderResult as normalizeResult,
+} from "../providers/shared/result.ts";
+import {
   isIgnoredSearchEngineUrl,
   normalizeHeuristicUrl,
 } from "./scrape-url.ts";
-import {
-  cleanText,
-  dedupeResults,
-  normalizeResult,
-  truncateText,
-} from "./text.ts";
 import type { ParsedResult, SearchEngineName } from "./types.ts";
 
 type ScrapeEngineName = Extract<SearchEngineName, "DuckDuckGo">;
@@ -85,7 +84,7 @@ function toSnippet(text: string, title: string): string {
     return "";
   }
 
-  return truncateText(cleanedText, 280);
+  return cleanedText;
 }
 
 function removeLeadingTitle(text: string, title: string): string {

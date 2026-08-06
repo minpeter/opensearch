@@ -43,9 +43,5 @@ export async function searchTinyFish(
   );
   const parsed = tinyFishSearchResponseSchema.parse(response);
 
-  return parsed.results.map((result) => ({
-    snippet: result.snippet,
-    title: result.title,
-    url: result.url,
-  }));
+  return parsed.results;
 }

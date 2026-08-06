@@ -1,12 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { SearchEngineName, SearchResult } from "../../search/types.ts";
-import {
-  buildConsensus,
-  computeGolden,
-  computeIntrinsic,
-  consensusScore,
-  queryTerms,
-} from "../metrics.ts";
+import { buildConsensus, consensusScore } from "../consensus.ts";
+import { computeGolden } from "../golden-metrics.ts";
+import { computeIntrinsic, queryTerms } from "../metrics.ts";
 import type { ProbeOutcome } from "../types.ts";
 
 function result(

@@ -14,6 +14,7 @@ export const CODE_SEARCH_PROVIDER_NAMES = [
 ] as const;
 
 const SEARCH_ENGINE_NAMES = [
+  "Anthropic",
   "Brave",
   "BrightData",
   "DataForSEO",
@@ -23,9 +24,11 @@ const SEARCH_ENGINE_NAMES = [
   "Google",
   "Jina",
   "Kagi",
+  "Kimi",
   "Linkup",
   "Mojeek",
   "Ollama",
+  "OpenAI",
   "Parallel",
   "Perplexity",
   "ScrapingBee",
@@ -36,7 +39,9 @@ const SEARCH_ENGINE_NAMES = [
   "Tavily",
   "TinyFish",
   "Valyu",
+  "xAI",
   "You",
+  "Z.ai",
 ] as const;
 
 const searchResultCountSchema = z.int().positive().max(MAX_SEARCH_RESULTS);

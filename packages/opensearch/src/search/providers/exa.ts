@@ -4,6 +4,11 @@ import {
   type EnvironmentReader,
   processEnvironmentReader,
 } from "../../environment.ts";
+import {
+  attachProviderEngine as attachEngine,
+  dedupeProviderResults as dedupeResults,
+  normalizeProviderResult as normalizeResult,
+} from "../../providers/shared/result.ts";
 import { getRandomUserAgent } from "../../user-agents.ts";
 import { createPooledSearchProvider } from "../api-key-provider.ts";
 import { SearchEngineError } from "../errors.ts";
@@ -12,7 +17,6 @@ import {
   parseJsonResponse,
   REQUEST_TIMEOUT_MS,
 } from "../http.ts";
-import { attachEngine, dedupeResults, normalizeResult } from "../text.ts";
 import type { ParsedResult, SearchProvider } from "../types.ts";
 
 const EXA_HIGHLIGHT_MAX_CHARACTERS = 280;
