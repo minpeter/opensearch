@@ -120,6 +120,7 @@ async function buildResultFromHtml(
         includeTransforms: false,
         maxResponseBytes: context.options.maxDownloadBytes,
       });
+      // biome-ignore lint/suspicious/noUnnecessaryConditions: optional chaining on null yields undefined; ?? normalizes to the callback's null contract
       return feed?.content ?? null;
     }
   );
