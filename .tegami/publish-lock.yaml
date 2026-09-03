@@ -1,22 +1,18 @@
 core:changelogs:
-  - content: "---\npackages:\n  npm:@minpeter/opensearch:\n    type: patch\n  npm:opensearch-mcp:\n    type: patch\n  npm:opensearch-ai-sdk:\n    type: patch\n---\n\n### Add multi-provider code search\n\n- Add `codeSearch` to the core client and both entrypoints, with parallel\n  providers for grep.app MCP, Exa Code Context, Sourcegraph GraphQL, and\n  GitHub's native code search API.\n- Return AI-friendly file-grouped results with repository, path, URL,\n  provider, line ranges, and snippets; round-robin providers before the result\n  cap, deduplicate files, cache repeated calls, and tolerate partial provider\n  failure.\n- Add `code_search` to the MCP and Vercel AI SDK surfaces with repository,\n  path, language, regexp, provider, and result-count filters.\n- The MCP server now detects `GITHUB_TOKEN` / `GH_TOKEN`, then falls back to\n  `gh auth token` without logging or mutating the environment, so signed-in GitHub\n  CLI users receive native GitHub code search automatically.\n"
-    filename: code-search.md
+  - content: "---\npackages:\n  npm:@minpeter/opensearch:\n    type: patch\n---\n\n## Add per-call AbortSignal support\n\n- Export per-call `AbortSignal` options for fetch and search.\n- Propagate caller cancellation through default Node fetch and search boundaries,\n  retries, fallbacks, and shared cached operations without allowing one caller\n  to cancel work shared by unrelated callers.\n"
+    filename: abort-signal.md
     v: 0.0.0
 core:packages:
   - id: npm:opensearch-workspace
     updated: false
   - changelogIds:
-      - code-search.md
+      - abort-signal.md
     id: npm:@minpeter/opensearch
     updated: true
-  - changelogIds:
-      - code-search.md
-    id: npm:opensearch-ai-sdk
-    updated: true
-  - changelogIds:
-      - code-search.md
-    id: npm:opensearch-mcp
-    updated: true
+  - id: npm:opensearch-ai-sdk
+    updated: false
+  - id: npm:opensearch-mcp
+    updated: false
 npm:packages:
   - id: npm:opensearch-workspace
   - id: npm:@minpeter/opensearch
