@@ -154,51 +154,50 @@ export function createSearchService(
           new DOMException("The operation was aborted", "AbortError")
       );
     }
-    return awaitAbortable(
-      observeOperation(
-        observer,
-        { inputCount: 1, operation: "search" },
-        async (operationId) => {
-          const cacheKey = createSearchCacheKey(query, maxResults);
-          const execute = async (signal?: AbortSignal) =>
-            pRetry(
-              async () => runProviders(query, maxResults, operationId, signal),
-              {
-                factor: 2,
-                minTimeout: 2000,
-                retries: 2,
-                shouldRetry: ({ error }) => {
-                  throwIfAborted(signal);
-                  return shouldRetrySearchError(error);
-                },
-                signal,
-              }
-            );
-          if (searchCache === null || callOptions.cache === "bypass") {
-            emitCacheEvent(observer, "search", operationId, "bypass");
-            return (await execute(callOptions.signal)).slice(0, maxResults);
-          }
-
-          emitCacheEvent(
-            observer,
-            "search",
-            operationId,
-            searchCache.has(cacheKey) ? "hit" : "miss"
+    const operation = observeOperation(
+      observer,
+      { inputCount: 1, operation: "search" },
+      async (operationId) => {
+        const cacheKey = createSearchCacheKey(query, maxResults);
+        const execute = async (signal?: AbortSignal) =>
+          pRetry(
+            async () => runProviders(query, maxResults, operationId, signal),
+            {
+              factor: 2,
+              minTimeout: 2000,
+              retries: 2,
+              shouldRetry: ({ error }) => {
+                throwIfAborted(signal);
+                return shouldRetrySearchError(error);
+              },
+              signal,
+            }
           );
-          const waiter = searchCache.createWaiter(callOptions.signal);
-          try {
-            const results = await awaitAbortable(
-              searchCache.getOrSet(cacheKey, execute, waiter),
-              callOptions.signal
-            );
-            return results.slice(0, maxResults);
-          } finally {
-            searchCache.releaseWaiter(waiter);
-          }
+        if (searchCache === null || callOptions.cache === "bypass") {
+          emitCacheEvent(observer, "search", operationId, "bypass");
+          return (await execute(callOptions.signal)).slice(0, maxResults);
         }
-      ),
-      callOptions.signal
+
+        emitCacheEvent(
+          observer,
+          "search",
+          operationId,
+          searchCache.has(cacheKey) ? "hit" : "miss"
+        );
+        const waiter = searchCache.createWaiter(callOptions.signal);
+        try {
+          const results = await waiter.waitFor(
+            searchCache.getOrSet(cacheKey, execute, waiter)
+          );
+          return results.slice(0, maxResults);
+        } finally {
+          searchCache.releaseWaiter(waiter);
+        }
+      }
     );
+    return searchCache === null || callOptions.cache === "bypass"
+      ? awaitAbortable(operation, callOptions.signal)
+      : operation;
   }
 
   async function* searchStreamImpl(

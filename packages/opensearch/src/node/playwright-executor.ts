@@ -60,22 +60,24 @@ export async function fetchViaPlaywrightFallback(
   let context: BrowserContext | undefined;
   let blockedRequestError: unknown;
   let cleanupRequested = false;
-  let contextCleanupPromise: Promise<void> | undefined;
-  let profileCleanupPromise: Promise<void> | undefined;
+  let cleanupPromise = Promise.resolve();
+  let contextCleaned = false;
+  let launchPending = false;
+  let profileCleaned = false;
   let temporaryProfileDir: string | undefined;
-  const cleanupOnce = async (): Promise<void> => {
+  const cleanupOnce = (): Promise<void> => {
     cleanupRequested = true;
-    if (context && !contextCleanupPromise) {
-      contextCleanupPromise = cleanupPlaywrightContext(context, undefined);
-    }
-    if (temporaryProfileDir && !profileCleanupPromise) {
-      profileCleanupPromise = cleanupPlaywrightContext(
-        undefined,
-        temporaryProfileDir
-      );
-    }
-    await contextCleanupPromise;
-    await profileCleanupPromise;
+    cleanupPromise = cleanupPromise.then(async () => {
+      if (context && !contextCleaned) {
+        contextCleaned = true;
+        await cleanupPlaywrightContext(context, undefined);
+      }
+      if (temporaryProfileDir && !launchPending && !profileCleaned) {
+        profileCleaned = true;
+        await cleanupPlaywrightContext(undefined, temporaryProfileDir);
+      }
+    });
+    return cleanupPromise;
   };
   const aborted = Promise.withResolvers<never>();
   const abort = (): void => {
@@ -104,15 +106,23 @@ export async function fetchViaPlaywrightFallback(
     const profile = await awaitWithAbort(profilePromise);
     temporaryProfileDir = profile.temporaryPath;
     options.signal?.throwIfAborted();
+    launchPending = true;
     const launchPromise = playwright.chromium.launchPersistentContext(
       profile.path,
       launchOptions
     );
     launchPromise
-      .then((launchedContext) => {
-        context = launchedContext;
-        return cleanupRequested ? cleanupOnce() : undefined;
-      })
+      .then(
+        (launchedContext) => {
+          context = launchedContext;
+          launchPending = false;
+          return cleanupRequested ? cleanupOnce() : undefined;
+        },
+        () => {
+          launchPending = false;
+          return cleanupRequested ? cleanupOnce() : undefined;
+        }
+      )
       .catch(() => undefined);
     context = await awaitWithAbort(launchPromise);
     options.signal?.throwIfAborted();

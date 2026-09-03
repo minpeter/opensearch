@@ -1,4 +1,7 @@
-import { access } from "node:fs/promises";
+import { watch } from "node:fs";
+import { access, mkdir, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { basename } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
   assertSafeHttpUrl,
@@ -218,10 +221,14 @@ describe("fetchViaPlaywrightFallback", () => {
     const callerAbort = new Error("caller stopped Playwright launch");
     const launchStarted = Promise.withResolvers<void>();
     const launchResult = Promise.withResolvers<BrowserContext>();
-    const contextClosed = Promise.withResolvers<void>();
-    const close = vi.fn<BrowserContext["close"]>(() => {
-      contextClosed.resolve();
-      return Promise.resolve();
+    const closeStarted = Promise.withResolvers<void>();
+    const allowClose = Promise.withResolvers<void>();
+    let profile = "";
+    const close = vi.fn<BrowserContext["close"]>(async () => {
+      await mkdir(profile, { recursive: true });
+      await writeFile(`${profile}/browser-state`, "closed");
+      closeStarted.resolve();
+      await allowClose.promise;
     });
     const context: BrowserContext = {
       close,
@@ -246,12 +253,22 @@ describe("fetchViaPlaywrightFallback", () => {
       signal: controller.signal,
     });
     await launchStarted.promise;
-    const profile = String(launchPersistentContext.mock.calls[0]?.[0]);
+    profile = String(launchPersistentContext.mock.calls[0]?.[0]);
     controller.abort(callerAbort);
 
     await expect(fetching).rejects.toBe(callerAbort);
     launchResult.resolve(context);
-    await contextClosed.promise;
+    await closeStarted.promise;
+    const profileRemoved = Promise.withResolvers<void>();
+    const watcher = watch(tmpdir(), (_event, filename) => {
+      if (String(filename) !== basename(profile)) {
+        return;
+      }
+      access(profile).catch(() => profileRemoved.resolve());
+    });
+    allowClose.resolve();
+    await profileRemoved.promise;
+    watcher.close();
     expect(close).toHaveBeenCalledOnce();
     expect(context.newPage).not.toHaveBeenCalled();
     await expect(access(profile)).rejects.toThrow();

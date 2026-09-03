@@ -75,6 +75,98 @@ describe("per-call AbortSignal", () => {
     expect(provider).not.toHaveBeenCalled();
   });
 
+  it.each([1, 4])(
+    "uses and removes one abort listener for each of %i cached calls sharing a signal",
+    async (callCount) => {
+      // Given
+      const controller = new AbortController();
+      const providerResult =
+        Promise.withResolvers<
+          Awaited<ReturnType<ReturnType<typeof createSearchService>["search"]>>
+        >();
+      const provider = vi.fn(() => providerResult.promise);
+      const service = createSearchService(
+        { read: () => undefined },
+        {
+          providers: () => [{ name: "Brave", search: provider }],
+        }
+      );
+      const addEventListener = vi.spyOn(controller.signal, "addEventListener");
+      const removeEventListener = vi.spyOn(
+        controller.signal,
+        "removeEventListener"
+      );
+
+      // When
+      const calls = Array.from({ length: callCount }, () =>
+        service.searchWithRetryAndCache("shared-listener-count", 1, {
+          signal: controller.signal,
+        })
+      );
+      providerResult.resolve([
+        {
+          engine: "Brave",
+          snippet: "result",
+          title: "Result",
+          url: "https://example.com/result",
+        },
+      ]);
+      await Promise.all(calls);
+
+      // Then
+      expect(provider).toHaveBeenCalledOnce();
+      expect(
+        addEventListener.mock.calls.filter(([type]) => type === "abort")
+      ).toHaveLength(callCount);
+      expect(
+        removeEventListener.mock.calls.filter(([type]) => type === "abort")
+      ).toHaveLength(callCount);
+    }
+  );
+
+  it("removes one listener per shared cached call after cancellation", async () => {
+    // Given
+    const controller = new AbortController();
+    const reason = new Error("all shared callers left");
+    const provider = vi.fn(
+      (_query: string, _maxResults: number, signal?: AbortSignal) =>
+        new Promise<never>((_resolve, reject) => {
+          signal?.addEventListener("abort", () => reject(signal.reason), {
+            once: true,
+          });
+        })
+    );
+    const service = createSearchService(
+      { read: () => undefined },
+      {
+        providers: () => [{ name: "Brave", search: provider }],
+      }
+    );
+    const addEventListener = vi.spyOn(controller.signal, "addEventListener");
+    const removeEventListener = vi.spyOn(
+      controller.signal,
+      "removeEventListener"
+    );
+    const calls = Array.from({ length: 4 }, () =>
+      service.searchWithRetryAndCache("shared-cancellation", 1, {
+        signal: controller.signal,
+      })
+    );
+
+    // When
+    controller.abort(reason);
+
+    // Then
+    await Promise.all(calls.map((call) => expect(call).rejects.toBe(reason)));
+    expect(provider).toHaveBeenCalledOnce();
+    expect(
+      addEventListener.mock.calls.filter(([type]) => type === "abort")
+    ).toHaveLength(4);
+    expect(
+      removeEventListener.mock.calls.filter(([type]) => type === "abort")
+    ).toHaveLength(4);
+  });
+
   it("stops retry backoff and fallback classification after caller abort", async () => {
     const controller = new AbortController();
     controller.abort();
