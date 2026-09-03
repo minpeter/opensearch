@@ -34,12 +34,13 @@ function abortLocalFetchFallback(error: unknown): boolean {
 
 async function fetchLocalUrlWithContext(
   url: string,
-  context: LocalFetchContext
+  context: LocalFetchContext,
+  signal?: AbortSignal
 ): Promise<FetchResult> {
   assertSafeHttpUrl(url, context.options.allowPrivateNetwork);
   const planned = await runAttemptPlan(url, {
     abortOnError: abortLocalFetchFallback,
-    executor: (input) => fetchAttemptResponse(input, context),
+    executor: (input) => fetchAttemptResponse(input, context, signal),
   });
 
   if (planned.response) {
@@ -114,7 +115,7 @@ async function fetchLocalUrlWithContext(
 
 export function createLocalFetch(
   options: LocalFetchOptions = {}
-): (url: string) => Promise<FetchResult> {
+): (url: string, signal?: AbortSignal) => Promise<FetchResult> {
   const resolvedOptions = resolveLocalFetchOptions(options);
   const context: LocalFetchContext = {
     dispatcher: createNetworkDispatcher({
@@ -123,7 +124,7 @@ export function createLocalFetch(
     }),
     options: resolvedOptions,
   };
-  return (url) => fetchLocalUrlWithContext(url, context);
+  return (url, signal) => fetchLocalUrlWithContext(url, context, signal);
 }
 
 const defaultLocalFetch = createLocalFetch();

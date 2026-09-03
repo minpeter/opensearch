@@ -6,10 +6,10 @@ import {
   type EnvironmentReader,
   processEnvironmentReader,
 } from "../environment.ts";
-import { readResponseText } from "../response-body.ts";
 import { getRandomUserAgent } from "../user-agents.ts";
+import { fetchDuckDuckGoText as getText } from "./duckduckgo-http.ts";
 import { SearchEngineError } from "./errors.ts";
-import { classifyStatusFailure, REQUEST_TIMEOUT_MS } from "./http.ts";
+import { classifyStatusFailure } from "./http.ts";
 import { createScrapeSearchProvider, SCRAPE_SEARCH_ENGINES } from "./scrape.ts";
 import { attachEngine, dedupeResults, normalizeResult } from "./text.ts";
 import type { ParsedResult, SearchProvider, SearchResult } from "./types.ts";
@@ -37,6 +37,14 @@ const VQD_PATTERNS = [
   /vqd=([\d-][\w-]*)&/,
 ] as const;
 
+type SignalSearchProvider = SearchProvider & {
+  readonly search: (
+    query: string,
+    numResults: number,
+    signal?: AbortSignal
+  ) => Promise<SearchResult[]>;
+};
+
 const duckDuckGoResponseSchema = z.object({
   results: z
     .array(
@@ -56,39 +64,6 @@ function browserHeaders(): Record<string, string> {
     Referer: HOME_URL,
     "User-Agent": getRandomUserAgent(),
   };
-}
-
-interface FetchedText {
-  readonly body: string;
-  readonly ok: boolean;
-  readonly status: number;
-}
-
-async function getText(
-  url: string,
-  headers: Record<string, string>
-): Promise<FetchedText> {
-  try {
-    const response = await fetch(url, {
-      headers,
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    });
-    return {
-      body: await readResponseText(response),
-      ok: response.ok,
-      status: response.status,
-    };
-  } catch (error) {
-    // biome-ignore lint/style/useErrorCause: SearchEngineError receives the original cause in its fourth argument
-    throw new SearchEngineError(
-      ENGINE,
-      "transient",
-      `DuckDuckGo fetch failed: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
-      { cause: error }
-    );
-  }
 }
 
 function extractVqd(html: string): string | null {
@@ -191,13 +166,18 @@ function buildLinksUrl(query: string, vqd: string): string {
 
 async function searchViaLinks(
   query: string,
-  numResults: number
+  numResults: number,
+  signal?: AbortSignal
 ): Promise<SearchResult[]> {
   const headers = browserHeaders();
+  if (signal?.aborted) {
+    throw signal.reason;
+  }
 
   const home = await getText(
     `${HOME_URL}?q=${encodeURIComponent(query)}`,
-    headers
+    headers,
+    signal
   );
   const vqd = extractVqd(home.body);
   if (!vqd) {
@@ -209,9 +189,12 @@ async function searchViaLinks(
   }
 
   const base = buildLinksUrl(query, vqd);
-  let response = await getText(base, headers);
+  let response = await getText(base, headers, signal);
 
   if (response.body.includes(CHALLENGE_MARKER)) {
+    if (signal?.aborted) {
+      throw signal.reason;
+    }
     const token = solveChallenge(response.body);
     if (!token) {
       throw new SearchEngineError(
@@ -220,7 +203,10 @@ async function searchViaLinks(
         "Bot challenge / anomaly page"
       );
     }
-    response = await getText(`${base}&${token}`, headers);
+    if (signal?.aborted) {
+      throw signal.reason;
+    }
+    response = await getText(`${base}&${token}`, headers, signal);
     if (response.body.includes(CHALLENGE_MARKER)) {
       throw new SearchEngineError(
         ENGINE,
@@ -260,23 +246,29 @@ function isPowEnabled(env: EnvironmentReader): boolean {
  */
 export function createDuckDuckGoProvider(
   env: EnvironmentReader = processEnvironmentReader
-): SearchProvider {
+): SignalSearchProvider {
   const scrapeProvider = createScrapeSearchProvider(
     SCRAPE_SEARCH_ENGINES.DuckDuckGo
   );
 
   return {
     name: ENGINE,
-    async search(query: string, numResults: number) {
+    async search(query: string, numResults: number, signal?: AbortSignal) {
+      if (signal?.aborted) {
+        throw signal.reason;
+      }
       try {
-        return await scrapeProvider.search(query, numResults);
+        return await scrapeProvider.search(query, numResults, signal);
       } catch (error) {
+        if (signal?.aborted) {
+          throw signal.reason;
+        }
         if (
           error instanceof SearchEngineError &&
           error.kind === "blocked" &&
           isPowEnabled(env)
         ) {
-          return await searchViaLinks(query, numResults);
+          return await searchViaLinks(query, numResults, signal);
         }
         throw error;
       }

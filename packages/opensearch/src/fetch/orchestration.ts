@@ -37,12 +37,17 @@ export type {
 } from "./provider-context.ts";
 
 export interface FetchOperations {
-  fetchUrl: (url: string, operationId?: string) => Promise<FetchResult>;
+  fetchUrl: (
+    url: string,
+    operationId?: string,
+    signal?: AbortSignal
+  ) => Promise<FetchResult>;
   fetchUrls: (
     urls: string[],
     maxCharacters?: number,
     maxConcurrency?: number,
-    operationId?: string
+    operationId?: string,
+    signal?: AbortSignal
   ) => Promise<FetchResult[]>;
 }
 
@@ -77,11 +82,12 @@ export function createFetchOperations(
   };
 
   return {
-    async fetchUrl(url: string, operationId) {
+    async fetchUrl(url: string, operationId, signal) {
       const result = await fetchUrlDirect(
         url,
         context,
-        operationId ?? observer.createOperationId("fetch")
+        operationId ?? observer.createOperationId("fetch"),
+        signal
       );
       return limitFetchResult(result, DEFAULT_MAX_CHARACTERS);
     },
@@ -89,7 +95,8 @@ export function createFetchOperations(
       urls: string[],
       maxCharacters = DEFAULT_MAX_CHARACTERS,
       maxConcurrency = DEFAULT_MAX_CONCURRENCY,
-      operationId?: string
+      operationId?: string,
+      signal?: AbortSignal
     ) {
       const characterLimit = requireMaxCharacters(maxCharacters);
       const results = await fetchUrlsDirect(
@@ -97,7 +104,8 @@ export function createFetchOperations(
         characterLimit,
         maxConcurrency,
         context,
-        operationId ?? observer.createOperationId("fetch")
+        operationId ?? observer.createOperationId("fetch"),
+        signal
       );
       return results.map((result) => limitFetchResult(result, characterLimit));
     },
@@ -111,16 +119,18 @@ export function fetchUrl(url: string): Promise<FetchResult> {
 async function fetchUrlDirect(
   url: string,
   context: FetchPipelineContext,
-  operationId: string
+  operationId: string,
+  signal?: AbortSignal
 ): Promise<FetchResult> {
-  context.validateUrl?.(url);
+  const callContext = signal ? { ...context, signal } : context;
+  callContext.validateUrl?.(url);
   assertProviderSafeUrl(url);
   // Phase 0: official keyless APIs for platforms generic fetch handles poorly
   // (matches only specific URLs; non-matching URLs cost nothing).
   const apiResult = await observeProviderAttempt(
-    context.observer,
+    callContext.observer,
     { operation: "fetch", operationId, provider: "public-api" },
-    () => fetchViaPublicApi(url)
+    () => fetchViaPublicApi(url, signal)
   );
   if (apiResult) {
     return apiResult;
@@ -130,9 +140,9 @@ async function fetchUrlDirect(
     operation: "fetch",
     operationId,
     reason: "empty",
-    toProvider: getFirstFetchProviderName(context),
+    toProvider: getFirstFetchProviderName(callContext),
   });
-  return fetchUrlViaProviders(url, context, operationId);
+  return fetchUrlViaProviders(url, callContext, operationId);
 }
 
 export function fetchUrls(
@@ -148,18 +158,20 @@ async function fetchUrlsDirect(
   maxCharacters: number,
   maxConcurrency: number,
   context: FetchPipelineContext,
-  operationId: string
+  operationId: string,
+  signal?: AbortSignal
 ): Promise<FetchResult[]> {
   if (urls.length === 0) {
     return [];
   }
 
+  const callContext = signal ? { ...context, signal } : context;
   const uniqueUrls = [...new Set(urls)];
   const uniqueResults = await fetchUniqueUrlsDirect(
     uniqueUrls,
     maxCharacters,
     maxConcurrency,
-    context,
+    callContext,
     operationId
   );
   const resultsByUrl = new Map<string, FetchResult>();
@@ -186,7 +198,8 @@ async function fetchUniqueUrlsDirect(
   maxCharacters: number,
   maxConcurrency: number,
   context: FetchPipelineContext,
-  operationId: string
+  operationId: string,
+  signal?: AbortSignal
 ): Promise<FetchResult[]> {
   for (const url of urls) {
     context.validateUrl?.(url);
@@ -199,7 +212,7 @@ async function fetchUniqueUrlsDirect(
     observeProviderAttempt(
       context.observer,
       { operation: "fetch", operationId, provider: "public-api" },
-      () => fetchViaPublicApi(url)
+      () => fetchViaPublicApi(url, signal)
     )
   );
   const remaining = urls.filter((_url, index) => apiResults[index] === null);

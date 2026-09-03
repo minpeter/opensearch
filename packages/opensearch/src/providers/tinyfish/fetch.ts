@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import type { TinyFishApiKeyPool } from "./api-key-pool.ts";
-import { requestTinyFishJson, TINYFISH_TIMEOUT_MS } from "./http.ts";
+import { requestTinyFishJson } from "./http.ts";
 
 const TINYFISH_FETCH_ENDPOINT = "https://api.fetch.tinyfish.ai";
 
@@ -35,11 +35,12 @@ export interface TinyFishFetchResult {
 
 export async function fetchTinyFishUrls(
   urls: readonly string[],
-  apiKeyPool?: TinyFishApiKeyPool
+  apiKeyPool?: TinyFishApiKeyPool,
+  signal?: AbortSignal
 ): Promise<TinyFishFetchResult[]> {
   const response = await requestTinyFishJson(
     "fetch",
-    (apiKey) =>
+    (apiKey, requestSignal) =>
       fetch(TINYFISH_FETCH_ENDPOINT, {
         body: JSON.stringify({
           format: "markdown",
@@ -52,9 +53,9 @@ export async function fetchTinyFishUrls(
           "X-API-Key": apiKey,
         },
         method: "POST",
-        signal: AbortSignal.timeout(TINYFISH_TIMEOUT_MS),
+        signal: requestSignal,
       }),
-    apiKeyPool
+    { apiKeyPool, signal }
   );
   const parsed = tinyFishFetchResponseSchema.parse(response);
   const resultsByUrl = mapTinyFishResultsByUrl(parsed.results);

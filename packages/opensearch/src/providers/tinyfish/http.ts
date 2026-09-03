@@ -1,4 +1,5 @@
 import { readResponseText } from "../../response-body.ts";
+import { composeAbortSignal } from "../shared/abort.ts";
 import { ProviderHttpError } from "../shared/error.ts";
 import {
   getTinyFishApiKeyAttemptOrder,
@@ -10,46 +11,66 @@ const TINYFISH_ERROR_DETAIL_MAX_CHARACTERS = 4096;
 
 type TinyFishServiceName = "fetch" | "search";
 
+interface TinyFishRequestOptions {
+  readonly apiKeyPool?: TinyFishApiKeyPool;
+  readonly signal?: AbortSignal;
+}
+
 export async function requestTinyFishJson(
   serviceName: TinyFishServiceName,
-  requestWithApiKey: (apiKey: string) => Promise<Response>,
-  apiKeyPool?: TinyFishApiKeyPool
+  requestWithApiKey: (apiKey: string, signal: AbortSignal) => Promise<Response>,
+  options: TinyFishRequestOptions = {}
 ): Promise<unknown> {
-  const [firstApiKey, ...remainingApiKeys] =
-    apiKeyPool?.getAttemptOrder() ?? getTinyFishApiKeyAttemptOrder();
-  if (!firstApiKey) {
-    throw new Error("TINYFISH_API_KEY is not configured");
-  }
-
-  const firstResponse = await requestWithApiKey(firstApiKey);
-  if (firstResponse.status !== 429) {
-    return parseTinyFishJsonResponse(firstResponse, serviceName);
-  }
-
-  let lastRateLimitError = await readTinyFishHttpError(
-    firstResponse,
-    serviceName
-  );
-
-  for (const apiKey of remainingApiKeys) {
-    // biome-ignore lint/performance/noAwaitInLoops: sequential API key fallback prevents unnecessary concurrent requests
-    const response = await requestWithApiKey(apiKey);
-    if (response.status !== 429) {
-      return parseTinyFishJsonResponse(response, serviceName);
+  let requestSignal: AbortSignal | undefined;
+  try {
+    options.signal?.throwIfAborted();
+    const [firstApiKey, ...remainingApiKeys] =
+      options.apiKeyPool?.getAttemptOrder() ?? getTinyFishApiKeyAttemptOrder();
+    if (!firstApiKey) {
+      throw new Error("TINYFISH_API_KEY is not configured");
     }
 
-    lastRateLimitError = await readTinyFishHttpError(response, serviceName);
-  }
+    requestSignal = composeAbortSignal(options.signal, TINYFISH_TIMEOUT_MS);
+    const firstResponse = await requestWithApiKey(firstApiKey, requestSignal);
+    requestSignal.throwIfAborted();
+    if (firstResponse.status !== 429) {
+      return await parseTinyFishJsonResponse(firstResponse, serviceName);
+    }
 
-  if (remainingApiKeys.length === 0) {
-    throw lastRateLimitError;
-  }
+    let lastRateLimitError = await readTinyFishHttpError(
+      firstResponse,
+      serviceName
+    );
+    requestSignal.throwIfAborted();
 
-  throw new Error(
-    `${lastRateLimitError.message} (all ${
-      remainingApiKeys.length + 1
-    } configured TinyFish API keys returned HTTP 429)`
-  );
+    for (const apiKey of remainingApiKeys) {
+      options.signal?.throwIfAborted();
+      requestSignal = composeAbortSignal(options.signal, TINYFISH_TIMEOUT_MS);
+      // biome-ignore lint/performance/noAwaitInLoops: sequential API key fallback prevents unnecessary concurrent requests
+      const response = await requestWithApiKey(apiKey, requestSignal);
+      requestSignal.throwIfAborted();
+      if (response.status !== 429) {
+        return await parseTinyFishJsonResponse(response, serviceName);
+      }
+
+      lastRateLimitError = await readTinyFishHttpError(response, serviceName);
+      requestSignal.throwIfAborted();
+    }
+
+    if (remainingApiKeys.length === 0) {
+      throw lastRateLimitError;
+    }
+
+    throw new Error(
+      `${lastRateLimitError.message} (all ${
+        remainingApiKeys.length + 1
+      } configured TinyFish API keys returned HTTP 429)`
+    );
+  } catch (error) {
+    options.signal?.throwIfAborted();
+    requestSignal?.throwIfAborted();
+    throw error;
+  }
 }
 
 async function parseTinyFishJsonResponse(

@@ -54,12 +54,13 @@ function createTinyFishProviderWithPool(
 ): SearchProvider {
   return {
     name: "TinyFish",
-    async search(query: string, numResults: number) {
+    async search(query: string, numResults: number, signal?: AbortSignal) {
       let results: Awaited<ReturnType<typeof searchTinyFish>>;
 
       try {
-        results = await searchTinyFish(query, apiKeyPool);
+        results = await searchTinyFish(query, apiKeyPool, signal);
       } catch (error) {
+        signal?.throwIfAborted();
         const status = getHttpStatus(error);
         // biome-ignore lint/style/useErrorCause: SearchEngineError receives the original cause in its fourth argument
         throw new SearchEngineError(
@@ -85,7 +86,7 @@ export function createBraveSearchProvider(
   return createPooledSearchProvider({
     apiKeyPool: getApiKeyPool("BRAVE_SEARCH_API_KEY", env),
     name: "Brave",
-    async searchWithApiKey(apiKey, query, numResults) {
+    async searchWithApiKey(apiKey, query, numResults, signal) {
       const response = await fetchSearchText({
         authFailureStatuses: new Set([401]),
         engine: "Brave",
@@ -99,6 +100,7 @@ export function createBraveSearchProvider(
           method: "GET",
           signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
         },
+        signal,
         url: createSearchUrl("https://api.search.brave.com/res/v1/web/search", {
           count: String(numResults),
           q: query,

@@ -1,3 +1,4 @@
+import { awaitAbortable } from "../abort.ts";
 import type { ApiKeyPool } from "../credentials/api-key-pool.ts";
 import type { EnvironmentReader } from "../environment.ts";
 import {
@@ -16,7 +17,10 @@ import { getHttpStatus } from "../providers/shared/error.ts";
 import type { TinyFishApiKeyPool } from "../providers/tinyfish/api-key-pool.ts";
 import type { FetchResult } from "./result.ts";
 
-export type LocalFetch = (url: string) => Promise<FetchResult>;
+export type LocalFetch = (
+  url: string,
+  signal?: AbortSignal
+) => Promise<FetchResult>;
 export type FetchUrlValidator = (url: string) => void;
 
 export interface ExaMcpFetchBatchResult {
@@ -44,6 +48,7 @@ export interface FetchPipelineContext {
   readonly exaMcpFetchProvider?: ExaMcpFetchProvider;
   readonly localFetch?: LocalFetch;
   readonly observer: OpenSearchObserver;
+  readonly signal?: AbortSignal;
   readonly tinyFishApiKeyPool: TinyFishApiKeyPool;
   readonly validateUrl?: FetchUrlValidator;
 }
@@ -54,10 +59,13 @@ export function observeFetchProvider<T>(
   provider: string,
   execute: () => Promise<T>
 ): Promise<T> {
-  return observeProviderAttempt(
-    context.observer,
-    { operation: "fetch", operationId, provider },
-    execute
+  return awaitAbortable(
+    observeProviderAttempt(
+      context.observer,
+      { operation: "fetch", operationId, provider },
+      execute
+    ),
+    context.signal
   );
 }
 

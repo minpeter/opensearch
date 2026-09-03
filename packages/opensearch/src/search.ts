@@ -1,5 +1,7 @@
 import pRetry from "p-retry";
 
+import { awaitAbortable, throwIfAborted } from "./abort.ts";
+
 import { type CacheOptions, resolveCacheOptions, TtlCache } from "./cache.ts";
 import {
   type EnvironmentReader,
@@ -37,6 +39,7 @@ const SEARCH_CACHE_MAX_ENTRIES = 256;
 export interface SearchCallOptions {
   /** Skip the response cache for this call. Retry behavior is unchanged. */
   readonly cache?: "bypass";
+  readonly signal?: AbortSignal;
 }
 
 export interface SearchService {
@@ -81,13 +84,15 @@ export function createSearchService(
   async function runProviders(
     query: string,
     numResults: number,
-    operationId: string
+    operationId: string,
+    signal?: AbortSignal
   ): Promise<SearchResult[]> {
     const failures: SearchEngineError[] = [];
 
     const providers = configuredProviders ?? resolveProviders(env);
 
     for (const [index, provider] of providers.entries()) {
+      throwIfAborted(signal);
       try {
         // biome-ignore lint/performance/noAwaitInLoops: providers are tried sequentially according to fallback priority
         const results = await observeProviderAttempt(
@@ -97,10 +102,11 @@ export function createSearchService(
             operationId,
             provider: provider.name,
           },
-          () => provider.search(query, numResults)
+          () => provider.search(query, numResults, signal)
         );
         return results.slice(0, numResults);
       } catch (error) {
+        throwIfAborted(signal);
         if (error instanceof SearchEngineError) {
           if (error.status === 451) {
             throw error;
@@ -142,32 +148,56 @@ export function createSearchService(
     maxResults = 10,
     callOptions: SearchCallOptions = {}
   ): Promise<SearchResult[]> {
-    return observeOperation(
-      observer,
-      { inputCount: 1, operation: "search" },
-      async (operationId) => {
-        const cacheKey = createSearchCacheKey(query, maxResults);
-        const execute = async () =>
-          pRetry(async () => runProviders(query, maxResults, operationId), {
-            factor: 2,
-            minTimeout: 2000,
-            retries: 2,
-            shouldRetry: ({ error }) => shouldRetrySearchError(error),
-          });
-        if (searchCache === null || callOptions.cache === "bypass") {
-          emitCacheEvent(observer, "search", operationId, "bypass");
-          return (await execute()).slice(0, maxResults);
-        }
+    if (callOptions.signal?.aborted) {
+      return Promise.reject(
+        callOptions.signal.reason ??
+          new DOMException("The operation was aborted", "AbortError")
+      );
+    }
+    return awaitAbortable(
+      observeOperation(
+        observer,
+        { inputCount: 1, operation: "search" },
+        async (operationId) => {
+          const cacheKey = createSearchCacheKey(query, maxResults);
+          const execute = async (signal?: AbortSignal) =>
+            pRetry(
+              async () => runProviders(query, maxResults, operationId, signal),
+              {
+                factor: 2,
+                minTimeout: 2000,
+                retries: 2,
+                shouldRetry: ({ error }) => {
+                  throwIfAborted(signal);
+                  return shouldRetrySearchError(error);
+                },
+                signal,
+              }
+            );
+          if (searchCache === null || callOptions.cache === "bypass") {
+            emitCacheEvent(observer, "search", operationId, "bypass");
+            return (await execute(callOptions.signal)).slice(0, maxResults);
+          }
 
-        emitCacheEvent(
-          observer,
-          "search",
-          operationId,
-          searchCache.has(cacheKey) ? "hit" : "miss"
-        );
-        const results = await searchCache.getOrSet(cacheKey, execute);
-        return results.slice(0, maxResults);
-      }
+          emitCacheEvent(
+            observer,
+            "search",
+            operationId,
+            searchCache.has(cacheKey) ? "hit" : "miss"
+          );
+          const waiter = searchCache.createWaiter(callOptions.signal);
+          try {
+            const results = await awaitAbortable(
+              searchCache.getOrSet(cacheKey, execute, waiter),
+              callOptions.signal
+            );
+            return results.slice(0, maxResults);
+          } finally {
+            searchCache.releaseWaiter(waiter);
+          }
+        }
+      ),
+      callOptions.signal
     );
   }
 
@@ -291,9 +321,14 @@ export function createSearchService(
 
 export function search(
   query: string,
-  numResults = 10
+  numResults = 10,
+  options?: SearchCallOptions
 ): Promise<SearchResult[]> {
-  return defaultSearchService.searchWithRetryAndCache(query, numResults);
+  return defaultSearchService.searchWithRetryAndCache(
+    query,
+    numResults,
+    options
+  );
 }
 
 export function searchWithRetryAndCache(

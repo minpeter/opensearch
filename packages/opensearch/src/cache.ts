@@ -11,10 +11,22 @@ interface TtlCacheOptions {
   readonly now?: () => number;
 }
 
+export interface Pending<V> {
+  readonly controller: AbortController;
+  readonly promise: Promise<V>;
+  readonly waiters: Set<CacheWaiter>;
+}
+
+export interface CacheWaiter {
+  readonly abort: () => void;
+  readonly pending: Set<Pending<unknown>>;
+  readonly signal?: AbortSignal;
+}
+
 export class TtlCache<K, V> {
   private readonly maxEntries: number;
   private readonly now: () => number;
-  private readonly pending = new Map<K, Promise<V>>();
+  private readonly pending = new Map<K, Pending<V>>();
   private readonly store = new Map<K, { value: V; expiresAt: number }>();
   private readonly ttlMs: number;
 
@@ -41,9 +53,6 @@ export class TtlCache<K, V> {
       this.store.delete(key);
       return;
     }
-
-    // Map insertion order is the recency list. Refreshing a hit makes eviction
-    // deterministic LRU without an additional linked-list allocation.
     this.store.delete(key);
     this.store.set(key, entry);
     return entry.value;
@@ -69,28 +78,77 @@ export class TtlCache<K, V> {
     return this.get(key) !== undefined;
   }
 
-  getOrSet(key: K, factory: () => Promise<V>): Promise<V> {
+  createWaiter(signal?: AbortSignal): CacheWaiter {
+    const pending = new Set<Pending<unknown>>();
+    const waiter: CacheWaiter = {
+      abort: () => {
+        for (const entry of pending) {
+          entry.waiters.delete(waiter);
+          if (entry.waiters.size === 0) {
+            entry.controller.abort(signal?.reason);
+          }
+        }
+        pending.clear();
+      },
+      pending,
+      signal,
+    };
+    if (signal) {
+      if (signal.aborted) {
+        waiter.abort();
+      } else {
+        signal.addEventListener("abort", waiter.abort, { once: true });
+      }
+    }
+    return waiter;
+  }
+
+  releaseWaiter(waiter: CacheWaiter): void {
+    waiter.abort();
+    waiter.signal?.removeEventListener("abort", waiter.abort);
+  }
+
+  getOrSet(
+    key: K,
+    factory: (signal: AbortSignal) => Promise<V>,
+    waiter?: CacheWaiter
+  ): Promise<V> {
     const cachedValue = this.get(key);
     if (cachedValue !== undefined) {
       return Promise.resolve(cachedValue);
     }
 
-    const pendingValue = this.pending.get(key);
-    if (pendingValue !== undefined) {
-      return pendingValue;
+    let entry = this.pending.get(key);
+    if (!entry) {
+      const controller = new AbortController();
+      const waiters = new Set<CacheWaiter>();
+      const promise = factory(controller.signal).then((value) => {
+        if (!controller.signal.aborted) {
+          this.set(key, value);
+        }
+        return value;
+      });
+      entry = { controller, promise, waiters };
+      this.pending.set(key, entry);
+      promise.then(
+        () => {
+          if (this.pending.get(key) === entry) {
+            this.pending.delete(key);
+          }
+        },
+        () => {
+          if (this.pending.get(key) === entry) {
+            this.pending.delete(key);
+          }
+        }
+      );
     }
 
-    const valuePromise = factory()
-      .then((value) => {
-        this.set(key, value);
-        return value;
-      })
-      .finally(() => {
-        this.pending.delete(key);
-      });
-
-    this.pending.set(key, valuePromise);
-    return valuePromise;
+    if (waiter) {
+      entry.waiters.add(waiter);
+      waiter.pending.add(entry);
+    }
+    return entry.promise;
   }
 
   private deleteExpired(now: number): void {

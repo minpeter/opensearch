@@ -32,8 +32,8 @@ export function createJinaProviders(
     createPooledSearchProvider({
       apiKeyPool: getApiKeyPool("JINA_API_KEY", env),
       name: "Jina",
-      searchWithApiKey: (apiKey, query, numResults) =>
-        searchJinaWithApiKey(apiKey, query, numResults, env),
+      searchWithApiKey: (apiKey, query, numResults, signal) =>
+        searchJinaWithApiKey(apiKey, query, numResults, env, signal),
     }),
   ]);
 }
@@ -42,7 +42,8 @@ async function searchJinaWithApiKey(
   apiKey: string,
   query: string,
   numResults: number,
-  env: EnvironmentReader
+  env: EnvironmentReader,
+  signal?: AbortSignal
 ): Promise<SearchResult[]> {
   const response = await fetchSearchText({
     engine: "Jina",
@@ -56,6 +57,7 @@ async function searchJinaWithApiKey(
       redirect: "manual",
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     },
+    signal,
     url: createJinaSearchUrl(query, env),
   });
 

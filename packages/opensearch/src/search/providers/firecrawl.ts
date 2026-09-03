@@ -24,18 +24,20 @@ export function createFirecrawlSearchProvider(
 
   return {
     name: "Firecrawl",
-    async search(query: string, numResults: number) {
+    async search(query: string, numResults: number, signal?: AbortSignal) {
       let results: ParsedResult[];
 
       try {
         results = (
           await searchFirecrawl(query, numResults, env, {
+            signal,
             useApiKey: false,
           })
         )
           .map((result) => normalizeResult(result))
           .filter((result): result is ParsedResult => result !== null);
       } catch (error) {
+        signal?.throwIfAborted();
         const status = getHttpStatus(error);
         // biome-ignore lint/style/useErrorCause: SearchEngineError receives the original cause in its fourth argument
         throw new SearchEngineError(

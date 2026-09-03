@@ -1,4 +1,5 @@
 import type { Dispatcher } from "undici";
+import { withAbortSignal } from "../abort.ts";
 import {
   assertSafeHttpUrl,
   NetworkPolicyError,
@@ -38,18 +39,24 @@ function buildRequestHeaders(url: string): Record<string, string> {
 
 export async function fetchPage(
   rawUrl: string,
-  context: LocalFetchContext
+  context: LocalFetchContext,
+  signal?: AbortSignal
 ): Promise<Response> {
   let url = assertSafeHttpUrl(rawUrl, context.options.allowPrivateNetwork);
 
   for (let redirectCount = 0; ; redirectCount += 1) {
     // biome-ignore lint/performance/noAwaitInLoops: each redirect URL depends on the previous response location
-    const response = await fetch(url, {
-      dispatcher: context.dispatcher,
-      headers: buildRequestHeaders(url.toString()),
-      redirect: "manual",
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-    } as DispatcherRequestInit);
+    const response = await withAbortSignal(
+      signal,
+      FETCH_TIMEOUT_MS,
+      (requestSignal) =>
+        fetch(url, {
+          dispatcher: context.dispatcher,
+          headers: buildRequestHeaders(url.toString()),
+          redirect: "manual",
+          signal: requestSignal,
+        } as DispatcherRequestInit)
+    );
     if (!REDIRECT_STATUSES.has(response.status)) {
       return response;
     }
@@ -75,9 +82,10 @@ export async function fetchPage(
 
 export async function fetchAttemptResponse(
   input: AttemptExecutorInput,
-  context: LocalFetchContext
+  context: LocalFetchContext,
+  signal?: AbortSignal
 ) {
-  const response = await fetchPage(input.url, context);
+  const response = await fetchPage(input.url, context, signal);
   const bytes = await readResponseBytes(
     response,
     context.options.maxDownloadBytes

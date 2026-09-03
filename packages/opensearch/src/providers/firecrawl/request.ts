@@ -1,10 +1,12 @@
 import { getApiKeyPool } from "../../credentials/api-key-pool.ts";
 import type { EnvironmentReader } from "../../environment.ts";
 import {
+  cancelResponseBody,
   ResponseSizeLimitError,
   readResponseJson,
   readResponseText,
 } from "../../response-body.ts";
+import { composeAbortSignal } from "../shared/abort.ts";
 import { getBaseUrl } from "../shared/base-url.ts";
 import { ProviderHttpError } from "../shared/error.ts";
 
@@ -22,33 +24,46 @@ export interface FirecrawlRequestOptions {
   readonly body: unknown;
   readonly endpoint: FirecrawlEndpoint;
   readonly env: EnvironmentReader;
+  readonly signal?: AbortSignal;
   readonly useApiKey: boolean;
 }
 
 export async function requestFirecrawlJson(
   options: FirecrawlRequestOptions
 ): Promise<unknown> {
-  for (const apiKey of getFirecrawlAttemptOrder(options)) {
-    // biome-ignore lint/performance/noAwaitInLoops: API key fallback is sequential to stop after the first successful request
-    const response = await fetch(createFirecrawlEndpoint(options), {
-      body: JSON.stringify(options.body),
-      headers: createFirecrawlHeaders(apiKey),
-      method: "POST",
-      signal: AbortSignal.timeout(FIRECRAWL_TIMEOUT_MS),
-    });
+  let requestSignal: AbortSignal | undefined;
+  try {
+    for (const apiKey of getFirecrawlAttemptOrder(options)) {
+      options.signal?.throwIfAborted();
+      requestSignal = composeAbortSignal(options.signal, FIRECRAWL_TIMEOUT_MS);
+      // biome-ignore lint/performance/noAwaitInLoops: API key fallback is sequential to stop after the first successful request
+      const response = await fetch(createFirecrawlEndpoint(options), {
+        body: JSON.stringify(options.body),
+        headers: createFirecrawlHeaders(apiKey),
+        method: "POST",
+        signal: requestSignal,
+      });
+      requestSignal.throwIfAborted();
 
-    if (apiKey && FIRECRAWL_KEY_FALLBACK_STATUSES.has(response.status)) {
-      continue;
+      if (apiKey && FIRECRAWL_KEY_FALLBACK_STATUSES.has(response.status)) {
+        await cancelResponseBody(response);
+        requestSignal.throwIfAborted();
+        continue;
+      }
+
+      if (!response.ok) {
+        throw await createFirecrawlHttpError(options.endpoint, response);
+      }
+
+      return await readFirecrawlJson(options.endpoint, response);
     }
 
-    if (!response.ok) {
-      throw await createFirecrawlHttpError(options.endpoint, response);
-    }
-
-    return readFirecrawlJson(options.endpoint, response);
+    throw new Error("Firecrawl request could not be attempted");
+  } catch (error) {
+    options.signal?.throwIfAborted();
+    requestSignal?.throwIfAborted();
+    throw error;
   }
-
-  throw new Error("Firecrawl request could not be attempted");
 }
 
 function getFirecrawlAttemptOrder(

@@ -33,9 +33,10 @@ export interface ParallelMcpSearchResult {
 
 export function searchParallelMcp(
   query: string,
-  env: EnvironmentReader = processEnvironmentReader
+  env: EnvironmentReader = processEnvironmentReader,
+  signal?: AbortSignal
 ): Promise<ParallelMcpSearchResult[]> {
-  return withParallelMcpClient(env, async ({ client }) => {
+  return withParallelMcpClient(env, signal, async ({ client }) => {
     const response = await client.callTool({
       arguments: {
         objective: query,
@@ -67,6 +68,7 @@ export function searchParallelMcp(
 
 async function withParallelMcpClient<T>(
   env: EnvironmentReader,
+  signal: AbortSignal | undefined,
   run: (context: { readonly client: Client }) => Promise<T>
 ): Promise<T> {
   const client = new Client(
@@ -80,7 +82,7 @@ async function withParallelMcpClient<T>(
     new URL(DEFAULT_PARALLEL_MCP_SERVER_URL),
     {
       fetch: fetchParallelMcp,
-      requestInit: createParallelMcpRequestInit(env),
+      requestInit: createParallelMcpRequestInit(env, signal),
     }
   );
 
@@ -93,12 +95,15 @@ async function withParallelMcpClient<T>(
 }
 
 export function createParallelMcpRequestInit(
-  env: EnvironmentReader = processEnvironmentReader
+  env: EnvironmentReader = processEnvironmentReader,
+  signal?: AbortSignal
 ): RequestInit {
   return {
     headers: createAuthHeaders(env),
     redirect: "manual",
-    signal: AbortSignal.timeout(PARALLEL_MCP_TIMEOUT_MS),
+    signal: signal
+      ? AbortSignal.any([signal, AbortSignal.timeout(PARALLEL_MCP_TIMEOUT_MS)])
+      : AbortSignal.timeout(PARALLEL_MCP_TIMEOUT_MS),
   };
 }
 

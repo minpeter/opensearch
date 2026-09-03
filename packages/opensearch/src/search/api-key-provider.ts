@@ -21,7 +21,8 @@ interface PooledSearchProviderSpec {
   searchWithApiKey: (
     apiKey: string,
     query: string,
-    numResults: number
+    numResults: number,
+    signal?: AbortSignal
   ) => Promise<SearchResult[]>;
 }
 
@@ -42,7 +43,8 @@ interface PooledCredentialPairProviderSpec {
   searchWithCredentials: (
     credentials: CredentialPair,
     query: string,
-    numResults: number
+    numResults: number,
+    signal?: AbortSignal
   ) => Promise<SearchResult[]>;
 }
 
@@ -55,15 +57,17 @@ export function createPooledSearchProvider(
 
   return {
     name: spec.name,
-    async search(query: string, numResults: number) {
+    async search(query: string, numResults: number, signal?: AbortSignal) {
+      signal?.throwIfAborted();
       const attemptOrder = spec.apiKeyPool.getAttemptOrder();
       let lastRateLimitError: SearchEngineError | null = null;
 
       for (const apiKey of attemptOrder) {
         try {
           // biome-ignore lint/performance/noAwaitInLoops: API keys are retried sequentially after retryable failures
-          return await spec.searchWithApiKey(apiKey, query, numResults);
+          return await spec.searchWithApiKey(apiKey, query, numResults, signal);
         } catch (error) {
+          signal?.throwIfAborted();
           if (isKeyPoolRetryableError(error)) {
             lastRateLimitError = error;
             continue;
@@ -95,7 +99,8 @@ export function createPooledCredentialPairSearchProvider(
 
   return {
     name: spec.name,
-    async search(query: string, numResults: number) {
+    async search(query: string, numResults: number, signal?: AbortSignal) {
+      signal?.throwIfAborted();
       const attemptOrder = spec.credentialPairPool.getAttemptOrder();
       let lastRateLimitError: SearchEngineError | null = null;
 
@@ -105,9 +110,11 @@ export function createPooledCredentialPairSearchProvider(
           return await spec.searchWithCredentials(
             credentials,
             query,
-            numResults
+            numResults,
+            signal
           );
         } catch (error) {
+          signal?.throwIfAborted();
           if (isKeyPoolRetryableError(error)) {
             lastRateLimitError = error;
             continue;
@@ -136,13 +143,13 @@ export function createPooledJsonSearchProvider(
   return createPooledSearchProvider({
     apiKeyPool: spec.apiKeyPool,
     name: spec.name,
-    searchWithApiKey(apiKey, query, numResults) {
+    searchWithApiKey(apiKey, query, numResults, signal) {
       return createJsonSearchProvider({
         buildRequest: (requestQuery, requestNumResults) =>
           spec.buildRequest(apiKey, requestQuery, requestNumResults),
         name: spec.name,
         parse: spec.parse,
-      }).search(query, numResults);
+      }).search(query, numResults, signal);
     },
   });
 }

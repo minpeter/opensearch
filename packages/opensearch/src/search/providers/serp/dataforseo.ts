@@ -19,7 +19,7 @@ export function createDataForSeoProvider(
       env
     ),
     name: "DataForSEO",
-    searchWithCredentials(credentials, query, numResults) {
+    searchWithCredentials(credentials, query, numResults, signal) {
       const [login, password] = credentials;
       return createJsonSearchProvider({
         buildRequest: (requestQuery, requestNumResults) => ({
@@ -45,7 +45,7 @@ export function createDataForSeoProvider(
             ["tasks", "0", "result", "0", "items"],
             ["items"],
           ]),
-      }).search(query, numResults);
+      }).search(query, numResults, signal);
     },
   });
 }

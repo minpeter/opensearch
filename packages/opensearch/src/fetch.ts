@@ -36,6 +36,7 @@ export interface FetchOptions {
   readonly maxCharacters?: number;
   /** Overrides the client's per-URL batch concurrency for this call. */
   readonly maxConcurrency?: number;
+  readonly signal?: AbortSignal;
 }
 
 export interface FetchService {
@@ -92,16 +93,24 @@ export function createFetchService(
   );
 }
 
-export function fetchUrl(url: string): Promise<FetchResult> {
-  return defaultFetchService.fetchUrl(url);
+export function fetchUrl(
+  url: string,
+  options?: FetchOptions
+): Promise<FetchResult> {
+  return defaultFetchService.fetch(url, options);
 }
 
 export function fetchUrls(
   urls: string[],
   maxCharacters?: number,
-  maxConcurrency?: number
+  maxConcurrency?: number,
+  signal?: AbortSignal
 ): Promise<FetchResult[]> {
-  return defaultFetchService.fetchUrls(urls, maxCharacters, maxConcurrency);
+  return defaultFetchService.fetch(urls, {
+    ...(maxCharacters === undefined ? {} : { maxCharacters }),
+    ...(maxConcurrency === undefined ? {} : { maxConcurrency }),
+    ...(signal === undefined ? {} : { signal }),
+  });
 }
 
 export function fetchUrlWithCache(url: string): Promise<FetchResult> {

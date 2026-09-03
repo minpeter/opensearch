@@ -12,18 +12,25 @@ export function createParallelMcpSearchProvider(
 ): SearchProvider {
   return {
     name: "Parallel",
-    async search(query: string, numResults: number) {
+    async search(query: string, numResults: number, signal?: AbortSignal) {
       try {
-        const results =
-          env === processEnvironmentReader
-            ? await searchParallelMcp(query)
-            : await searchParallelMcp(query, env);
+        let results: Awaited<ReturnType<typeof searchParallelMcp>>;
+        if (signal) {
+          results = await searchParallelMcp(query, env, signal);
+        } else if (env === processEnvironmentReader) {
+          results = await searchParallelMcp(query);
+        } else {
+          results = await searchParallelMcp(query, env);
+        }
         if (results.length === 0) {
           throw new SearchEngineError("Parallel", "no-results", "No Results");
         }
 
         return attachEngine("Parallel", results).slice(0, numResults);
       } catch (error) {
+        if (signal?.aborted) {
+          throw signal.reason;
+        }
         if (error instanceof SearchEngineError) {
           throw error;
         }

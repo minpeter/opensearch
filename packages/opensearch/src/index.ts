@@ -31,6 +31,7 @@ export type {
   SearchProvider,
   SearchResult,
 } from "./search/types.ts";
+export type { SearchCallOptions } from "./search.ts";
 export {
   SEARCH_ENGINE_NAMES,
   searchResultSchema,

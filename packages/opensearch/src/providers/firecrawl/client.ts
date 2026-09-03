@@ -65,7 +65,10 @@ export async function searchFirecrawl(
   query: string,
   numResults: number,
   env: EnvironmentReader = processEnvironmentReader,
-  options: { readonly useApiKey?: boolean } = {}
+  options: {
+    readonly signal?: AbortSignal;
+    readonly useApiKey?: boolean;
+  } = {}
 ): Promise<FirecrawlSearchResult[]> {
   const payload = await requestFirecrawlJson({
     body: {
@@ -81,6 +84,7 @@ export async function searchFirecrawl(
     },
     endpoint: "search",
     env,
+    signal: options.signal,
     useApiKey: options.useApiKey ?? true,
   });
   const response = firecrawlSearchResponseSchema.parse(payload);
@@ -97,7 +101,8 @@ export async function searchFirecrawl(
 export async function fetchFirecrawlUrl(
   url: string,
   maxCharacters: number,
-  env: EnvironmentReader = processEnvironmentReader
+  env: EnvironmentReader = processEnvironmentReader,
+  signal?: AbortSignal
 ): Promise<FirecrawlFetchResult> {
   const payload = await requestFirecrawlJson({
     body: {
@@ -113,6 +118,7 @@ export async function fetchFirecrawlUrl(
     },
     endpoint: "scrape",
     env,
+    signal,
     useApiKey: true,
   });
   const response = firecrawlScrapeResponseSchema.parse(payload);

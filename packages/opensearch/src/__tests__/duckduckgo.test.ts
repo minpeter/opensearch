@@ -52,6 +52,19 @@ describe("parseDuckDuckGoJson", () => {
 });
 
 describe("createDuckDuckGoProvider", () => {
+  it("does not escalate to PoW after caller cancellation", async () => {
+    const reason = new Error("caller stopped");
+    const controller = new AbortController();
+    controller.abort(reason);
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+
+    await expect(
+      createDuckDuckGoProvider().search("query", 5, controller.signal)
+    ).rejects.toBe(reason);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
   beforeEach(() => {
     resetSearchEnv();
   });

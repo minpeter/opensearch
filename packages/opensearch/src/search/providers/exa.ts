@@ -35,7 +35,7 @@ export function createExaSearchProvider(
   return createPooledSearchProvider({
     apiKeyPool: getApiKeyPool("EXA_API_KEY", env),
     name: "Exa",
-    async searchWithApiKey(apiKey, query, numResults) {
+    async searchWithApiKey(apiKey, query, numResults, signal) {
       const response = await fetchSearchText({
         authFailureStatuses: new Set([401, 402]),
         engine: "Exa",
@@ -56,6 +56,7 @@ export function createExaSearchProvider(
           method: "POST",
           signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
         },
+        signal,
         url: "https://api.exa.ai/search",
       });
 

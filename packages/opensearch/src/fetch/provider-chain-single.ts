@@ -192,7 +192,7 @@ export function runLocalFetch(
     if (!context.localFetch) {
       throw new NoFetchProviderError(url);
     }
-    return context.localFetch(url);
+    return context.localFetch(url, context.signal);
   });
 }
 
