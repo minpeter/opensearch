@@ -38,12 +38,17 @@ export async function requestTinyFishJson(
     const firstResponse = await requestWithApiKey(firstApiKey, requestSignal);
     requestSignal.throwIfAborted();
     if (firstResponse.status !== 429) {
-      return await parseTinyFishJsonResponse(firstResponse, serviceName);
+      return await parseTinyFishJsonResponse(
+        firstResponse,
+        serviceName,
+        requestSignal
+      );
     }
 
     let lastRateLimitError = await readTinyFishHttpError(
       firstResponse,
-      serviceName
+      serviceName,
+      requestSignal
     );
     requestSignal.throwIfAborted();
 
@@ -54,10 +59,18 @@ export async function requestTinyFishJson(
       const response = await requestWithApiKey(apiKey, requestSignal);
       requestSignal.throwIfAborted();
       if (response.status !== 429) {
-        return await parseTinyFishJsonResponse(response, serviceName);
+        return await parseTinyFishJsonResponse(
+          response,
+          serviceName,
+          requestSignal
+        );
       }
 
-      lastRateLimitError = await readTinyFishHttpError(response, serviceName);
+      lastRateLimitError = await readTinyFishHttpError(
+        response,
+        serviceName,
+        requestSignal
+      );
       requestSignal.throwIfAborted();
     }
 
@@ -79,9 +92,10 @@ export async function requestTinyFishJson(
 
 async function parseTinyFishJsonResponse(
   response: Response,
-  serviceName: TinyFishServiceName
+  serviceName: TinyFishServiceName,
+  signal: AbortSignal
 ): Promise<unknown> {
-  const bodyText = await readResponseText(response);
+  const bodyText = await readResponseText(response, undefined, signal);
   const { parseError, value } = parseJsonBody(bodyText);
 
   if (!response.ok) {
@@ -97,11 +111,12 @@ async function parseTinyFishJsonResponse(
 
 async function readTinyFishHttpError(
   response: Response,
-  serviceName: TinyFishServiceName
+  serviceName: TinyFishServiceName,
+  signal: AbortSignal
 ): Promise<Error> {
   let bodyText: string;
   try {
-    bodyText = await readResponseText(response);
+    bodyText = await readResponseText(response, undefined, signal);
   } catch (error) {
     return createTinyFishHttpError(
       response,

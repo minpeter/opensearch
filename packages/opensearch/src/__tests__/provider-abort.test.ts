@@ -113,6 +113,42 @@ describe("provider request cancellation", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it("cancels a stalled Firecrawl response body without falling back", async () => {
+    // Given
+    const abortController = new AbortController();
+    const reason = new Error("caller cancelled Firecrawl body");
+    const readStarted = Promise.withResolvers<void>();
+    const cancel = vi.fn();
+    let body: ReadableStream<Uint8Array>;
+    body = new ReadableStream<Uint8Array>({
+      cancel,
+      pull() {
+        if (body.locked) {
+          readStarted.resolve();
+        }
+      },
+    });
+    const fetchMock = vi.fn(async () => new Response(body, { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    // When
+    const request = requestFirecrawlJson({
+      body: {},
+      endpoint: "search",
+      env: envWith({ FIRECRAWL_API_KEY: "fire-a;fire-b" }),
+      signal: abortController.signal,
+      useApiKey: true,
+    });
+    await readStarted.promise;
+    abortController.abort(reason);
+
+    // Then
+    await expect(request).rejects.toBe(reason);
+    expect(cancel).toHaveBeenCalledWith(reason);
+    expect(body.locked).toBe(false);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it("stops Exa REST API key rotation when the caller aborts", async () => {
     // Given
     const abortController = new AbortController();

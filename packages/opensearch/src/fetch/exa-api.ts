@@ -118,7 +118,7 @@ export async function fetchExaApiBatchWithPool(
         );
         continue;
       }
-      return await parseExaContentsResponse(response, urls);
+      return await parseExaContentsResponse(response, urls, requestSignal);
     }
 
     if (lastRateLimitError) {
@@ -158,7 +158,8 @@ function requestExaContents(
 
 async function parseExaContentsResponse(
   response: Response,
-  urls: readonly string[]
+  urls: readonly string[],
+  signal: AbortSignal
 ): Promise<FetchResult[]> {
   if (!response.ok) {
     await cancelResponseBody(response);
@@ -169,7 +170,7 @@ async function parseExaContentsResponse(
   }
 
   const payload = exaContentsResponseSchema.parse(
-    await readResponseJson(response)
+    await readResponseJson(response, undefined, signal)
   );
   const statusesById = new Map(
     (payload.statuses ?? [])

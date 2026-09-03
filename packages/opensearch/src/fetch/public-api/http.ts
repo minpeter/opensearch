@@ -17,12 +17,13 @@ export async function getJson(
 ): Promise<unknown | null> {
   try {
     const timeout = AbortSignal.timeout(API_TIMEOUT_MS);
+    const requestSignal = signal ? AbortSignal.any([signal, timeout]) : timeout;
     const response = await fetch(url, {
       headers: {
         Accept: "application/json",
         "User-Agent": getRandomUserAgent(),
       },
-      signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
+      signal: requestSignal,
     });
     if (response.status === 451) {
       await cancelResponseBody(response);
@@ -35,7 +36,7 @@ export async function getJson(
       await cancelResponseBody(response);
       return null;
     }
-    return await readResponseJson(response);
+    return await readResponseJson(response, undefined, requestSignal);
   } catch (error) {
     signal?.throwIfAborted();
     if (getHttpStatus(error) === 451) {
@@ -51,12 +52,13 @@ export async function getText(
 ): Promise<string | null> {
   try {
     const timeout = AbortSignal.timeout(API_TIMEOUT_MS);
+    const requestSignal = signal ? AbortSignal.any([signal, timeout]) : timeout;
     const response = await fetch(url, {
       headers: {
         Accept: "text/plain, application/xml, text/xml",
         "User-Agent": getRandomUserAgent(),
       },
-      signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
+      signal: requestSignal,
     });
     if (response.status === 451) {
       await cancelResponseBody(response);
@@ -69,7 +71,7 @@ export async function getText(
       await cancelResponseBody(response);
       return null;
     }
-    return await readResponseText(response);
+    return await readResponseText(response, undefined, requestSignal);
   } catch (error) {
     signal?.throwIfAborted();
     if (getHttpStatus(error) === 451) {

@@ -1,3 +1,4 @@
+import { awaitAbortable } from "../abort.ts";
 import { validateChallenge } from "../fetch/challenge.ts";
 import type { FetchAttemptTrace, FetchVerdict } from "../fetch/result.ts";
 import { ResponseSizeLimitError } from "../response-body.ts";
@@ -21,6 +22,10 @@ const DEFAULT_BROWSER_PROFILES = [
 ] as const;
 const OK_VERDICTS = new Set<FetchVerdict>(["strong_ok", "weak_ok"]);
 const TLS_ENV = "OPENSEARCH_ENABLE_TLS_IMPERSONATION";
+
+type WreqLoad =
+  | { readonly kind: "loaded"; readonly wreq: WreqModule }
+  | { readonly kind: "unavailable"; readonly result: TlsImpersonationResult };
 
 export interface TlsImpersonationOptions {
   readonly abortOnError?: (error: unknown) => boolean;
@@ -58,16 +63,18 @@ export async function fetchViaTlsImpersonation(
   }
 
   const loader = options.loader ?? defaultWreqLoader;
-  let wreq: WreqModule;
-  try {
-    wreq = await loader();
-  } catch (error) {
-    options.signal?.throwIfAborted();
-    return unavailableTrace(url, errorMessage(error));
+  const loaded = await loadWreq(loader, options.signal, url);
+  if (loaded.kind === "unavailable") {
+    return loaded.result;
   }
+  const { wreq } = loaded;
   options.signal?.throwIfAborted();
 
-  const profiles = await supportedProfiles(wreq, options.browserProfiles);
+  const profiles = await supportedProfiles(
+    wreq,
+    options.browserProfiles,
+    options.signal
+  );
   const trace: FetchAttemptTrace[] = [];
   for (const profile of profiles) {
     options.signal?.throwIfAborted();
@@ -142,14 +149,31 @@ export async function fetchViaTlsImpersonation(
   };
 }
 
+async function loadWreq(
+  loader: WreqLoader,
+  signal: AbortSignal | undefined,
+  url: string
+): Promise<WreqLoad> {
+  try {
+    return { kind: "loaded", wreq: await awaitAbortable(loader(), signal) };
+  } catch (error) {
+    signal?.throwIfAborted();
+    return {
+      kind: "unavailable",
+      result: unavailableTrace(url, errorMessage(error)),
+    };
+  }
+}
+
 async function supportedProfiles(
   wreq: WreqModule,
-  preferred: readonly string[] = DEFAULT_BROWSER_PROFILES
+  preferred: readonly string[] = DEFAULT_BROWSER_PROFILES,
+  signal?: AbortSignal
 ): Promise<readonly string[]> {
-  if (!wreq.getProfiles) {
-    return preferred;
-  }
-  const available = await wreq.getProfiles();
+  const available = await awaitAbortable(
+    Promise.resolve(wreq.getProfiles?.() ?? preferred),
+    signal
+  );
   const selected = preferred.filter((profile) => available.includes(profile));
   return selected.length > 0 ? selected : preferred;
 }

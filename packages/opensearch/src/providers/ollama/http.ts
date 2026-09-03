@@ -26,16 +26,24 @@ function parseRetryAfter(response: Response): number | null {
 async function ensureOk(
   response: Response,
   label: string,
-  maxResponseBytes: number
+  readOptions: {
+    readonly maxResponseBytes: number;
+    readonly signal: AbortSignal;
+  }
 ): Promise<void> {
   if (response.ok) {
     return;
   }
 
   const retryAfter = parseRetryAfter(response);
-  const body = await readResponseText(response, maxResponseBytes).catch(
-    () => ""
-  );
+  const body = await readResponseText(
+    response,
+    readOptions.maxResponseBytes,
+    readOptions.signal
+  ).catch(() => {
+    readOptions.signal.throwIfAborted();
+    return "";
+  });
   const detail = body.trim().slice(0, 4096) || response.statusText;
   throw new OllamaHttpError(
     response.status,
@@ -73,9 +81,12 @@ export async function postOllamaJson<T>(
 
   const maxResponseBytes =
     options.maxResponseBytes ?? DEFAULT_MAX_DOWNLOAD_BYTES;
-  await ensureOk(response, options.label, maxResponseBytes);
+  await ensureOk(response, options.label, {
+    maxResponseBytes,
+    signal: composite,
+  });
 
-  const text = await readResponseText(response, maxResponseBytes);
+  const text = await readResponseText(response, maxResponseBytes, composite);
   const json: unknown = JSON.parse(text);
   return options.schema.parse(json);
 }

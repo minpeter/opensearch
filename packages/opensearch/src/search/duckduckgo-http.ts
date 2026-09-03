@@ -14,13 +14,13 @@ export async function fetchDuckDuckGoText(
   signal?: AbortSignal
 ): Promise<DuckDuckGoFetchedText> {
   try {
+    const timeout = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
+    const requestSignal = signal ? AbortSignal.any([signal, timeout]) : timeout;
     const response = await fetch(url, {
       headers,
-      signal: signal
-        ? AbortSignal.any([signal, AbortSignal.timeout(REQUEST_TIMEOUT_MS)])
-        : AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      signal: requestSignal,
     });
-    const body = await readResponseText(response);
+    const body = await readResponseText(response, undefined, requestSignal);
     if (signal?.aborted) {
       throw signal.reason;
     }

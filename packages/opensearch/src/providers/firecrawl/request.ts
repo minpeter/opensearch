@@ -51,9 +51,13 @@ export async function requestFirecrawlJson(
         continue;
       }
       if (!response.ok) {
-        throw await createFirecrawlHttpError(options.endpoint, response);
+        throw await createFirecrawlHttpError(
+          options.endpoint,
+          response,
+          requestSignal
+        );
       }
-      return await readFirecrawlJson(options.endpoint, response);
+      return await readFirecrawlJson(options.endpoint, response, requestSignal);
     }
     throw new Error("Firecrawl request could not be attempted");
   } catch (error) {
@@ -114,10 +118,11 @@ function createFirecrawlHeaders(apiKey: string | null): Record<string, string> {
 
 async function readFirecrawlJson(
   endpoint: FirecrawlEndpoint,
-  response: Response
+  response: Response,
+  signal: AbortSignal
 ): Promise<unknown> {
   try {
-    return await readResponseJson(response);
+    return await readResponseJson(response, undefined, signal);
   } catch (error) {
     throw new Error(
       `Firecrawl ${endpoint} returned invalid JSON: ${
@@ -130,9 +135,10 @@ async function readFirecrawlJson(
 
 async function createFirecrawlHttpError(
   endpoint: FirecrawlEndpoint,
-  response: Response
+  response: Response,
+  signal: AbortSignal
 ): Promise<ProviderHttpError> {
-  const body = await readFirecrawlErrorBody(response);
+  const body = await readFirecrawlErrorBody(response, signal);
   const message =
     body.trim().slice(0, FIRECRAWL_ERROR_DETAIL_MAX_CHARACTERS) ||
     "empty response body";
@@ -143,9 +149,12 @@ async function createFirecrawlHttpError(
   );
 }
 
-async function readFirecrawlErrorBody(response: Response): Promise<string> {
+async function readFirecrawlErrorBody(
+  response: Response,
+  signal: AbortSignal
+): Promise<string> {
   try {
-    return await readResponseText(response);
+    return await readResponseText(response, undefined, signal);
   } catch (error) {
     if (error instanceof ResponseSizeLimitError) {
       return error.message;

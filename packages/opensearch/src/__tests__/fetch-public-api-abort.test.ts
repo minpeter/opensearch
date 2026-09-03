@@ -6,46 +6,41 @@ afterEach(() => {
 });
 
 it("cancels a nested Hacker News response body when the caller aborts", async () => {
+  // Given
   const controller = new AbortController();
   const callerAbort = new Error("caller stopped public API fetch");
-  let markNestedRequestStarted: (() => void) | undefined;
-  const nestedRequestStarted = new Promise<void>((resolve) => {
-    markNestedRequestStarted = resolve;
+  const readStarted = Promise.withResolvers<void>();
+  const cancelled = Promise.withResolvers<void>();
+  const cancel = vi.fn(() => {
+    cancelled.resolve();
   });
-  let requestCount = 0;
-  const mockFetch = vi.fn(
-    (_input: string | URL | Request, init?: RequestInit) => {
-      requestCount += 1;
-      if (requestCount === 1) {
-        return new Response(JSON.stringify([100]), { status: 200 });
+  let body: ReadableStream<Uint8Array>;
+  body = new ReadableStream<Uint8Array>({
+    cancel,
+    pull() {
+      if (body.locked) {
+        readStarted.resolve();
       }
-
-      const signal = init?.signal;
-      return new Response(
-        new ReadableStream({
-          start(streamController) {
-            signal?.addEventListener(
-              "abort",
-              () => streamController.error(signal.reason),
-              { once: true }
-            );
-            markNestedRequestStarted?.();
-          },
-        }),
-        { status: 200 }
-      );
-    }
-  );
+    },
+  });
+  const mockFetch = vi
+    .fn()
+    .mockResolvedValueOnce(new Response(JSON.stringify([100]), { status: 200 }))
+    .mockResolvedValueOnce(new Response(body, { status: 200 }));
   vi.stubGlobal("fetch", mockFetch);
 
+  // When
   const operation = fetchViaPublicApi(
     "https://news.ycombinator.com/news",
     controller.signal
   );
-  await nestedRequestStarted;
+  await readStarted.promise;
   controller.abort(callerAbort);
 
+  // Then
   await expect(operation).rejects.toBe(callerAbort);
+  await cancelled.promise;
+  expect(cancel).toHaveBeenCalledWith(callerAbort);
+  expect(body.locked).toBe(false);
   expect(mockFetch).toHaveBeenCalledTimes(2);
-  expect(mockFetch.mock.calls[1]?.[1]?.signal?.aborted).toBe(true);
 });

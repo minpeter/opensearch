@@ -82,17 +82,18 @@ async function searchWithScrapeEngine(
   signal?: AbortSignal
 ): Promise<SearchResult[]> {
   const { init, url } = engine.getRequestInit(query);
+  const requestSignal = signal
+    ? AbortSignal.any([
+        signal,
+        init.signal ?? AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      ])
+    : (init.signal ?? AbortSignal.timeout(REQUEST_TIMEOUT_MS));
   let response: Response;
 
   try {
     response = await fetch(url, {
       ...init,
-      signal: signal
-        ? AbortSignal.any([
-            signal,
-            init.signal ?? AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-          ])
-        : init.signal,
+      signal: requestSignal,
     });
   } catch (error) {
     if (signal?.aborted) {
@@ -119,7 +120,7 @@ async function searchWithScrapeEngine(
 
   let html: string;
   try {
-    html = await readResponseText(response);
+    html = await readResponseText(response, undefined, requestSignal);
   } catch (error) {
     if (signal?.aborted) {
       throw signal.reason;
