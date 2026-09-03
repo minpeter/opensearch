@@ -4,7 +4,7 @@ packages:
 overrides:
   brace-expansion@>=4.0.0 <5.0.9: ^5.0.9
   esbuild: 0.28.1
-  fast-uri@>=3.0.0 <3.1.5: ^3.1.5
+  fast-uri@>=3.0.0 <3.1.6: ^3.1.6
   hono@<4.12.34: ^4.12.34
   rolldown-plugin-dts: 0.27.2
   vite: 7.3.5
@@ -40,6 +40,6 @@ minimumReleaseAgeExclude:
   - rolldown-plugin-dts@0.27.2
   - tsdown@0.22.14
   - verkit@0.1.0
-  - fast-uri@3.1.5
+  - fast-uri@3.1.6
   - hono@4.12.34
   - brace-expansion@5.0.9

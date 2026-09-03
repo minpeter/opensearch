@@ -16,7 +16,10 @@ import { getHttpStatus } from "../providers/shared/error.ts";
 import type { TinyFishApiKeyPool } from "../providers/tinyfish/api-key-pool.ts";
 import type { FetchResult } from "./result.ts";
 
-export type LocalFetch = (url: string) => Promise<FetchResult>;
+export type LocalFetch = (
+  url: string,
+  signal?: AbortSignal
+) => Promise<FetchResult>;
 export type FetchUrlValidator = (url: string) => void;
 
 export interface ExaMcpFetchBatchResult {

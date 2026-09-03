@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createOpenSearch, fetch, search } from "../node.ts";
+import { createOpenSearch, search } from "../node.ts";
 import { SearchEngineError } from "../search/errors.ts";
 import { fetchSearchText } from "../search/http.ts";
 import { createSearchService } from "../search.ts";
@@ -28,7 +28,10 @@ describe("per-call AbortSignal", () => {
     });
     vi.stubGlobal("fetch", fetchSpy);
 
-    const operation = fetch("https://example.com/abort-fetch", {
+    const client = createOpenSearch({
+      fetch: { allowPrivateNetwork: true, cache: { enabled: false } },
+    });
+    const operation = client.fetch("http://127.0.0.1/abort-fetch", {
       signal: controller.signal,
     });
     controller.abort();
