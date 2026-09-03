@@ -69,6 +69,25 @@ describe("feed parsing and discovery", () => {
     ]);
   });
 
+  it("rejects a pre-aborted discovery with no candidates", async () => {
+    // Given
+    const controller = new AbortController();
+    const callerAbort = new Error("caller stopped empty feed discovery");
+    const fetcher = vi.fn();
+    controller.abort(callerAbort);
+
+    // When
+    const operation = fetchDiscoveredFeed("https://example.com/post", {
+      fetcher,
+      includeTransforms: false,
+      signal: controller.signal,
+    });
+
+    // Then
+    await expect(operation).rejects.toBe(callerAbort);
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
   it("continues past malformed XML and returns the first valid feed", async () => {
     const html = `<link rel="alternate" type="application/rss+xml" href="/bad.xml">
       <link rel="alternate" type="application/atom+xml" href="/good.xml">`;

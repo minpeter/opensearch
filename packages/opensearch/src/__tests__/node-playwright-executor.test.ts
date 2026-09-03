@@ -1,7 +1,4 @@
-import { watch } from "node:fs";
 import { access, mkdir, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { basename } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
   assertSafeHttpUrl,
@@ -133,9 +130,13 @@ describe("fetchViaPlaywrightFallback", () => {
   });
 
   it("returns a trace when Chrome is not installed", async () => {
-    const launchPersistentContext = vi
-      .fn()
-      .mockRejectedValue(new Error("Chrome executable not found"));
+    let profile = "";
+    const launchPersistentContext = vi.fn<
+      PlaywrightModule["chromium"]["launchPersistentContext"]
+    >((profileDir) => {
+      profile = profileDir;
+      throw new Error("Chrome executable not found");
+    });
     const result = await fetchViaPlaywrightFallback("https://example.com", {
       enabled: true,
       loader: async () => ({
@@ -145,6 +146,7 @@ describe("fetchViaPlaywrightFallback", () => {
 
     expect(result.response).toBeUndefined();
     expect(result.summary).toBe("Chrome executable not found");
+    await expect(access(profile)).rejects.toThrow();
     expect(result.trace[0]).toMatchObject({
       name: "playwright:playwright_real_chrome",
       verdict: "unknown",
@@ -216,12 +218,38 @@ describe("fetchViaPlaywrightFallback", () => {
     expect(page.goto).not.toHaveBeenCalled();
   });
 
+  it("rejects promptly when aborting a launch that never settles", async () => {
+    const controller = new AbortController();
+    const reason = new Error("caller stopped pending launch");
+    const launchStarted = Promise.withResolvers<void>();
+    const launchPersistentContext = vi.fn<
+      PlaywrightModule["chromium"]["launchPersistentContext"]
+    >(() => {
+      launchStarted.resolve();
+      return new Promise<BrowserContext>(() => undefined);
+    });
+    const loader: PlaywrightLoader = async () => ({
+      chromium: { launchPersistentContext },
+    });
+
+    const fetching = fetchViaPlaywrightFallback("https://example.com/a", {
+      enabled: true,
+      loader,
+      signal: controller.signal,
+    });
+    await launchStarted.promise;
+    controller.abort(reason);
+
+    await expect(fetching).rejects.toBe(reason);
+  });
+
   it("cleans a late browser context and profile once without starting page work", async () => {
     const controller = new AbortController();
     const callerAbort = new Error("caller stopped Playwright launch");
     const launchStarted = Promise.withResolvers<void>();
     const launchResult = Promise.withResolvers<BrowserContext>();
     const closeStarted = Promise.withResolvers<void>();
+    const closeFinished = Promise.withResolvers<void>();
     const allowClose = Promise.withResolvers<void>();
     let profile = "";
     const close = vi.fn<BrowserContext["close"]>(async () => {
@@ -229,6 +257,8 @@ describe("fetchViaPlaywrightFallback", () => {
       await writeFile(`${profile}/browser-state`, "closed");
       closeStarted.resolve();
       await allowClose.promise;
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      closeFinished.resolve();
     });
     const context: BrowserContext = {
       close,
@@ -256,19 +286,12 @@ describe("fetchViaPlaywrightFallback", () => {
     profile = String(launchPersistentContext.mock.calls[0]?.[0]);
     controller.abort(callerAbort);
 
-    await expect(fetching).rejects.toBe(callerAbort);
     launchResult.resolve(context);
     await closeStarted.promise;
-    const profileRemoved = Promise.withResolvers<void>();
-    const watcher = watch(tmpdir(), (_event, filename) => {
-      if (String(filename) !== basename(profile)) {
-        return;
-      }
-      access(profile).catch(() => profileRemoved.resolve());
-    });
     allowClose.resolve();
-    await profileRemoved.promise;
-    watcher.close();
+    await expect(fetching).rejects.toBe(callerAbort);
+    await closeFinished.promise;
+    await new Promise<void>((resolve) => setImmediate(resolve));
     expect(close).toHaveBeenCalledOnce();
     expect(context.newPage).not.toHaveBeenCalled();
     await expect(access(profile)).rejects.toThrow();

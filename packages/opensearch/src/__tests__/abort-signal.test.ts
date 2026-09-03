@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createOpenSearch, search } from "../node.ts";
-import { SearchEngineError } from "../search/errors.ts";
+import { SearchExecutionError } from "../search/errors.ts";
 import { fetchSearchText } from "../search/http.ts";
 import { createSearchService } from "../search.ts";
 
@@ -22,8 +22,10 @@ afterEach(() => {
 describe("per-call AbortSignal", () => {
   it("aborts the default Node fetch boundary", async () => {
     const controller = new AbortController();
+    const started = Promise.withResolvers<void>();
     const fetchSpy = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
       expect(init?.signal).toBeDefined();
+      started.resolve();
       return pendingResponse(init?.signal);
     });
     vi.stubGlobal("fetch", fetchSpy);
@@ -34,6 +36,7 @@ describe("per-call AbortSignal", () => {
     const operation = client.fetch("http://127.0.0.1/abort-fetch", {
       signal: controller.signal,
     });
+    await started.promise;
     controller.abort();
 
     await expect(operation).rejects.toMatchObject({ name: "AbortError" });
@@ -42,14 +45,17 @@ describe("per-call AbortSignal", () => {
 
   it("aborts the default Node search boundary without starting fallback work", async () => {
     const controller = new AbortController();
+    const started = Promise.withResolvers<void>();
     const fetchSpy = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
       expect(init?.signal).toBeDefined();
+      started.resolve();
       return pendingResponse(init?.signal);
     });
     vi.stubEnv("BRAVE_SEARCH_API_KEY", "test-key");
     vi.stubGlobal("fetch", fetchSpy);
 
     const operation = search("abort-search", 3, { signal: controller.signal });
+    await started.promise;
     controller.abort();
 
     await expect(operation).rejects.toMatchObject({ name: "AbortError" });
@@ -73,6 +79,22 @@ describe("per-call AbortSignal", () => {
       })
     ).rejects.toMatchObject({ name: "AbortError" });
     expect(provider).not.toHaveBeenCalled();
+  });
+
+  it("preserves a null reason for pre-aborted public searches", async () => {
+    const controller = new AbortController();
+    controller.abort(null);
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+    const client = createOpenSearch({ env: { TAVILY_API_KEY: "test-key" } });
+
+    await expect(
+      search("module null abort", 1, { signal: controller.signal })
+    ).rejects.toBe(null);
+    await expect(
+      client.search("client null abort", 1, { signal: controller.signal })
+    ).rejects.toBe(null);
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   it.each([1, 4])(
@@ -169,10 +191,11 @@ describe("per-call AbortSignal", () => {
 
   it("stops retry backoff and fallback classification after caller abort", async () => {
     const controller = new AbortController();
-    controller.abort();
+    const firstStarted = Promise.withResolvers<void>();
     const fallback = vi.fn(async () => []);
     const first = vi.fn(() => {
-      throw new SearchEngineError("Brave", "transient", "temporary");
+      firstStarted.resolve();
+      throw new SearchExecutionError("temporary", true);
     });
     const service = createSearchService(
       { read: () => undefined },
@@ -184,14 +207,17 @@ describe("per-call AbortSignal", () => {
       }
     );
 
-    await expect(
-      service.searchWithRetryAndCache("retry-aborted", 3, {
-        cache: "bypass",
-        signal: controller.signal,
-      })
-    ).rejects.toMatchObject({ name: "AbortError" });
+    const operation = service.searchWithRetryAndCache("retry-aborted", 3, {
+      cache: "bypass",
+      signal: controller.signal,
+    });
+    await firstStarted.promise;
+
+    controller.abort();
+
+    await expect(operation).rejects.toMatchObject({ name: "AbortError" });
     expect(fallback).not.toHaveBeenCalled();
-    expect(first).not.toHaveBeenCalled();
+    expect(first).toHaveBeenCalledOnce();
   });
 
   it("aborts a stalled response body and cleans up its timeout listener", async () => {

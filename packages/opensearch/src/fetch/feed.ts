@@ -130,6 +130,7 @@ export async function fetchDiscoveredFeed(
   const fetcher = options.fetcher ?? fetch;
   const maxResponseBytes =
     options.maxResponseBytes ?? DEFAULT_MAX_DOWNLOAD_BYTES;
+  options.signal?.throwIfAborted();
   for (const candidate of discoverFeedCandidates(rawUrl, options)) {
     options.signal?.throwIfAborted();
     try {

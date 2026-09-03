@@ -1,7 +1,4 @@
-import { watch } from "node:fs";
 import { access, mkdir, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { basename } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { fetchViaPlaywrightFallback } from "../node/playwright-executor.ts";
 import type {
@@ -17,24 +14,11 @@ const page: Page = {
   waitForSelector: () => Promise.resolve(),
 };
 
-function profileRemoval(profile: string): {
-  readonly close: () => void;
-  readonly removed: Promise<void>;
-} {
-  const removed = Promise.withResolvers<void>();
-  const watcher = watch(tmpdir(), (_event, filename) => {
-    if (String(filename) !== basename(profile)) {
-      return;
-    }
-    access(profile).catch(() => removed.resolve());
-  });
-  return { close: () => watcher.close(), removed: removed.promise };
-}
-
 describe("Playwright profile cleanup ordering", () => {
   it("awaits normal context close before removing the temporary profile", async () => {
     // Given
     const closeStarted = Promise.withResolvers<void>();
+    const closeFinished = Promise.withResolvers<void>();
     const allowClose = Promise.withResolvers<void>();
     let profile = "";
     const close = vi.fn<BrowserContext["close"]>(async () => {
@@ -42,6 +26,8 @@ describe("Playwright profile cleanup ordering", () => {
       await writeFile(`${profile}/browser-state`, "closed");
       closeStarted.resolve();
       await allowClose.promise;
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      closeFinished.resolve();
     });
     const context: BrowserContext = {
       close,
@@ -61,11 +47,10 @@ describe("Playwright profile cleanup ordering", () => {
       loader: () => Promise.resolve({ chromium: { launchPersistentContext } }),
     });
     await closeStarted.promise;
-    const removal = profileRemoval(profile);
+    await expect(access(profile)).resolves.toBeUndefined();
     allowClose.resolve();
+    await closeFinished.promise;
     await fetching;
-    await removal.removed;
-    removal.close();
 
     // Then
     expect(close).toHaveBeenCalledOnce();
@@ -79,6 +64,7 @@ describe("Playwright profile cleanup ordering", () => {
     const launchStarted = Promise.withResolvers<void>();
     const launchResult = Promise.withResolvers<BrowserContext>();
     const closeStarted = Promise.withResolvers<void>();
+    const closeFinished = Promise.withResolvers<void>();
     const allowClose = Promise.withResolvers<void>();
     let profile = "";
     const close = vi.fn<BrowserContext["close"]>(async () => {
@@ -86,6 +72,8 @@ describe("Playwright profile cleanup ordering", () => {
       await writeFile(`${profile}/browser-state`, "closed");
       closeStarted.resolve();
       await allowClose.promise;
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      closeFinished.resolve();
     });
     const newPage = vi.fn<BrowserContext["newPage"]>(() =>
       Promise.reject(new Error("page work started after abort"))
@@ -111,13 +99,13 @@ describe("Playwright profile cleanup ordering", () => {
 
     // When
     controller.abort(reason);
-    await expect(fetching).rejects.toBe(reason);
     launchResult.resolve(context);
     await closeStarted.promise;
-    const removal = profileRemoval(profile);
+    await expect(access(profile)).resolves.toBeUndefined();
     allowClose.resolve();
-    await removal.removed;
-    removal.close();
+    await expect(fetching).rejects.toBe(reason);
+    await closeFinished.promise;
+    await new Promise<void>((resolve) => setImmediate(resolve));
 
     // Then
     expect(close).toHaveBeenCalledOnce();

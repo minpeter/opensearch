@@ -28,6 +28,31 @@ describe("fetchViaPublicApi", () => {
     expect(routeFetch).not.toHaveBeenCalled();
   });
 
+  it("returns a rejected Promise for a pre-aborted request", async () => {
+    // Given: a matched route and caller that aborted before invocation.
+    const routeFetch = vi.fn(async () => null);
+    const router = createPublicApiRouter([
+      {
+        fetch: routeFetch,
+        match: () => true,
+        name: "matched",
+      },
+    ]);
+    const reason = new Error("caller already aborted");
+    const controller = new AbortController();
+    controller.abort(reason);
+
+    // When: the public router is invoked.
+    const operation = router(
+      "https://matched.example/article",
+      controller.signal
+    );
+
+    // Then: invocation returns a rejected Promise without route work.
+    await expect(operation).rejects.toBe(reason);
+    expect(routeFetch).not.toHaveBeenCalled();
+  });
+
   it("returns null for non-routed URLs without making a request", async () => {
     const mockFetch = vi.fn();
     vi.stubGlobal("fetch", mockFetch);

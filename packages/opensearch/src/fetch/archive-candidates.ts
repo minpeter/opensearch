@@ -210,6 +210,7 @@ export async function dynamicArchiveCandidates(
   if (available) {
     out.push(available);
   }
+  signal?.throwIfAborted();
   const cdx = await resolveOptionalArchiveCandidate(
     () => waybackCdxCandidate(rawUrl, fetcher, signal),
     signal

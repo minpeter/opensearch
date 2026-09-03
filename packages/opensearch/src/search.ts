@@ -150,8 +150,9 @@ export function createSearchService(
   ): Promise<SearchResult[]> {
     if (callOptions.signal?.aborted) {
       return Promise.reject(
-        callOptions.signal.reason ??
-          new DOMException("The operation was aborted", "AbortError")
+        callOptions.signal.reason === undefined
+          ? new DOMException("The operation was aborted", "AbortError")
+          : callOptions.signal.reason
       );
     }
     const operation = observeOperation(

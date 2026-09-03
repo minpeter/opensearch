@@ -97,7 +97,7 @@ export function fetchUrl(
   url: string,
   options?: FetchOptions
 ): Promise<FetchResult> {
-  return defaultFetchService.fetch(url, options);
+  return defaultFetchService.fetch(url, { ...options, cache: "bypass" });
 }
 
 export function fetchUrls(
@@ -107,6 +107,7 @@ export function fetchUrls(
   signal?: AbortSignal
 ): Promise<FetchResult[]> {
   return defaultFetchService.fetch(urls, {
+    cache: "bypass",
     ...(maxCharacters === undefined ? {} : { maxCharacters }),
     ...(maxConcurrency === undefined ? {} : { maxConcurrency }),
     ...(signal === undefined ? {} : { signal }),

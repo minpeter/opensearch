@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   ampCacheUrl,
   archiveTodayUrls,
+  dynamicArchiveCandidates,
   waybackAvailabilityUrl,
   waybackCdxUrl,
 } from "../fetch/archive-candidates.ts";
@@ -44,6 +45,27 @@ describe("cache/archive URL helpers", () => {
 });
 
 describe("fetchArchiveFallback", () => {
+  it("stops before CDX discovery when aborted after availability", async () => {
+    // Given
+    const controller = new AbortController();
+    const callerAbort = new Error("caller stopped archive discovery");
+    const fetcher = vi.fn(() => {
+      controller.abort(callerAbort);
+      return Promise.resolve(new Response("unavailable", { status: 404 }));
+    });
+
+    // When
+    const operation = dynamicArchiveCandidates(
+      "https://example.com/a",
+      fetcher,
+      controller.signal
+    );
+
+    // Then
+    await expect(operation).rejects.toBe(callerAbort);
+    expect(fetcher).toHaveBeenCalledOnce();
+  });
+
   it("uses Wayback available snapshot after AMP and archive.today miss", async () => {
     const mockFetch = vi
       .fn()

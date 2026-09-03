@@ -103,8 +103,9 @@ export class TtlCache<K, V> {
     const waiter: CacheWaiter = {
       abort: () => {
         const reason =
-          signal?.reason ??
-          new DOMException("The operation was aborted", "AbortError");
+          signal?.reason === undefined
+            ? new DOMException("The operation was aborted", "AbortError")
+            : signal.reason;
         depart(reason);
         abortResult.reject(reason);
       },
@@ -134,6 +135,14 @@ export class TtlCache<K, V> {
     factory: (signal: AbortSignal) => Promise<V>,
     waiter?: CacheWaiter
   ): Promise<V> {
+    if (waiter?.signal?.aborted) {
+      const reason =
+        waiter.signal.reason === undefined
+          ? new DOMException("The operation was aborted", "AbortError")
+          : waiter.signal.reason;
+      return Promise.reject(reason);
+    }
+
     const cachedValue = this.get(key);
     if (cachedValue !== undefined) {
       return Promise.resolve(cachedValue);
@@ -143,15 +152,10 @@ export class TtlCache<K, V> {
     if (!entry) {
       const controller = new AbortController();
       const waiters = new Set<CacheWaiter>();
-      const promise = factory(controller.signal).then((value) => {
-        if (!controller.signal.aborted) {
-          this.set(key, value);
-        }
-        return value;
-      });
+      const result = Promise.withResolvers<V>();
       const pendingEntry: Pending<V> = {
         controller,
-        promise,
+        promise: result.promise,
         retire: () => {
           if (this.pending.get(key) === pendingEntry) {
             this.pending.delete(key);
@@ -165,7 +169,22 @@ export class TtlCache<K, V> {
       };
       entry = pendingEntry;
       this.pending.set(key, entry);
-      promise.then(entry.retire, entry.retire);
+      if (waiter) {
+        entry.waiters.add(waiter);
+        waiter.pending.add(entry);
+      }
+      try {
+        factory(controller.signal).then((value) => {
+          if (!controller.signal.aborted) {
+            this.set(key, value);
+          }
+          result.resolve(value);
+        }, result.reject);
+      } catch (error) {
+        result.reject(error);
+      }
+      result.promise.then(entry.retire, entry.retire);
+      return entry.promise;
     }
 
     if (waiter) {

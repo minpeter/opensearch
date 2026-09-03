@@ -5,7 +5,7 @@ export async function withAbortSignal<T>(
 ): Promise<T> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-  const abort = (): void => controller.abort(callerSignal?.reason);
+  const abort = (): void => controller.abort(abortReason(callerSignal?.reason));
 
   if (callerSignal?.aborted) {
     abort();
@@ -32,10 +32,7 @@ export function awaitAbortable<T>(
     const cleanup = (): void => signal.removeEventListener("abort", abort);
     const abort = (): void => {
       cleanup();
-      reject(
-        signal.reason ??
-          new DOMException("The operation was aborted", "AbortError")
-      );
+      reject(abortReason(signal.reason));
     };
 
     promise.then(
@@ -59,9 +56,12 @@ export function awaitAbortable<T>(
 
 export function throwIfAborted(signal: AbortSignal | undefined): void {
   if (signal?.aborted) {
-    throw (
-      signal.reason ??
-      new DOMException("The operation was aborted", "AbortError")
-    );
+    throw abortReason(signal.reason);
   }
+}
+
+function abortReason(reason: unknown): unknown {
+  return reason === undefined
+    ? new DOMException("The operation was aborted", "AbortError")
+    : reason;
 }

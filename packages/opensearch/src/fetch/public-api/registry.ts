@@ -17,21 +17,22 @@ export type PublicApiRouter = (
 export function createPublicApiRouter(
   routes: readonly PublicApiRoute[]
 ): PublicApiRouter {
-  return (rawUrl, signal) => {
-    signal?.throwIfAborted();
-    let url: URL;
-    try {
-      url = new URL(rawUrl);
-    } catch {
-      return Promise.resolve(null);
-    }
-
-    for (const route of routes) {
-      if (route.match(url)) {
-        return route.fetch(url, signal);
+  return (rawUrl, signal) =>
+    Promise.resolve().then(() => {
+      signal?.throwIfAborted();
+      let url: URL;
+      try {
+        url = new URL(rawUrl);
+      } catch {
+        return null;
       }
-    }
 
-    return Promise.resolve(null);
-  };
+      for (const route of routes) {
+        if (route.match(url)) {
+          return route.fetch(url, signal);
+        }
+      }
+
+      return null;
+    });
 }
