@@ -62,7 +62,6 @@ export async function fetchViaPlaywrightFallback(
   let cleanupRequested = false;
   let cleanupPromise = Promise.resolve();
   let contextCleaned = false;
-  let launchPending = false;
   let profileCleaned = false;
   let temporaryProfileDir: string | undefined;
   const cleanupOnce = (): Promise<void> => {
@@ -72,7 +71,7 @@ export async function fetchViaPlaywrightFallback(
         contextCleaned = true;
         await cleanupPlaywrightContext(context, undefined);
       }
-      if (temporaryProfileDir && !launchPending && !profileCleaned) {
+      if (temporaryProfileDir && !profileCleaned) {
         profileCleaned = true;
         await cleanupPlaywrightContext(undefined, temporaryProfileDir);
       }
@@ -106,7 +105,6 @@ export async function fetchViaPlaywrightFallback(
     const profile = await awaitWithAbort(profilePromise);
     temporaryProfileDir = profile.temporaryPath;
     options.signal?.throwIfAborted();
-    launchPending = true;
     const launchPromise = playwright.chromium.launchPersistentContext(
       profile.path,
       launchOptions
@@ -115,13 +113,10 @@ export async function fetchViaPlaywrightFallback(
       .then(
         (launchedContext) => {
           context = launchedContext;
-          launchPending = false;
+          profileCleaned = false;
           return cleanupRequested ? cleanupOnce() : undefined;
         },
-        () => {
-          launchPending = false;
-          return cleanupRequested ? cleanupOnce() : undefined;
-        }
+        () => (cleanupRequested ? cleanupOnce() : undefined)
       )
       .catch(() => undefined);
     context = await awaitWithAbort(launchPromise);
@@ -136,7 +131,10 @@ export async function fetchViaPlaywrightFallback(
             }
             await route.continue();
           } catch (error) {
-            blockedRequestError = error;
+            blockedRequestError =
+              error instanceof Error
+                ? error
+                : new Error("browser request blocked", { cause: error });
             await route.abort("blockedbyclient");
           }
         })

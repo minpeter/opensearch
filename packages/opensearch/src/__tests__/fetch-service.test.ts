@@ -221,6 +221,34 @@ describe("fetchUrlsWithCache result mapping", () => {
     expect(Array.isArray(result)).toBe(false);
   });
 
+  it.each([
+    { input: "https://single.example/", name: "single URL" },
+    { input: ["https://batch.example/"] as const, name: "URL batch" },
+  ])(
+    "returns a rejected Promise for a pre-aborted $name request",
+    async ({ input }) => {
+      // Given: a fetch service and caller that aborted before invocation.
+      const operations = operationsReturning([]);
+      const service = createFetchServiceForOperations(
+        operations,
+        4,
+        CACHE_OPTIONS,
+        createOpenSearchObserver()
+      );
+      const reason = new Error("caller already aborted");
+      const controller = new AbortController();
+      controller.abort(reason);
+
+      // When: either public fetch overload is invoked.
+      const operation = service.fetch(input, { signal: controller.signal });
+
+      // Then: invocation returns a rejected Promise without provider work.
+      await expect(operation).rejects.toBe(reason);
+      expect(operations.fetchUrl).not.toHaveBeenCalled();
+      expect(operations.fetchUrls).not.toHaveBeenCalled();
+    }
+  );
+
   it("does not poison the pending cache after a batch miss rejection", async () => {
     const { operations, waitForBatchCall } = controllableOperations();
     const service = createFetchServiceForOperations(

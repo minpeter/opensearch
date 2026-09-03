@@ -90,6 +90,24 @@ describe("TtlCache", () => {
     expect(factory).toHaveBeenCalledTimes(2);
   });
 
+  it("does not invoke a factory for a pre-aborted waiter", async () => {
+    // Given: a cache waiter whose caller already aborted.
+    const cache = new TtlCache<string, string>(60_000);
+    const reason = new Error("caller already left");
+    const controller = new AbortController();
+    controller.abort(reason);
+    const waiter = cache.createWaiter(controller.signal);
+    const factory = vi.fn(() => Promise.resolve("value"));
+
+    // When: the aborted waiter requests an uncached value.
+    const result = cache.getOrSet("key", factory, waiter);
+
+    // Then: the request rejects without starting a cache generation.
+    await expect(result).rejects.toBe(reason);
+    expect(factory).not.toHaveBeenCalled();
+    cache.releaseWaiter(waiter);
+  });
+
   it("starts a fresh generation synchronously after the last waiter aborts", async () => {
     const cache = new TtlCache<string, string>(60_000);
     const firstResult = Promise.withResolvers<string>();
@@ -121,6 +139,34 @@ describe("TtlCache", () => {
     await expect(second).resolves.toBe("new");
     await expect(joinedSecond).resolves.toBe("new");
     cache.releaseWaiter(waiter);
+  });
+
+  it("retires a generation when its factory synchronously aborts the waiter", async () => {
+    const cache = new TtlCache<string, string>(60_000);
+    const controller = new AbortController();
+    const reason = new Error("factory aborted caller");
+    const firstWaiter = cache.createWaiter(controller.signal);
+    let firstGeneration: AbortSignal | undefined;
+    const first = cache.getOrSet(
+      "key",
+      (signal) => {
+        firstGeneration = signal;
+        controller.abort(reason);
+        return new Promise<string>(() => undefined);
+      },
+      firstWaiter
+    );
+
+    await expect(firstWaiter.waitFor(first)).rejects.toBe(reason);
+    cache.releaseWaiter(firstWaiter);
+    expect(firstGeneration?.aborted).toBe(true);
+
+    const secondWaiter = cache.createWaiter();
+    const secondFactory = vi.fn(async () => "fresh");
+    const second = cache.getOrSet("key", secondFactory, secondWaiter);
+    await expect(secondWaiter.waitFor(second)).resolves.toBe("fresh");
+    cache.releaseWaiter(secondWaiter);
+    expect(secondFactory).toHaveBeenCalledOnce();
   });
 
   it("bounds high-cardinality workloads by default", () => {

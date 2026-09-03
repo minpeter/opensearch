@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   cancelResponseBody,
@@ -62,6 +62,72 @@ describe("bounded response body readers", () => {
     await expect(readResponseBytes(response, 3)).rejects.toBeInstanceOf(
       ResponseSizeLimitError
     );
+  });
+
+  it("remains abortable and releases the reader when oversized cancellation stalls", async () => {
+    // Given: an oversized stream whose cancellation never settles.
+    const controller = new AbortController();
+    const reason = new Error("caller stopped stalled cancellation");
+    const cancellationStarted = Promise.withResolvers<void>();
+    const body = new ReadableStream<Uint8Array>({
+      cancel() {
+        cancellationStarted.resolve();
+        return new Promise<void>(() => undefined);
+      },
+      start(streamController) {
+        streamController.enqueue(new Uint8Array([1, 2, 3, 4]));
+      },
+    });
+
+    // When: the caller aborts after oversized-body cancellation starts.
+    const reading = readResponseBytes(new Response(body), 3, controller.signal);
+    await cancellationStarted.promise;
+    controller.abort(reason);
+
+    // Then: caller cancellation wins and releases the stream lock.
+    await expect(reading).rejects.toBe(reason);
+    expect(body.locked).toBe(false);
+  });
+
+  it("preserves the size error when reader cancellation rejects", async () => {
+    const body = new ReadableStream<Uint8Array>({
+      cancel() {
+        return Promise.reject(new Error("cleanup failed"));
+      },
+      start(controller) {
+        controller.enqueue(new Uint8Array([1, 2, 3, 4]));
+      },
+    });
+
+    await expect(
+      readResponseBytes(new Response(body), 3)
+    ).rejects.toBeInstanceOf(ResponseSizeLimitError);
+    expect(body.locked).toBe(false);
+  });
+
+  it("remains abortable when declared-length cancellation stalls", async () => {
+    const controller = new AbortController();
+    const reason = new Error("caller stopped declared-length cancellation");
+    const cancellationStarted = Promise.withResolvers<void>();
+    const response = new Response(new ReadableStream<Uint8Array>(), {
+      headers: { "Content-Length": "4" },
+    });
+    const { body } = response;
+    if (!body) {
+      throw new Error("Expected response body");
+    }
+    const cancel = vi.spyOn(body, "cancel").mockImplementation(() => {
+      cancellationStarted.resolve();
+      return new Promise<void>(() => undefined);
+    });
+
+    const reading = readResponseBytes(response, 3, controller.signal);
+    await cancellationStarted.promise;
+    controller.abort(reason);
+
+    await expect(reading).rejects.toBe(reason);
+    expect(cancel).toHaveBeenCalledTimes(1);
+    expect(body.locked).toBe(false);
   });
 
   it("applies limits to encoded bytes rather than UTF-16 characters", async () => {

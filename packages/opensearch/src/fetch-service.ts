@@ -259,7 +259,7 @@ export function createFetchServiceForOperations(
     input: string | readonly string[],
     options?: FetchOptions
   ): Promise<FetchResult | FetchResult[]>;
-  function fetchInput(
+  async function fetchInput(
     input: string | readonly string[],
     options: FetchOptions = {}
   ): Promise<FetchResult | FetchResult[]> {
@@ -267,7 +267,7 @@ export function createFetchServiceForOperations(
     throwIfAborted(signal);
     const maxConcurrency = options.maxConcurrency ?? defaultMaxConcurrency;
 
-    return observeOperation(
+    return await observeOperation(
       observer,
       {
         inputCount: typeof input === "string" ? 1 : input.length,

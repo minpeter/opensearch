@@ -1,3 +1,5 @@
+import { awaitAbortable } from "./abort.ts";
+
 export const DEFAULT_MAX_RESPONSE_BYTES = 10 * 1024 * 1024;
 
 export class ResponseSizeLimitError extends Error {
@@ -70,7 +72,10 @@ export async function readResponseBytes(
   signal?.throwIfAborted();
   const declaredLength = Number(response.headers.get("Content-Length"));
   if (Number.isFinite(declaredLength) && declaredLength > limitBytes) {
-    await cancelResponseBody(response);
+    await awaitAbortable(
+      cancelResponseBody(response).catch(() => undefined),
+      signal
+    );
     throw new ResponseSizeLimitError(limitBytes);
   }
 
@@ -103,7 +108,10 @@ export async function readResponseBytes(
       }
       totalBytes += value.byteLength;
       if (totalBytes > limitBytes) {
-        await reader.cancel();
+        await Promise.race([
+          reader.cancel().catch(() => undefined),
+          aborted.promise,
+        ]);
         throw new ResponseSizeLimitError(limitBytes);
       }
       chunks.push(value);
