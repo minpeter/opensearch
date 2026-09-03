@@ -19,26 +19,47 @@ function operationsReturning(results: FetchResult[]): FetchOperations {
   };
 }
 
+interface BatchCall {
+  readonly promise: ReturnType<typeof deferred<FetchResult[]>>;
+  readonly signal: AbortSignal | undefined;
+  readonly urls: string[];
+}
+
 function controllableOperations(): {
-  readonly batchCalls: Array<{
-    readonly promise: ReturnType<typeof deferred<FetchResult[]>>;
-    readonly urls: string[];
-  }>;
+  readonly batchCalls: BatchCall[];
   readonly operations: FetchOperations;
+  readonly waitForBatchCall: (index: number) => Promise<BatchCall>;
 } {
-  const batchCalls: Array<{
-    readonly promise: ReturnType<typeof deferred<FetchResult[]>>;
-    readonly urls: string[];
-  }> = [];
+  const batchCalls: BatchCall[] = [];
+  const callWaiters = new Map<number, ReturnType<typeof deferred<BatchCall>>>();
   return {
     batchCalls,
     operations: {
       fetchUrl: vi.fn().mockResolvedValue(resultFor("https://b.example/")),
-      fetchUrls: vi.fn((urls: string[]) => {
-        const promise = deferred<FetchResult[]>();
-        batchCalls.push({ promise, urls });
-        return promise.promise;
-      }),
+      fetchUrls: vi.fn(
+        (
+          urls: string[],
+          _maxCharacters?: number,
+          _maxConcurrency?: number,
+          _operationId?: string,
+          signal?: AbortSignal
+        ) => {
+          const promise = deferred<FetchResult[]>();
+          const call = { promise, signal, urls };
+          batchCalls.push(call);
+          callWaiters.get(batchCalls.length - 1)?.resolve(call);
+          return promise.promise;
+        }
+      ),
+    },
+    waitForBatchCall: (index: number) => {
+      const call = batchCalls[index];
+      if (call) {
+        return Promise.resolve(call);
+      }
+      const waiter = deferred<BatchCall>();
+      callWaiters.set(index, waiter);
+      return waiter.promise;
     },
   };
 }
@@ -201,7 +222,7 @@ describe("fetchUrlsWithCache result mapping", () => {
   });
 
   it("does not poison the pending cache after a batch miss rejection", async () => {
-    const { batchCalls, operations } = controllableOperations();
+    const { operations, waitForBatchCall } = controllableOperations();
     const service = createFetchServiceForOperations(
       operations,
       4,
@@ -213,21 +234,155 @@ describe("fetchUrlsWithCache result mapping", () => {
       "https://a.example/",
       "https://b.example/",
     ]);
-    await vi.waitFor(() => expect(batchCalls).toHaveLength(1));
-    batchCalls[0]?.promise.reject(new Error("provider down"));
+    const failedBatchCall = await waitForBatchCall(0);
+    failedBatchCall.promise.reject(new Error("provider down"));
     await expect(failed).rejects.toThrow("provider down");
 
     const retry = service.fetchUrlsWithCache([
       "https://a.example/",
       "https://b.example/",
     ]);
-    await vi.waitFor(() => expect(batchCalls).toHaveLength(2));
-    batchCalls[1]?.promise.resolve([
+    const retryBatchCall = await waitForBatchCall(1);
+    retryBatchCall.promise.resolve([
       resultFor("https://a.example/"),
       resultFor("https://b.example/"),
     ]);
 
     await expect(retry).resolves.toHaveLength(2);
     expect(operations.fetchUrls).toHaveBeenCalledTimes(2);
+  });
+
+  it("aborts the actual single transport when its sole waiter leaves", async () => {
+    const transportStarted = deferred<AbortSignal | undefined>();
+    const operations: FetchOperations = {
+      fetchUrl: vi.fn((_url, _operationId, signal) => {
+        transportStarted.resolve(signal);
+        return new Promise<FetchResult>((_resolve, reject) => {
+          signal?.addEventListener("abort", () => reject(signal.reason), {
+            once: true,
+          });
+        });
+      }),
+      fetchUrls: vi.fn(),
+    };
+    const service = createFetchServiceForOperations(
+      operations,
+      4,
+      CACHE_OPTIONS,
+      createOpenSearchObserver()
+    );
+    const controller = new AbortController();
+
+    const operation = service.fetch("https://single.example/", {
+      signal: controller.signal,
+    });
+    const transportSignal = await transportStarted.promise;
+    controller.abort(new Error("caller left"));
+
+    await expect(operation).rejects.toThrow("caller left");
+    expect(transportSignal).toMatchObject({ aborted: true });
+  });
+
+  it("keeps shared work until the last waiter leaves and aborts it once", async () => {
+    const transportStarted = deferred<AbortSignal | undefined>();
+    let transportAbortCount = 0;
+    const operations: FetchOperations = {
+      fetchUrl: vi.fn((_url, _operationId, signal) => {
+        transportStarted.resolve(signal);
+        return new Promise<FetchResult>((_resolve, reject) => {
+          signal?.addEventListener(
+            "abort",
+            () => {
+              transportAbortCount += 1;
+              reject(signal.reason);
+            },
+            { once: true }
+          );
+        });
+      }),
+      fetchUrls: vi.fn(),
+    };
+    const service = createFetchServiceForOperations(
+      operations,
+      4,
+      CACHE_OPTIONS,
+      createOpenSearchObserver()
+    );
+    const firstController = new AbortController();
+    const secondController = new AbortController();
+
+    const first = service.fetch("https://shared.example/", {
+      signal: firstController.signal,
+    });
+    const transportSignal = await transportStarted.promise;
+    const second = service.fetch("https://shared.example/", {
+      signal: secondController.signal,
+    });
+    firstController.abort(new Error("first left"));
+    await expect(first).rejects.toThrow("first left");
+    expect(transportSignal).toMatchObject({ aborted: false });
+
+    secondController.abort(new Error("last left"));
+    await expect(second).rejects.toThrow("last left");
+    expect(transportSignal).toMatchObject({ aborted: true });
+    expect(transportAbortCount).toBe(1);
+  });
+
+  it("aggregates cache generation signals across overlapping batches", async () => {
+    const { operations, waitForBatchCall } = controllableOperations();
+    const service = createFetchServiceForOperations(
+      operations,
+      4,
+      CACHE_OPTIONS,
+      createOpenSearchObserver()
+    );
+    const firstController = new AbortController();
+    const secondController = new AbortController();
+
+    const first = service.fetch(["https://a.example/", "https://b.example/"], {
+      maxConcurrency: 4,
+      signal: firstController.signal,
+    });
+    const firstTransport = await waitForBatchCall(0);
+    const second = service.fetch(["https://b.example/", "https://c.example/"], {
+      maxConcurrency: 4,
+      signal: secondController.signal,
+    });
+    const secondTransport = await waitForBatchCall(1);
+
+    firstController.abort(new Error("first batch left"));
+    await expect(first).rejects.toThrow("first batch left");
+    expect(firstTransport.signal?.aborted).toBe(false);
+    expect(secondTransport.signal?.aborted).toBe(false);
+
+    secondController.abort(new Error("last batch left"));
+    await expect(second).rejects.toThrow("last batch left");
+    expect(firstTransport.signal?.aborted).toBe(true);
+    expect(secondTransport.signal?.aborted).toBe(true);
+  });
+
+  it("uses one caller abort listener for a ten URL batch", async () => {
+    const urls = Array.from(
+      { length: 10 },
+      (_value, index) => `https://${index}.example/`
+    );
+    const operations = operationsReturning(urls.map(resultFor));
+    const service = createFetchServiceForOperations(
+      operations,
+      4,
+      CACHE_OPTIONS,
+      createOpenSearchObserver()
+    );
+    const controller = new AbortController();
+    const addEventListener = vi.spyOn(controller.signal, "addEventListener");
+
+    await service.fetch(urls, {
+      maxConcurrency: 4,
+      signal: controller.signal,
+    });
+
+    expect(
+      addEventListener.mock.calls.filter(([type]) => type === "abort")
+    ).toHaveLength(1);
   });
 });

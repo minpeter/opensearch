@@ -34,22 +34,27 @@ export function fetchUrlsViaFirecrawl(
   signal?: AbortSignal,
   onFallback?: FetchFallbackObserver
 ): Promise<FetchResult[]> {
-  return mapWithConcurrency(urls, maxConcurrency, async (url) => {
-    try {
-      const result = await fetchFirecrawlUrl(url, maxCharacters, env, signal);
-      return createFetchResult(url, result.content, result.title);
-    } catch (error) {
-      signal?.throwIfAborted();
-      if (!(error instanceof Error) || getHttpStatus(error) === 451) {
+  return mapWithConcurrency(
+    urls,
+    maxConcurrency,
+    async (url) => {
+      try {
+        const result = await fetchFirecrawlUrl(url, maxCharacters, env, signal);
+        return createFetchResult(url, result.content, result.title);
+      } catch (error) {
+        signal?.throwIfAborted();
+        if (!(error instanceof Error) || getHttpStatus(error) === 451) {
+          throw error;
+        }
+        if (fallback) {
+          onFallback?.(url, error);
+          return fallback(url);
+        }
         throw error;
       }
-      if (fallback) {
-        onFallback?.(url, error);
-        return fallback(url);
-      }
-      throw error;
-    }
-  });
+    },
+    signal
+  );
 }
 
 export async function tryFetchUrlViaFirecrawl(

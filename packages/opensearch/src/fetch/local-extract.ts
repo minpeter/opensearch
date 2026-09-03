@@ -120,7 +120,8 @@ async function buildResultFromHtml(
     context,
     async () => {
       const feed = await fetchDiscoveredFeed(url, {
-        fetcher: (candidateUrl) => fetchPage(candidateUrl, context),
+        fetcher: (candidateUrl, init) =>
+          fetchPage(candidateUrl, context, init?.signal ?? undefined),
         html,
         includeTransforms: false,
         maxResponseBytes: context.options.maxDownloadBytes,

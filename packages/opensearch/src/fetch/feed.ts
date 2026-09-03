@@ -26,7 +26,7 @@ interface FeedCandidate {
 }
 
 export interface FeedDiscoveryOptions {
-  readonly fetcher?: (url: string, signal?: AbortSignal) => Promise<Response>;
+  readonly fetcher?: (url: string, init?: RequestInit) => Promise<Response>;
   readonly html?: string;
   readonly includeTransforms?: boolean;
   readonly jinaAlternates?: readonly string[];
@@ -134,7 +134,7 @@ export async function fetchDiscoveredFeed(
     options.signal?.throwIfAborted();
     try {
       // biome-ignore lint/performance/noAwaitInLoops: feed candidates are tried sequentially to stop after the first valid feed
-      const response = await fetcher(candidate.url, options.signal);
+      const response = await fetcher(candidate.url, { signal: options.signal });
       if (!response.ok) {
         await cancelResponseBody(response);
         continue;

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { awaitAbortable, throwIfAborted, withAbortSignal } from "../abort.ts";
+import { throwIfAborted, withAbortSignal } from "../abort.ts";
 import { cancelResponseBody, readResponseText } from "../response-body.ts";
 import { getRandomUserAgent } from "../user-agents.ts";
 import { SearchEngineError } from "./errors.ts";
@@ -99,7 +99,7 @@ export async function fetchSearchText({
             { status: response.status }
           );
         }
-        return awaitAbortable(readResponseText(response), requestSignal);
+        return readResponseText(response, undefined, requestSignal);
       }
     );
   } catch (error) {

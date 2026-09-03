@@ -777,7 +777,12 @@ describe("Ollama fetch provider", () => {
 
     expect(mockFetch).toHaveBeenCalledTimes(urls.length);
     expect(fetchBatch).toHaveBeenCalledOnce();
-    expect(fetchBatch).toHaveBeenCalledWith(urls, 12_000, expect.anything());
+    expect(fetchBatch).toHaveBeenCalledWith(
+      urls,
+      12_000,
+      expect.anything(),
+      expect.any(AbortSignal)
+    );
     expect(fetchUrl).not.toHaveBeenCalled();
     expect(results.map((result) => result.content)).toEqual(
       urls.map((url) => `exa:${url}`)

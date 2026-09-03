@@ -10,6 +10,10 @@ import {
   playwrightFallbackEnabled,
 } from "../node/playwright-executor.ts";
 import { selectPlaywrightExecutor } from "../node/playwright-launch.ts";
+import type {
+  BrowserContext,
+  PlaywrightModule,
+} from "../node/playwright-types.ts";
 
 interface FakePage {
   readonly content: ReturnType<typeof vi.fn>;
@@ -180,6 +184,77 @@ describe("fetchViaPlaywrightFallback", () => {
       profileUsed: "playwright_real_chrome",
       verdict: "strong_ok",
     });
+  });
+
+  it("rejects with the caller reason when aborted before the loader resolves", async () => {
+    const controller = new AbortController();
+    const callerAbort = new Error("caller stopped Playwright loader");
+    const loaderStarted = Promise.withResolvers<void>();
+    const loaderResult = Promise.withResolvers<PlaywrightModule>();
+    const launchPersistentContext =
+      vi.fn<PlaywrightModule["chromium"]["launchPersistentContext"]>();
+    const page = createPage();
+
+    const fetching = fetchViaPlaywrightFallback("https://example.com/a", {
+      enabled: true,
+      loader: () => {
+        loaderStarted.resolve();
+        return loaderResult.promise;
+      },
+      signal: controller.signal,
+    });
+    await loaderStarted.promise;
+    controller.abort(callerAbort);
+
+    await expect(fetching).rejects.toBe(callerAbort);
+    loaderResult.resolve({ chromium: { launchPersistentContext } });
+    await Promise.resolve();
+    expect(launchPersistentContext).not.toHaveBeenCalled();
+    expect(page.goto).not.toHaveBeenCalled();
+  });
+
+  it("cleans a late browser context and profile once without starting page work", async () => {
+    const controller = new AbortController();
+    const callerAbort = new Error("caller stopped Playwright launch");
+    const launchStarted = Promise.withResolvers<void>();
+    const launchResult = Promise.withResolvers<BrowserContext>();
+    const contextClosed = Promise.withResolvers<void>();
+    const close = vi.fn<BrowserContext["close"]>(() => {
+      contextClosed.resolve();
+      return Promise.resolve();
+    });
+    const context: BrowserContext = {
+      close,
+      newPage: vi.fn<BrowserContext["newPage"]>(() =>
+        Promise.reject(new Error("post-abort page work started"))
+      ),
+      route: vi.fn<BrowserContext["route"]>(() => Promise.resolve()),
+    };
+    const launchPersistentContext = vi.fn<
+      PlaywrightModule["chromium"]["launchPersistentContext"]
+    >(() => {
+      launchStarted.resolve();
+      return launchResult.promise;
+    });
+    const loader: PlaywrightLoader = async () => ({
+      chromium: { launchPersistentContext },
+    });
+
+    const fetching = fetchViaPlaywrightFallback("https://example.com/a", {
+      enabled: true,
+      loader,
+      signal: controller.signal,
+    });
+    await launchStarted.promise;
+    const profile = String(launchPersistentContext.mock.calls[0]?.[0]);
+    controller.abort(callerAbort);
+
+    await expect(fetching).rejects.toBe(callerAbort);
+    launchResult.resolve(context);
+    await contextClosed.promise;
+    expect(close).toHaveBeenCalledOnce();
+    expect(context.newPage).not.toHaveBeenCalled();
+    await expect(access(profile)).rejects.toThrow();
   });
 
   it("closes the browser context once when the caller aborts navigation", async () => {

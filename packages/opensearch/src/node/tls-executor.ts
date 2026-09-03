@@ -62,8 +62,10 @@ export async function fetchViaTlsImpersonation(
   try {
     wreq = await loader();
   } catch (error) {
+    options.signal?.throwIfAborted();
     return unavailableTrace(url, errorMessage(error));
   }
+  options.signal?.throwIfAborted();
 
   const profiles = await supportedProfiles(wreq, options.browserProfiles);
   const trace: FetchAttemptTrace[] = [];

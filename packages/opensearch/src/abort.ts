@@ -28,20 +28,16 @@ export function awaitAbortable<T>(
   if (!signal) {
     return promise;
   }
-  if (signal.aborted) {
-    return Promise.reject(
-      signal.reason ??
-        new DOMException("The operation was aborted", "AbortError")
-    );
-  }
   return new Promise<T>((resolve, reject) => {
-    const abort = (): void =>
+    const cleanup = (): void => signal.removeEventListener("abort", abort);
+    const abort = (): void => {
+      cleanup();
       reject(
         signal.reason ??
           new DOMException("The operation was aborted", "AbortError")
       );
-    signal.addEventListener("abort", abort, { once: true });
-    const cleanup = (): void => signal.removeEventListener("abort", abort);
+    };
+
     promise.then(
       (value) => {
         cleanup();
@@ -52,6 +48,12 @@ export function awaitAbortable<T>(
         reject(error);
       }
     );
+
+    if (signal.aborted) {
+      abort();
+    } else {
+      signal.addEventListener("abort", abort, { once: true });
+    }
   });
 }
 

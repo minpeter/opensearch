@@ -66,7 +66,7 @@ export function createFetchServiceForOperations(
       if (operationId && emitCache) {
         emitCacheEvent(observer, "fetch", operationId, "bypass");
       }
-      return fetchSingleUrl(url, operationId, signal);
+      return awaitAbortable(fetchSingleUrl(url, operationId, signal), signal);
     }
 
     if (operationId && emitCache) {
@@ -78,9 +78,13 @@ export function createFetchServiceForOperations(
       );
     }
     const waiter = cache.createWaiter(signal);
-    const result = awaitAbortable(
-      cache.getOrSet(url, () => fetchSingleUrl(url, operationId), waiter),
-      signal
+    const result = waiter.waitFor(
+      cache.getOrSet(
+        url,
+        (generationSignal) =>
+          fetchSingleUrl(url, operationId, generationSignal),
+        waiter
+      )
     );
     return result.finally(() => cache.releaseWaiter(waiter));
   }
@@ -96,11 +100,14 @@ export function createFetchServiceForOperations(
 
     if (cache === null || maxCharacters !== undefined) {
       emitFetchCacheBypass(operationId);
-      return fetchMultipleUrls(
-        urls,
-        maxCharacters,
-        maxConcurrency,
-        operationId,
+      return awaitAbortable(
+        fetchMultipleUrls(
+          urls,
+          maxCharacters,
+          maxConcurrency,
+          operationId,
+          signal
+        ),
         signal
       );
     }
@@ -153,16 +160,42 @@ export function createFetchServiceForOperations(
       // factories that actually run share one deferred batch fetch. Concurrent
       // batch and single calls for the same URL join the same in-flight work.
       const batchUrls: string[] = [];
+      const batchController = new AbortController();
+      const generationAborts = new Map<AbortSignal, () => void>();
+      const registerGeneration = (generationSignal: AbortSignal): void => {
+        const abort = (): void => {
+          if (
+            [...generationAborts.keys()].every(
+              (registeredSignal) => registeredSignal.aborted
+            )
+          ) {
+            batchController.abort(generationSignal.reason);
+          }
+        };
+        generationAborts.set(generationSignal, abort);
+        if (generationSignal.aborted) {
+          abort();
+        } else {
+          generationSignal.addEventListener("abort", abort, { once: true });
+        }
+      };
       let batchPromise: Promise<FetchResult[]> | undefined;
       const fetchBatchOnce = (): Promise<FetchResult[]> => {
-        batchPromise ??= Promise.resolve().then(() =>
-          fetchMultipleUrls(
-            [...batchUrls],
-            undefined,
-            maxConcurrency,
-            operationId
+        batchPromise ??= Promise.resolve()
+          .then(() =>
+            fetchMultipleUrls(
+              [...batchUrls],
+              undefined,
+              maxConcurrency,
+              operationId,
+              batchController.signal
+            )
           )
-        );
+          .finally(() => {
+            for (const [generationSignal, abort] of generationAborts) {
+              generationSignal.removeEventListener("abort", abort);
+            }
+          });
         return batchPromise;
       };
 
@@ -173,7 +206,8 @@ export function createFetchServiceForOperations(
       for (const url of uncachedUrls) {
         const resultPromise = activeCache.getOrSet(
           url,
-          async () => {
+          async (generationSignal) => {
+            registerGeneration(generationSignal);
             const index = batchUrls.push(url) - 1;
             const fetchedResults = await fetchBatchOnce();
 
@@ -192,10 +226,12 @@ export function createFetchServiceForOperations(
       }
 
       try {
-        await Promise.all(
-          [...pendingResultsByUrl].map(async ([url, resultPromise]) => {
-            resultsByUrl.set(url, await awaitAbortable(resultPromise, signal));
-          })
+        await waiter.waitFor(
+          Promise.all(
+            [...pendingResultsByUrl].map(async ([url, resultPromise]) => {
+              resultsByUrl.set(url, await resultPromise);
+            })
+          )
         );
       } finally {
         activeCache.releaseWaiter(waiter);
@@ -231,52 +267,49 @@ export function createFetchServiceForOperations(
     throwIfAborted(signal);
     const maxConcurrency = options.maxConcurrency ?? defaultMaxConcurrency;
 
-    return awaitAbortable(
-      observeOperation(
-        observer,
-        {
-          inputCount: typeof input === "string" ? 1 : input.length,
-          operation: "fetch",
-        },
-        async (operationId) => {
-          assertValidMaxConcurrency(maxConcurrency);
-          if (options.cache === "bypass") {
-            return fetchWithoutCache(
-              input,
-              maxCharacters,
-              maxConcurrency,
-              operationId,
-              signal
-            );
-          }
-          if (typeof input === "string") {
-            if (maxCharacters === undefined) {
-              return fetchSingleUrlWithCache(input, operationId, true, signal);
-            }
-
-            const [result] = await fetchMultipleUrlsWithCache(
-              [input],
-              maxCharacters,
-              maxConcurrency,
-              operationId,
-              signal
-            );
-            if (!result) {
-              throw new Error("Fetch returned no result.");
-            }
-            return result;
-          }
-
-          return fetchMultipleUrlsWithCache(
-            [...input],
+    return observeOperation(
+      observer,
+      {
+        inputCount: typeof input === "string" ? 1 : input.length,
+        operation: "fetch",
+      },
+      async (operationId) => {
+        assertValidMaxConcurrency(maxConcurrency);
+        if (options.cache === "bypass") {
+          return fetchWithoutCache(
+            input,
             maxCharacters,
             maxConcurrency,
             operationId,
             signal
           );
         }
-      ),
-      signal
+        if (typeof input === "string") {
+          if (maxCharacters === undefined) {
+            return fetchSingleUrlWithCache(input, operationId, true, signal);
+          }
+
+          const [result] = await fetchMultipleUrlsWithCache(
+            [input],
+            maxCharacters,
+            maxConcurrency,
+            operationId,
+            signal
+          );
+          if (!result) {
+            throw new Error("Fetch returned no result.");
+          }
+          return result;
+        }
+
+        return fetchMultipleUrlsWithCache(
+          [...input],
+          maxCharacters,
+          maxConcurrency,
+          operationId,
+          signal
+        );
+      }
     );
   }
 
@@ -288,11 +321,14 @@ export function createFetchServiceForOperations(
     signal?: AbortSignal
   ): Promise<FetchResult | FetchResult[]> {
     emitFetchCacheBypass(operationId);
-    const results = await fetchMultipleUrls(
-      typeof input === "string" ? [input] : [...input],
-      maxCharacters,
-      maxConcurrency,
-      operationId,
+    const results = await awaitAbortable(
+      fetchMultipleUrls(
+        typeof input === "string" ? [input] : [...input],
+        maxCharacters,
+        maxConcurrency,
+        operationId,
+        signal
+      ),
       signal
     );
     if (typeof input === "string") {

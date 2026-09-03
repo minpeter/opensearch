@@ -89,8 +89,12 @@ async function fetchUrlsViaOllama(
   maxConcurrency: number,
   operationId: string
 ): Promise<FetchResult[]> {
-  const ollamaResults = await mapWithConcurrency(urls, maxConcurrency, (url) =>
-    tryFetchUrlWithOllama(url, context, operationId, true, maxCharacters)
+  const ollamaResults = await mapWithConcurrency(
+    urls,
+    maxConcurrency,
+    (url) =>
+      tryFetchUrlWithOllama(url, context, operationId, true, maxCharacters),
+    context.signal
   );
   const remainingUrls = urls.filter(
     (_url, index) => ollamaResults[index] === null
@@ -197,8 +201,11 @@ async function fetchUrlsWithoutTinyFish(
         getFailureKind(error)
       );
       if (!isFirecrawlEnabled(context.env)) {
-        return mapWithConcurrency(urls, maxConcurrency, (url) =>
-          runLocalFetch(url, context, operationId)
+        return mapWithConcurrency(
+          urls,
+          maxConcurrency,
+          (url) => runLocalFetch(url, context, operationId),
+          context.signal
         );
       }
     }
@@ -225,7 +232,10 @@ async function fetchUrlsWithoutTinyFish(
       )
     );
   }
-  return mapWithConcurrency(urls, maxConcurrency, (url) =>
-    runLocalFetch(url, context, operationId)
+  return mapWithConcurrency(
+    urls,
+    maxConcurrency,
+    (url) => runLocalFetch(url, context, operationId),
+    context.signal
   );
 }

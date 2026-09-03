@@ -90,6 +90,39 @@ describe("TtlCache", () => {
     expect(factory).toHaveBeenCalledTimes(2);
   });
 
+  it("starts a fresh generation synchronously after the last waiter aborts", async () => {
+    const cache = new TtlCache<string, string>(60_000);
+    const firstResult = Promise.withResolvers<string>();
+    const secondResult = Promise.withResolvers<string>();
+    const generations: AbortSignal[] = [];
+    const factory = vi.fn((signal: AbortSignal) => {
+      generations.push(signal);
+      return generations.length === 1
+        ? firstResult.promise
+        : secondResult.promise;
+    });
+    const controller = new AbortController();
+    const waiter = cache.createWaiter(controller.signal);
+
+    const first = cache.getOrSet("key", factory, waiter);
+    controller.abort(new Error("first caller left"));
+    const second = cache.getOrSet("key", factory);
+
+    expect(factory).toHaveBeenCalledTimes(2);
+    expect(generations[0]?.aborted).toBe(true);
+    expect(generations[1]?.aborted).toBe(false);
+
+    firstResult.resolve("old");
+    await expect(first).resolves.toBe("old");
+    const joinedSecond = cache.getOrSet("key", factory);
+    expect(factory).toHaveBeenCalledTimes(2);
+
+    secondResult.resolve("new");
+    await expect(second).resolves.toBe("new");
+    await expect(joinedSecond).resolves.toBe("new");
+    cache.releaseWaiter(waiter);
+  });
+
   it("bounds high-cardinality workloads by default", () => {
     const cache = new TtlCache<number, number>(60_000);
 

@@ -14,13 +14,16 @@ interface TtlCacheOptions {
 export interface Pending<V> {
   readonly controller: AbortController;
   readonly promise: Promise<V>;
+  readonly retire: () => void;
   readonly waiters: Set<CacheWaiter>;
 }
 
 export interface CacheWaiter {
   readonly abort: () => void;
   readonly pending: Set<Pending<unknown>>;
+  readonly release: () => void;
   readonly signal?: AbortSignal;
+  readonly waitFor: <T>(promise: Promise<T>) => Promise<T>;
 }
 
 export class TtlCache<K, V> {
@@ -80,18 +83,36 @@ export class TtlCache<K, V> {
 
   createWaiter(signal?: AbortSignal): CacheWaiter {
     const pending = new Set<Pending<unknown>>();
+    const abortResult = Promise.withResolvers<never>();
+    abortResult.promise.catch(() => undefined);
+    let active = true;
+    const depart = (reason?: unknown): void => {
+      if (!active) {
+        return;
+      }
+      active = false;
+      for (const entry of pending) {
+        entry.waiters.delete(waiter);
+        if (entry.waiters.size === 0) {
+          entry.retire();
+          entry.controller.abort(reason);
+        }
+      }
+      pending.clear();
+    };
     const waiter: CacheWaiter = {
       abort: () => {
-        for (const entry of pending) {
-          entry.waiters.delete(waiter);
-          if (entry.waiters.size === 0) {
-            entry.controller.abort(signal?.reason);
-          }
-        }
-        pending.clear();
+        const reason =
+          signal?.reason ??
+          new DOMException("The operation was aborted", "AbortError");
+        depart(reason);
+        abortResult.reject(reason);
       },
       pending,
+      release: () => depart(),
       signal,
+      waitFor: <T>(promise: Promise<T>): Promise<T> =>
+        signal ? Promise.race([promise, abortResult.promise]) : promise,
     };
     if (signal) {
       if (signal.aborted) {
@@ -104,7 +125,7 @@ export class TtlCache<K, V> {
   }
 
   releaseWaiter(waiter: CacheWaiter): void {
-    waiter.abort();
+    waiter.release();
     waiter.signal?.removeEventListener("abort", waiter.abort);
   }
 
@@ -128,20 +149,23 @@ export class TtlCache<K, V> {
         }
         return value;
       });
-      entry = { controller, promise, waiters };
-      this.pending.set(key, entry);
-      promise.then(
-        () => {
-          if (this.pending.get(key) === entry) {
+      const pendingEntry: Pending<V> = {
+        controller,
+        promise,
+        retire: () => {
+          if (this.pending.get(key) === pendingEntry) {
             this.pending.delete(key);
           }
+          for (const pendingWaiter of waiters) {
+            pendingWaiter.pending.delete(pendingEntry);
+          }
+          waiters.clear();
         },
-        () => {
-          if (this.pending.get(key) === entry) {
-            this.pending.delete(key);
-          }
-        }
-      );
+        waiters,
+      };
+      entry = pendingEntry;
+      this.pending.set(key, entry);
+      promise.then(entry.retire, entry.retire);
     }
 
     if (waiter) {

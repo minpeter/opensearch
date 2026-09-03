@@ -16,6 +16,7 @@ vi.mock("../providers/exa-mcp/client.ts", () => ({
 }));
 
 import { extractText, getDocumentProxy } from "unpdf";
+import { createLocalFetch } from "../fetch/local.ts";
 import { createMockPdfDocument, JINA_URL_REGEX } from "./fetch-test-helpers.ts";
 import { fetchUrl } from "./full-runtime.ts";
 
@@ -126,6 +127,55 @@ describe("fetchUrl Jina fallback", () => {
     expect(String(mockFetch.mock.calls[1]?.[0])).toMatch(JINA_URL_REGEX);
     expect(result.content).toBe(jinaContent);
     expect(result.length).toBe(jinaContent.length);
+  });
+
+  it("aborts sparse-content feed fallback and does not try the next candidate", async () => {
+    const controller = new AbortController();
+    const callerAbort = new Error("caller stopped sparse feed fallback");
+    const feedRequestStarted = Promise.withResolvers<void>();
+    const html = `<html><head>
+      <link rel="alternate" type="application/rss+xml" href="/first.xml">
+      <link rel="alternate" type="application/rss+xml" href="/second.xml">
+    </head><body><p>Hi</p></body></html>`;
+    const requestedUrls: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: string | URL | Request, init?: RequestInit) => {
+        const requestedUrl = String(input);
+        requestedUrls.push(requestedUrl);
+        if (requestedUrls.length === 1) {
+          return Promise.resolve(
+            new Response(html, {
+              headers: { "Content-Type": "text/html" },
+              status: 200,
+            })
+          );
+        }
+        if (requestedUrls.length === 2) {
+          return Promise.resolve(new Response("unavailable", { status: 503 }));
+        }
+        feedRequestStarted.resolve();
+        return new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener(
+            "abort",
+            () => reject(init.signal?.reason),
+            { once: true }
+          );
+        });
+      })
+    );
+    const localFetch = createLocalFetch();
+
+    const operation = localFetch(
+      "https://example.com/sparse-feed",
+      controller.signal
+    );
+    await feedRequestStarted.promise;
+    controller.abort(callerAbort);
+
+    await expect(operation).rejects.toBe(callerAbort);
+    expect(requestedUrls).toHaveLength(3);
+    expect(requestedUrls[2]).toBe("https://example.com/first.xml");
   });
 
   it("gracefully handles Jina fallback failure", async () => {

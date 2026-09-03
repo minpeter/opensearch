@@ -172,7 +172,8 @@ async function fetchUrlsDirect(
     maxCharacters,
     maxConcurrency,
     callContext,
-    operationId
+    operationId,
+    signal
   );
   const resultsByUrl = new Map<string, FetchResult>();
 
@@ -208,12 +209,16 @@ async function fetchUniqueUrlsDirect(
 
   // Phase 0 (parity with single fetch): route official-API URLs first, send the
   // rest through the provider batch, then reassemble in the original order.
-  const apiResults = await mapWithConcurrency(urls, maxConcurrency, (url) =>
-    observeProviderAttempt(
-      context.observer,
-      { operation: "fetch", operationId, provider: "public-api" },
-      () => fetchViaPublicApi(url, signal)
-    )
+  const apiResults = await mapWithConcurrency(
+    urls,
+    maxConcurrency,
+    (url) =>
+      observeProviderAttempt(
+        context.observer,
+        { operation: "fetch", operationId, provider: "public-api" },
+        () => fetchViaPublicApi(url, signal)
+      ),
+    signal
   );
   const remaining = urls.filter((_url, index) => apiResults[index] === null);
   if (remaining.length > 0) {

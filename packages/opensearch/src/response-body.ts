@@ -87,6 +87,9 @@ export async function readResponseBytes(
     reader.cancel(signal?.reason).catch(() => undefined);
   };
   signal?.addEventListener("abort", abort, { once: true });
+  if (signal?.aborted) {
+    abort();
+  }
   try {
     // biome-ignore lint/suspicious/noUnnecessaryConditions: stream completion is determined by each read result
     while (true) {

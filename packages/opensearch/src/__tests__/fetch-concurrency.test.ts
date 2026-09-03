@@ -184,6 +184,43 @@ describe("fetch batch concurrency", () => {
     );
   });
 
+  it("aborts the active public transport and does not start queued public requests", async () => {
+    const controller = new AbortController();
+    const callerAbort = new Error("caller stopped public batch");
+    const requestStarted = Promise.withResolvers<void>();
+    const startedUrls: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: string | URL | Request, init?: RequestInit) => {
+        startedUrls.push(String(input));
+        requestStarted.resolve();
+        return new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener(
+            "abort",
+            () => reject(init.signal?.reason),
+            { once: true }
+          );
+        });
+      })
+    );
+    const client = createOpenSearch({
+      env: { OPENSEARCH_ENABLE_FIRECRAWL: "false" },
+    });
+
+    const operation = client.fetch(
+      [
+        "https://news.ycombinator.com/item?id=1",
+        "https://news.ycombinator.com/item?id=2",
+      ],
+      { maxConcurrency: 1, signal: controller.signal }
+    );
+    await requestStarted.promise;
+    controller.abort(callerAbort);
+
+    await expect(operation).rejects.toBe(callerAbort);
+    expect(startedUrls).toHaveLength(1);
+  });
+
   it("does not start a queued third item after both workers are aborted", async () => {
     const controller = new AbortController();
     const callerAbort = new Error("caller stopped batch");
