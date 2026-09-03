@@ -1,17 +1,24 @@
 import type { FetchResult } from "../result.ts";
 
 export interface PublicApiRoute {
-  readonly fetch: (url: URL) => Promise<FetchResult | null>;
+  readonly fetch: (
+    url: URL,
+    signal?: AbortSignal
+  ) => Promise<FetchResult | null>;
   readonly match: (url: URL) => boolean;
   readonly name: string;
 }
 
-export type PublicApiRouter = (rawUrl: string) => Promise<FetchResult | null>;
+export type PublicApiRouter = (
+  rawUrl: string,
+  signal?: AbortSignal
+) => Promise<FetchResult | null>;
 
 export function createPublicApiRouter(
   routes: readonly PublicApiRoute[]
 ): PublicApiRouter {
-  return (rawUrl) => {
+  return (rawUrl, signal) => {
+    signal?.throwIfAborted();
     let url: URL;
     try {
       url = new URL(rawUrl);
@@ -21,7 +28,7 @@ export function createPublicApiRouter(
 
     for (const route of routes) {
       if (route.match(url)) {
-        return route.fetch(url);
+        return route.fetch(url, signal);
       }
     }
 

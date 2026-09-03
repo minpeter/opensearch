@@ -12,17 +12,24 @@ export function createExaMcpSearchProvider(
 ): SearchProvider {
   return {
     name: "Exa",
-    async search(query: string, numResults: number) {
+    async search(query: string, numResults: number, signal?: AbortSignal) {
       try {
-        const results =
-          env === processEnvironmentReader
-            ? await searchExaMcp(query, numResults)
-            : await searchExaMcp(query, numResults, env);
+        let results: Awaited<ReturnType<typeof searchExaMcp>>;
+        if (signal) {
+          results = await searchExaMcp(query, numResults, env, signal);
+        } else if (env === processEnvironmentReader) {
+          results = await searchExaMcp(query, numResults);
+        } else {
+          results = await searchExaMcp(query, numResults, env);
+        }
         if (results.length === 0) {
           throw new SearchEngineError("Exa", "no-results", "No Results");
         }
         return attachEngine("Exa", results);
       } catch (error) {
+        if (signal?.aborted) {
+          throw signal.reason;
+        }
         if (error instanceof SearchEngineError) {
           throw error;
         }

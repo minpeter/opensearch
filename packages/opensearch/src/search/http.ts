@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { throwIfAborted, withAbortSignal } from "../abort.ts";
 import { cancelResponseBody, readResponseText } from "../response-body.ts";
 import { getRandomUserAgent } from "../user-agents.ts";
 import { SearchEngineError } from "./errors.ts";
@@ -71,49 +72,46 @@ export async function fetchSearchText({
   engine,
   init,
   url,
+  signal,
 }: {
   readonly authFailureStatuses?: ReadonlySet<number>;
   readonly engine: SearchEngineName;
   readonly init: RequestInit;
   readonly url: string;
+  readonly signal?: AbortSignal;
 }): Promise<string> {
-  let response: Response;
-
   try {
-    response = await fetch(url, {
-      ...init,
-      redirect: init.redirect ?? "manual",
-    });
+    return await withAbortSignal(
+      signal,
+      REQUEST_TIMEOUT_MS,
+      async (requestSignal) => {
+        const response = await fetch(url, {
+          ...init,
+          redirect: init.redirect ?? "manual",
+          signal: requestSignal,
+        });
+        if (!response.ok) {
+          await cancelResponseBody(response);
+          throw new SearchEngineError(
+            engine,
+            classifyApiStatusFailure(response.status, authFailureStatuses),
+            `${engine} fetch failed with status ${response.status}`,
+            { status: response.status }
+          );
+        }
+        return readResponseText(response, undefined, requestSignal);
+      }
+    );
   } catch (error) {
+    throwIfAborted(signal);
+    if (error instanceof SearchEngineError) {
+      throw error;
+    }
     // biome-ignore lint/style/useErrorCause: SearchEngineError receives the original cause in its fourth argument
     throw new SearchEngineError(
       engine,
       "transient",
       `${engine} fetch failed: ${error instanceof Error ? error.message : String(error)}`,
-      { cause: error }
-    );
-  }
-
-  if (!response.ok) {
-    await cancelResponseBody(response);
-    throw new SearchEngineError(
-      engine,
-      classifyApiStatusFailure(response.status, authFailureStatuses),
-      `${engine} fetch failed with status ${response.status}`,
-      { status: response.status }
-    );
-  }
-
-  try {
-    return await readResponseText(response);
-  } catch (error) {
-    // biome-ignore lint/style/useErrorCause: SearchEngineError receives the original cause in its fourth argument
-    throw new SearchEngineError(
-      engine,
-      "transient",
-      `${engine} response body could not be read: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
       { cause: error }
     );
   }

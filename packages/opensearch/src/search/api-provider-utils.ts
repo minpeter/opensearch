@@ -3,6 +3,7 @@ import {
   type EnvironmentReader,
   processEnvironmentReader,
 } from "../environment.ts";
+import { composeAbortSignal } from "../providers/shared/abort.ts";
 import {
   createBasicAuthHeader as createSharedBasicAuthHeader,
   getBaseUrl as getSharedBaseUrl,
@@ -59,7 +60,7 @@ export function createJsonSearchProvider(
 ): SearchProvider {
   return {
     name: spec.name,
-    async search(query: string, numResults: number) {
+    async search(query: string, numResults: number, signal?: AbortSignal) {
       try {
         const request = spec.buildRequest(query, numResults);
         const responseBody = await fetchSearchText({
@@ -78,8 +79,9 @@ export function createJsonSearchProvider(
             },
             method: request.method,
             redirect: "manual",
-            signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+            signal: composeAbortSignal(signal, REQUEST_TIMEOUT_MS),
           },
+          signal,
           url: request.url,
         });
         const results = dedupeResults(
@@ -92,6 +94,7 @@ export function createJsonSearchProvider(
 
         return attachEngine(spec.name, results);
       } catch (error) {
+        signal?.throwIfAborted();
         if (error instanceof SearchEngineError) {
           throw error;
         }

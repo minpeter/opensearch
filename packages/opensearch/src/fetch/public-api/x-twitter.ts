@@ -38,7 +38,10 @@ function result(url: string, title: string, content: string): FetchResult {
   return createFetchResult(url, content, title);
 }
 
-async function fetchXTwitter(url: URL): Promise<FetchResult | null> {
+async function fetchXTwitter(
+  url: URL,
+  signal?: AbortSignal
+): Promise<FetchResult | null> {
   const match = url.pathname.match(STATUS_PATH_REGEX);
   if (!match) {
     return null;
@@ -48,7 +51,7 @@ async function fetchXTwitter(url: URL): Promise<FetchResult | null> {
   const tweetUrl = `https://x.com/${user}/status/${statusId}`;
   const endpoint = new URL("https://publish.twitter.com/oembed");
   endpoint.searchParams.set("url", tweetUrl);
-  const json = await getJson(endpoint.toString());
+  const json = await getJson(endpoint.toString(), signal);
   const parsed = oembedSchema.safeParse(json);
   if (!parsed.success) {
     return null;

@@ -61,6 +61,23 @@ describe("Parallel MCP transport options", () => {
     expect(init.headers).toBeUndefined();
   });
 
+  it("preserves the caller signal in SDK fetch calls", async () => {
+    const controller = new AbortController();
+    const fetchSpy = vi
+      .fn()
+      .mockResolvedValue(new Response("", { status: 405 }));
+    vi.stubGlobal("fetch", fetchSpy);
+
+    await fetchParallelMcp("https://search.parallel.ai/mcp", {
+      signal: controller.signal,
+    });
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "https://search.parallel.ai/mcp",
+      expect.objectContaining({ signal: controller.signal })
+    );
+  });
+
   it("forces manual redirects for SDK fetch calls that omit requestInit", async () => {
     const fetchSpy = vi
       .fn()

@@ -16,7 +16,10 @@ import { getHttpStatus } from "../providers/shared/error.ts";
 import type { TinyFishApiKeyPool } from "../providers/tinyfish/api-key-pool.ts";
 import type { FetchResult } from "./result.ts";
 
-export type LocalFetch = (url: string) => Promise<FetchResult>;
+export type LocalFetch = (
+  url: string,
+  signal?: AbortSignal
+) => Promise<FetchResult>;
 export type FetchUrlValidator = (url: string) => void;
 
 export interface ExaMcpFetchBatchResult {
@@ -29,11 +32,13 @@ export interface ExaMcpFetchProvider {
   fetchBatch: (
     urls: string[],
     maxCharacters: number,
-    env: EnvironmentReader
+    env: EnvironmentReader,
+    signal?: AbortSignal
   ) => Promise<readonly ExaMcpFetchBatchResult[]>;
   fetchUrl: (
     url: string,
-    env: EnvironmentReader
+    env: EnvironmentReader,
+    signal?: AbortSignal
   ) => Promise<FetchResult | null>;
   isEnabled: (env: EnvironmentReader) => boolean;
 }
@@ -44,6 +49,7 @@ export interface FetchPipelineContext {
   readonly exaMcpFetchProvider?: ExaMcpFetchProvider;
   readonly localFetch?: LocalFetch;
   readonly observer: OpenSearchObserver;
+  readonly signal?: AbortSignal;
   readonly tinyFishApiKeyPool: TinyFishApiKeyPool;
   readonly validateUrl?: FetchUrlValidator;
 }
@@ -126,7 +132,11 @@ export function firstProviderAfterOllama(
   return firstConfiguredFetchProvider(context);
 }
 
-export function assertFallbackAllowed(error: unknown): asserts error is Error {
+export function assertFallbackAllowed(
+  error: unknown,
+  signal?: AbortSignal
+): asserts error is Error {
+  signal?.throwIfAborted();
   if (!(error instanceof Error) || getHttpStatus(error) === 451) {
     throw error;
   }

@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import type { TinyFishApiKeyPool } from "./api-key-pool.ts";
-import { requestTinyFishJson, TINYFISH_TIMEOUT_MS } from "./http.ts";
+import { requestTinyFishJson } from "./http.ts";
 
 const TINYFISH_SEARCH_ENDPOINT = "https://api.search.tinyfish.ai";
 
@@ -23,7 +23,8 @@ export interface TinyFishSearchResult {
 
 export async function searchTinyFish(
   query: string,
-  apiKeyPool?: TinyFishApiKeyPool
+  apiKeyPool?: TinyFishApiKeyPool,
+  signal?: AbortSignal
 ): Promise<TinyFishSearchResult[]> {
   const url = new URL(TINYFISH_SEARCH_ENDPOINT);
   url.searchParams.set("query", query);
@@ -33,13 +34,13 @@ export async function searchTinyFish(
 
   const response = await requestTinyFishJson(
     "search",
-    (apiKey) =>
+    (apiKey, requestSignal) =>
       fetch(url.toString(), {
         headers: { "X-API-Key": apiKey },
         method: "GET",
-        signal: AbortSignal.timeout(TINYFISH_TIMEOUT_MS),
+        signal: requestSignal,
       }),
-    apiKeyPool
+    { apiKeyPool, signal }
   );
   const parsed = tinyFishSearchResponseSchema.parse(response);
 

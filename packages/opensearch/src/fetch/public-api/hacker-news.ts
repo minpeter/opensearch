@@ -47,10 +47,13 @@ const HN_LIST_ROUTES = {
 
 type HnListPath = keyof typeof HN_LIST_ROUTES;
 
-async function fetchHackerNews(url: URL): Promise<FetchResult | null> {
+async function fetchHackerNews(
+  url: URL,
+  signal?: AbortSignal
+): Promise<FetchResult | null> {
   const listRoute = HN_LIST_ROUTES[url.pathname as HnListPath];
   if (listRoute) {
-    return fetchHackerNewsList(url, listRoute);
+    return fetchHackerNewsList(url, listRoute, signal);
   }
 
   const id = url.searchParams.get("id");
@@ -58,7 +61,8 @@ async function fetchHackerNews(url: URL): Promise<FetchResult | null> {
     return null;
   }
   const json = await getJson(
-    `https://hacker-news.firebaseio.com/v0/item/${Number.parseInt(id, HN_ID_RADIX)}.json`
+    `https://hacker-news.firebaseio.com/v0/item/${Number.parseInt(id, HN_ID_RADIX)}.json`,
+    signal
   );
   const parsed = hnItemSchema.safeParse(json);
   if (!parsed.success) {
@@ -83,10 +87,12 @@ async function fetchHackerNews(url: URL): Promise<FetchResult | null> {
 
 async function fetchHackerNewsList(
   url: URL,
-  route: (typeof HN_LIST_ROUTES)[HnListPath]
+  route: (typeof HN_LIST_ROUTES)[HnListPath],
+  signal?: AbortSignal
 ): Promise<FetchResult | null> {
   const idsJson = await getJson(
-    `https://hacker-news.firebaseio.com/v0/${route.endpoint}.json?limitToFirst=${MAX_HN_STORIES}&orderBy=%22%24key%22`
+    `https://hacker-news.firebaseio.com/v0/${route.endpoint}.json?limitToFirst=${MAX_HN_STORIES}&orderBy=%22%24key%22`,
+    signal
   );
   const ids = hnStoryIdsSchema.safeParse(idsJson);
   if (!(ids.success && ids.data.length > 0)) {
@@ -97,7 +103,7 @@ async function fetchHackerNewsList(
     ids.data
       .slice(0, MAX_HN_STORIES)
       .map((id) =>
-        getJson(`https://hacker-news.firebaseio.com/v0/item/${id}.json`)
+        getJson(`https://hacker-news.firebaseio.com/v0/item/${id}.json`, signal)
       )
   );
   const entries = items

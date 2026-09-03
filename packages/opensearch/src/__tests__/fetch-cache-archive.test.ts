@@ -105,6 +105,29 @@ describe("fetchArchiveFallback", () => {
     );
   });
 
+  it("does not try the next candidate after caller abort", async () => {
+    const controller = new AbortController();
+    const reason = new DOMException("caller stopped", "AbortError");
+    const fetcher = vi.fn(
+      (_url: string, signal?: AbortSignal) =>
+        new Promise<Response>((_resolve, reject) => {
+          signal?.addEventListener("abort", () => reject(signal.reason), {
+            once: true,
+          });
+        })
+    );
+
+    const fetching = fetchArchiveFallback(
+      "https://example.com/a",
+      fetcher,
+      controller.signal
+    );
+    controller.abort(reason);
+
+    await expect(fetching).rejects.toBe(reason);
+    expect(fetcher).toHaveBeenCalledOnce();
+  });
+
   it("returns null when all candidates fail", async () => {
     vi.stubGlobal(
       "fetch",

@@ -26,6 +26,7 @@ export interface JinaReaderOptions {
   readonly maxResponseBytes?: number;
   readonly mode?: JinaReaderMode;
   readonly noCache?: boolean;
+  readonly signal?: AbortSignal;
   readonly targetSelector?: string;
   readonly timeoutMs?: number;
   readonly withLinks?: boolean;
@@ -152,10 +153,16 @@ export async function fetchJinaReader(
   options: JinaReaderOptions = {}
 ): Promise<JinaReaderResult | null> {
   const mode = options.mode ?? "text";
+  options.signal?.throwIfAborted();
   try {
     const response = await fetch(readerUrl(url), {
       headers: buildHeaders(options),
-      signal: AbortSignal.timeout(options.timeoutMs ?? JINA_TIMEOUT_MS),
+      signal: options.signal
+        ? AbortSignal.any([
+            options.signal,
+            AbortSignal.timeout(options.timeoutMs ?? JINA_TIMEOUT_MS),
+          ])
+        : AbortSignal.timeout(options.timeoutMs ?? JINA_TIMEOUT_MS),
     });
     if (!response.ok) {
       await cancelResponseBody(response);
@@ -163,10 +170,12 @@ export async function fetchJinaReader(
     }
     const text = await readResponseText(
       response,
-      options.maxResponseBytes ?? DEFAULT_MAX_DOWNLOAD_BYTES
+      options.maxResponseBytes ?? DEFAULT_MAX_DOWNLOAD_BYTES,
+      options.signal
     );
     return mode === "json" ? resultFromJson(text) : resultFromText(text, mode);
   } catch (error) {
+    options.signal?.throwIfAborted();
     if (error instanceof ResponseSizeLimitError) {
       throw error;
     }

@@ -103,10 +103,13 @@ function buildSubredditMarkdown(
   return entries.length > 0 ? `## ${heading}\n\n${entries.join("\n")}` : "";
 }
 
-async function fetchReddit(url: URL): Promise<FetchResult | null> {
+async function fetchReddit(
+  url: URL,
+  signal?: AbortSignal
+): Promise<FetchResult | null> {
   const listing = listingRequest(url);
   if (listing) {
-    const json = await getJson(listing.apiUrl);
+    const json = await getJson(listing.apiUrl, signal);
     const parsed = redditSubredditListingSchema.safeParse(json);
     if (!parsed.success) {
       return null;
@@ -116,7 +119,7 @@ async function fetchReddit(url: URL): Promise<FetchResult | null> {
   }
 
   const path = url.pathname.replace(TRAILING_SLASH_REGEX, "");
-  const json = await getJson(`https://www.reddit.com${path}.json`);
+  const json = await getJson(`https://www.reddit.com${path}.json`, signal);
   const parsed = redditListingSchema.safeParse(json);
   if (!parsed.success) {
     return null;

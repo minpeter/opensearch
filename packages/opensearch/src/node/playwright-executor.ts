@@ -42,6 +42,7 @@ export async function fetchViaPlaywrightFallback(
   url: string,
   options: PlaywrightFallbackOptions = {}
 ): Promise<PlaywrightFallbackResult> {
+  options.signal?.throwIfAborted();
   if (!(options.enabled ?? playwrightFallbackEnabled())) {
     return unavailableTrace(url, "playwright fallback disabled");
   }
@@ -58,42 +59,104 @@ export async function fetchViaPlaywrightFallback(
   const startedAt = Date.now();
   let context: BrowserContext | undefined;
   let blockedRequestError: unknown;
+  let cleanupRequested = false;
+  let cleanupPromise = Promise.resolve();
+  let contextCleaned = false;
+  let launchPending = false;
+  let profileCleaned = false;
   let temporaryProfileDir: string | undefined;
+  const cleanupOnce = (): Promise<void> => {
+    cleanupRequested = true;
+    cleanupPromise = cleanupPromise.then(async () => {
+      if (context && !contextCleaned) {
+        contextCleaned = true;
+        await cleanupPlaywrightContext(context, undefined);
+      }
+      if (temporaryProfileDir && !launchPending && !profileCleaned) {
+        profileCleaned = true;
+        await cleanupPlaywrightContext(undefined, temporaryProfileDir);
+      }
+    });
+    return cleanupPromise;
+  };
+  const aborted = Promise.withResolvers<never>();
+  const abort = (): void => {
+    aborted.reject(options.signal?.reason);
+    cleanupOnce().catch(() => undefined);
+  };
+  const awaitWithAbort = <T>(operation: Promise<T>): Promise<T> =>
+    Promise.race([operation, aborted.promise]);
+  options.signal?.addEventListener("abort", abort, { once: true });
+  if (options.signal?.aborted) {
+    abort();
+  }
   try {
     options.validateUrl?.(url);
-    const playwright = await (options.loader ?? defaultPlaywrightLoader)();
+    const playwright = await awaitWithAbort(
+      (options.loader ?? defaultPlaywrightLoader)()
+    );
     const launchOptions = buildLaunchOptions(playwright, executor, options);
-    const profile = await preparePlaywrightProfile(options.profileDir);
+    const profilePromise = preparePlaywrightProfile(options.profileDir);
+    profilePromise
+      .then((preparedProfile) => {
+        temporaryProfileDir = preparedProfile.temporaryPath;
+        return cleanupRequested ? cleanupOnce() : undefined;
+      })
+      .catch(() => undefined);
+    const profile = await awaitWithAbort(profilePromise);
     temporaryProfileDir = profile.temporaryPath;
-    context = await playwright.chromium.launchPersistentContext(
+    options.signal?.throwIfAborted();
+    launchPending = true;
+    const launchPromise = playwright.chromium.launchPersistentContext(
       profile.path,
       launchOptions
     );
-    if (options.validateUrl) {
-      await context.route("**/*", async (route, request) => {
-        try {
-          const requestUrl = request.url();
-          if (isNetworkBrowserRequest(requestUrl)) {
-            options.validateUrl?.(requestUrl);
-          }
-          await route.continue();
-        } catch (error) {
-          blockedRequestError = error;
-          await route.abort("blockedbyclient");
+    launchPromise
+      .then(
+        (launchedContext) => {
+          context = launchedContext;
+          launchPending = false;
+          return cleanupRequested ? cleanupOnce() : undefined;
+        },
+        () => {
+          launchPending = false;
+          return cleanupRequested ? cleanupOnce() : undefined;
         }
-      });
+      )
+      .catch(() => undefined);
+    context = await awaitWithAbort(launchPromise);
+    options.signal?.throwIfAborted();
+    if (options.validateUrl) {
+      await awaitWithAbort(
+        context.route("**/*", async (route, request) => {
+          try {
+            const requestUrl = request.url();
+            if (isNetworkBrowserRequest(requestUrl)) {
+              options.validateUrl?.(requestUrl);
+            }
+            await route.continue();
+          } catch (error) {
+            blockedRequestError = error;
+            await route.abort("blockedbyclient");
+          }
+        })
+      );
     }
-    const page = await context.newPage();
+    const page = await awaitWithAbort(context.newPage());
     const timeout = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-    await page.goto(url, { timeout, waitUntil: "domcontentloaded" });
+    await awaitWithAbort(
+      page.goto(url, { timeout, waitUntil: "domcontentloaded" })
+    );
     if (blockedRequestError) {
       throw blockedRequestError;
     }
     const selector = options.waitSelector ?? options.successSelectors?.[0];
     if (selector) {
-      await page.waitForSelector(selector, { state: "attached", timeout });
+      await awaitWithAbort(
+        page.waitForSelector(selector, { state: "attached", timeout })
+      );
     }
-    const body = await page.content();
+    const body = await awaitWithAbort(page.content());
     assertTextByteLimit(
       body,
       options.maxResponseBytes ?? DEFAULT_MAX_DOWNLOAD_BYTES
@@ -120,8 +183,13 @@ export async function fetchViaPlaywrightFallback(
           trace: [trace],
           verdict: validation.verdict,
         }
-      : { summary: trace.summary, trace: [trace], verdict: validation.verdict };
+      : {
+          summary: trace.summary,
+          trace: [trace],
+          verdict: validation.verdict,
+        };
   } catch (error) {
+    options.signal?.throwIfAborted();
     const effectiveError = blockedRequestError ?? error;
     if (
       effectiveError instanceof ResponseSizeLimitError ||
@@ -141,7 +209,8 @@ export async function fetchViaPlaywrightFallback(
       verdict: "unknown",
     };
   } finally {
-    await cleanupPlaywrightContext(context, temporaryProfileDir);
+    options.signal?.removeEventListener("abort", abort);
+    await cleanupOnce();
   }
 }
 

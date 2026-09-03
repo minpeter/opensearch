@@ -14,7 +14,10 @@ const WAYBACK_AVAILABLE_ENDPOINT = "https://archive.org/wayback/available";
 const WAYBACK_CDX_ENDPOINT = "https://web.archive.org/cdx/search/cdx";
 
 type ArchiveCandidateType = "archive" | "cache";
-export type ArchiveFetcher = (url: string) => Promise<Response>;
+export type ArchiveFetcher = (
+  url: string,
+  signal?: AbortSignal
+) => Promise<Response>;
 
 export interface ArchiveCandidate {
   readonly name: string;
@@ -118,18 +121,19 @@ export function staticArchiveCandidates(rawUrl: string): ArchiveCandidate[] {
 
 async function waybackAvailableCandidate(
   rawUrl: string,
-  fetcher: ArchiveFetcher
+  fetcher: ArchiveFetcher,
+  signal?: AbortSignal
 ): Promise<ArchiveCandidate | null> {
   const endpoint = waybackAvailabilityUrl(rawUrl);
   if (!endpoint) {
     return null;
   }
-  const response = await fetcher(endpoint);
+  const response = await fetcher(endpoint, signal);
   if (!response?.ok) {
     await response?.body?.cancel();
     return null;
   }
-  const payload = await readArchiveJson(response);
+  const payload = await readArchiveJson(response, signal);
   if (payload === null) {
     return null;
   }
@@ -149,18 +153,19 @@ async function waybackAvailableCandidate(
 
 async function waybackCdxCandidate(
   rawUrl: string,
-  fetcher: ArchiveFetcher
+  fetcher: ArchiveFetcher,
+  signal?: AbortSignal
 ): Promise<ArchiveCandidate | null> {
   const endpoint = waybackCdxUrl(rawUrl);
   if (!endpoint) {
     return null;
   }
-  const response = await fetcher(endpoint);
+  const response = await fetcher(endpoint, signal);
   if (!response?.ok) {
     await response?.body?.cancel();
     return null;
   }
-  const payload = await readArchiveJson(response);
+  const payload = await readArchiveJson(response, signal);
   if (payload === null) {
     return null;
   }
@@ -180,27 +185,34 @@ async function waybackCdxCandidate(
   );
 }
 
-async function readArchiveJson(response: Response): Promise<unknown | null> {
+async function readArchiveJson(
+  response: Response,
+  signal?: AbortSignal
+): Promise<unknown | null> {
   try {
-    return await readResponseJson(response);
+    return await readResponseJson(response, undefined, signal);
   } catch {
+    signal?.throwIfAborted();
     return null;
   }
 }
 
 export async function dynamicArchiveCandidates(
   rawUrl: string,
-  fetcher: ArchiveFetcher
+  fetcher: ArchiveFetcher,
+  signal?: AbortSignal
 ): Promise<ArchiveCandidate[]> {
   const out: ArchiveCandidate[] = [];
-  const available = await resolveOptionalArchiveCandidate(() =>
-    waybackAvailableCandidate(rawUrl, fetcher)
+  const available = await resolveOptionalArchiveCandidate(
+    () => waybackAvailableCandidate(rawUrl, fetcher, signal),
+    signal
   );
   if (available) {
     out.push(available);
   }
-  const cdx = await resolveOptionalArchiveCandidate(() =>
-    waybackCdxCandidate(rawUrl, fetcher)
+  const cdx = await resolveOptionalArchiveCandidate(
+    () => waybackCdxCandidate(rawUrl, fetcher, signal),
+    signal
   );
   if (cdx) {
     out.push(cdx);
@@ -209,11 +221,13 @@ export async function dynamicArchiveCandidates(
 }
 
 async function resolveOptionalArchiveCandidate(
-  resolve: () => Promise<ArchiveCandidate | null>
+  resolve: () => Promise<ArchiveCandidate | null>,
+  signal?: AbortSignal
 ): Promise<ArchiveCandidate | null> {
   try {
     return await resolve();
   } catch (error) {
+    signal?.throwIfAborted();
     if (!(error instanceof Error)) {
       throw error;
     }
@@ -223,11 +237,13 @@ async function resolveOptionalArchiveCandidate(
 
 export async function archiveCandidates(
   rawUrl: string,
-  fetcher: ArchiveFetcher = fetch
+  fetcher: ArchiveFetcher = (url, requestSignal) =>
+    fetch(url, { signal: requestSignal }),
+  signal?: AbortSignal
 ): Promise<ArchiveCandidate[]> {
   const candidates = [
     ...staticArchiveCandidates(rawUrl),
-    ...(await dynamicArchiveCandidates(rawUrl, fetcher)),
+    ...(await dynamicArchiveCandidates(rawUrl, fetcher, signal)),
   ];
   const seen = new Set<string>();
   return candidates.filter((candidate) => {

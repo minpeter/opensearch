@@ -40,11 +40,13 @@ export interface ExaMcpFetchResult {
 export function searchExaMcp(
   query: string,
   numResults: number,
-  env: EnvironmentReader = processEnvironmentReader
+  env: EnvironmentReader = processEnvironmentReader,
+  signal?: AbortSignal
 ): Promise<ExaMcpSearchResult[]> {
   return withExaMcpClient(
     [DEFAULT_EXA_MCP_SEARCH_TOOL],
     env,
+    signal,
     async ({ client }) => {
       const response = await client.callTool({
         arguments: {
@@ -67,9 +69,10 @@ export function searchExaMcp(
 
 export async function fetchExaMcp(
   url: string,
-  env: EnvironmentReader = processEnvironmentReader
+  env: EnvironmentReader = processEnvironmentReader,
+  signal?: AbortSignal
 ): Promise<ExaMcpFetchResult> {
-  const [result] = await fetchExaMcpBatch([url], undefined, env);
+  const [result] = await fetchExaMcpBatch([url], undefined, env, signal);
 
   if (!result) {
     throw new Error("Exa MCP fetch returned an unexpected response shape");
@@ -81,11 +84,13 @@ export async function fetchExaMcp(
 export function fetchExaMcpBatch(
   urls: string[],
   maxCharacters = EXA_MCP_FETCH_MAX_CHARACTERS,
-  env: EnvironmentReader = processEnvironmentReader
+  env: EnvironmentReader = processEnvironmentReader,
+  signal?: AbortSignal
 ): Promise<ExaMcpFetchResult[]> {
   return withExaMcpClient(
     [DEFAULT_EXA_MCP_FETCH_TOOL],
     env,
+    signal,
     async ({ client }) => {
       const response = await client.callTool({
         arguments: {
@@ -115,6 +120,7 @@ export function fetchExaMcpBatch(
 async function withExaMcpClient<T>(
   enabledTools: string[],
   env: EnvironmentReader,
+  signal: AbortSignal | undefined,
   run: (context: { client: Client }) => Promise<T>
 ): Promise<T> {
   const client = new Client(
@@ -129,7 +135,9 @@ async function withExaMcpClient<T>(
     {
       fetch: fetchExaMcpTransport,
       requestInit: {
-        signal: AbortSignal.timeout(EXA_MCP_TIMEOUT_MS),
+        signal: signal
+          ? AbortSignal.any([signal, AbortSignal.timeout(EXA_MCP_TIMEOUT_MS)])
+          : AbortSignal.timeout(EXA_MCP_TIMEOUT_MS),
       },
     }
   );

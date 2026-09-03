@@ -19,6 +19,7 @@ import {
 import { createFetchUrlValidator } from "./node/network-policy.ts";
 import { getNodeSearchProviders } from "./search/node-providers.ts";
 import type { SearchResult } from "./search/types.ts";
+import type { SearchCallOptions } from "./search.ts";
 import { createSearchService } from "./search.ts";
 
 export type {
@@ -56,6 +57,7 @@ export type {
   SearchProvider,
   SearchResult,
 } from "./search/types.ts";
+export type { SearchCallOptions } from "./search.ts";
 export {
   SEARCH_ENGINE_NAMES,
   searchResultSchema,
@@ -100,9 +102,10 @@ export function fetch(
 
 export function search(
   query: string,
-  maxResults?: number
+  maxResults?: number,
+  options?: SearchCallOptions
 ): Promise<SearchResult[]> {
-  return nodeSearchService.searchWithRetryAndCache(query, maxResults);
+  return nodeSearchService.searchWithRetryAndCache(query, maxResults, options);
 }
 
 export function searchStream(

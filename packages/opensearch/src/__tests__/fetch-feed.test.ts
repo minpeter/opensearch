@@ -87,6 +87,36 @@ describe("feed parsing and discovery", () => {
     expect(result?.title).toBe("Example Atom");
   });
 
+  it("passes caller abort to the default feed request and stops discovery", async () => {
+    const controller = new AbortController();
+    const callerAbort = new Error("caller stopped feed discovery");
+    const requestStarted = Promise.withResolvers<void>();
+    const mockFetch = vi.fn(
+      (_input: string | URL | Request, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          requestStarted.resolve();
+          init?.signal?.addEventListener(
+            "abort",
+            () => reject(init.signal?.reason),
+            { once: true }
+          );
+        })
+    );
+    vi.stubGlobal("fetch", mockFetch);
+
+    const operation = fetchDiscoveredFeed("https://example.com/post", {
+      html: `<link rel="alternate" type="application/rss+xml" href="/first.xml">
+        <link rel="alternate" type="application/rss+xml" href="/second.xml">`,
+      includeTransforms: false,
+      signal: controller.signal,
+    });
+    await requestStarted.promise;
+    controller.abort(callerAbort);
+
+    await expect(operation).rejects.toBe(callerAbort);
+    expect(mockFetch).toHaveBeenCalledOnce();
+  });
+
   it("cancels non-success response bodies before trying another feed", async () => {
     const cancel = vi.fn();
     const body = new ReadableStream({ cancel });

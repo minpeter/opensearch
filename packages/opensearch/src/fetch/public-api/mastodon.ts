@@ -52,7 +52,10 @@ function result(url: string, title: string, content: string): FetchResult {
   return createFetchResult(url, content, title);
 }
 
-async function fetchMastodon(url: URL): Promise<FetchResult | null> {
+async function fetchMastodon(
+  url: URL,
+  signal?: AbortSignal
+): Promise<FetchResult | null> {
   const match = url.pathname.match(PROFILE_PATH_REGEX);
   if (!match) {
     return null;
@@ -67,7 +70,7 @@ async function fetchMastodon(url: URL): Promise<FetchResult | null> {
   );
   lookupEndpoint.searchParams.set("acct", username);
   const accountParsed = accountSchema.safeParse(
-    await getJson(lookupEndpoint.toString())
+    await getJson(lookupEndpoint.toString(), signal)
   );
   if (!accountParsed.success) {
     return null;
@@ -78,7 +81,7 @@ async function fetchMastodon(url: URL): Promise<FetchResult | null> {
   );
   statusesEndpoint.searchParams.set("limit", String(STATUS_LIMIT));
   const statusesParsed = statusesSchema.safeParse(
-    await getJson(statusesEndpoint.toString())
+    await getJson(statusesEndpoint.toString(), signal)
   );
   if (!statusesParsed.success) {
     return null;

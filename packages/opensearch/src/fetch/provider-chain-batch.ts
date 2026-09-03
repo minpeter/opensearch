@@ -89,8 +89,12 @@ async function fetchUrlsViaOllama(
   maxConcurrency: number,
   operationId: string
 ): Promise<FetchResult[]> {
-  const ollamaResults = await mapWithConcurrency(urls, maxConcurrency, (url) =>
-    tryFetchUrlWithOllama(url, context, operationId, true, maxCharacters)
+  const ollamaResults = await mapWithConcurrency(
+    urls,
+    maxConcurrency,
+    (url) =>
+      tryFetchUrlWithOllama(url, context, operationId, true, maxCharacters),
+    context.signal
   );
   const remainingUrls = urls.filter(
     (_url, index) => ollamaResults[index] === null
@@ -137,7 +141,8 @@ async function fetchUrlsViaTinyFish(
       async () => {
         const results = await fetchTinyFishUrls(
           urls,
-          context.tinyFishApiKeyPool
+          context.tinyFishApiKeyPool,
+          context.signal
         );
         return urls.map((url, index) => {
           const result = results[index];
@@ -151,7 +156,7 @@ async function fetchUrlsViaTinyFish(
       }
     );
   } catch (error) {
-    assertFallbackAllowed(error);
+    assertFallbackAllowed(error, context.signal);
     emitFetchFallback(
       context,
       operationId,
@@ -179,10 +184,15 @@ async function fetchUrlsWithoutTinyFish(
   if (context.exaApiKeyPool.hasApiKeys()) {
     try {
       return await observeFetchProvider(context, operationId, "exa-api", () =>
-        fetchExaApiBatchWithPool(urls, maxCharacters, context.exaApiKeyPool)
+        fetchExaApiBatchWithPool(
+          urls,
+          maxCharacters,
+          context.exaApiKeyPool,
+          context.signal
+        )
       );
     } catch (error) {
-      assertFallbackAllowed(error);
+      assertFallbackAllowed(error, context.signal);
       emitFetchFallback(
         context,
         operationId,
@@ -191,8 +201,11 @@ async function fetchUrlsWithoutTinyFish(
         getFailureKind(error)
       );
       if (!isFirecrawlEnabled(context.env)) {
-        return mapWithConcurrency(urls, maxConcurrency, (url) =>
-          runLocalFetch(url, context, operationId)
+        return mapWithConcurrency(
+          urls,
+          maxConcurrency,
+          (url) => runLocalFetch(url, context, operationId),
+          context.signal
         );
       }
     }
@@ -206,6 +219,7 @@ async function fetchUrlsWithoutTinyFish(
         context.env,
         (url) => runLocalFetch(url, context, operationId),
         maxConcurrency,
+        context.signal,
         (_url, error) => {
           emitFetchFallback(
             context,
@@ -218,7 +232,10 @@ async function fetchUrlsWithoutTinyFish(
       )
     );
   }
-  return mapWithConcurrency(urls, maxConcurrency, (url) =>
-    runLocalFetch(url, context, operationId)
+  return mapWithConcurrency(
+    urls,
+    maxConcurrency,
+    (url) => runLocalFetch(url, context, operationId),
+    context.signal
   );
 }

@@ -75,4 +75,24 @@ describe("bounded response body readers", () => {
       readResponseJson(new Response('{"ok":true}'), 64)
     ).resolves.toEqual({ ok: true });
   });
+
+  it("aborts a stalled response body with the caller reason", async () => {
+    const controller = new AbortController();
+    const reason = new DOMException("caller stopped", "AbortError");
+    const cancelled = Promise.withResolvers<void>();
+    const response = new Response(
+      new ReadableStream<Uint8Array>({
+        cancel() {
+          cancelled.resolve();
+        },
+        start: () => undefined,
+      })
+    );
+
+    const reading = readResponseBytes(response, 64, controller.signal);
+    controller.abort(reason);
+
+    await expect(reading).rejects.toBe(reason);
+    await expect(cancelled.promise).resolves.toBeUndefined();
+  });
 });

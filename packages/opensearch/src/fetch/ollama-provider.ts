@@ -39,6 +39,7 @@ export class OllamaFetchError extends Error {
 export interface OllamaFetchProviderOptions {
   /** Whether this runtime may probe the configured local Ollama daemon. */
   readonly localEnabled?: boolean;
+  readonly signal?: AbortSignal;
 }
 
 /**
@@ -62,7 +63,7 @@ export async function tryFetchUrlViaOllama(
 
   if ((options.localEnabled ?? true) && isOllamaLocalEnabled(env)) {
     try {
-      const result = await ollamaLocalFetch(url, env);
+      const result = await ollamaLocalFetch(url, env, options.signal);
       if (result.content.trim().length > 0) {
         return createFetchResult(
           url,
@@ -72,6 +73,7 @@ export async function tryFetchUrlViaOllama(
       }
       // Empty content: fall through to the cloud path if configured.
     } catch (error) {
+      options.signal?.throwIfAborted();
       if (!shouldFallThroughToCloud(error)) {
         throw toFetchError(error, "local");
       }
@@ -84,7 +86,7 @@ export async function tryFetchUrlViaOllama(
   }
 
   try {
-    const result = await ollamaCloudFetch(url, apiKey);
+    const result = await ollamaCloudFetch(url, apiKey, options.signal);
     if (result.content.trim().length === 0) {
       return null;
     }
@@ -94,6 +96,7 @@ export async function tryFetchUrlViaOllama(
       result.title
     );
   } catch (error) {
+    options.signal?.throwIfAborted();
     throw toFetchError(error, "cloud");
   }
 }

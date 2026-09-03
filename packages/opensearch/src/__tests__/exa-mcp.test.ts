@@ -32,6 +32,42 @@ describe("createExaMcpRequestUrl", () => {
     expect(url.searchParams.get("tools")).toBe("web_fetch_exa");
   });
 
+  it("cancels the Exa MCP transport with the caller signal", async () => {
+    // Given
+    const controller = new AbortController();
+    const reason = new Error("caller cancelled Exa MCP fetch");
+    let notifyStarted: (() => void) | undefined;
+    const started = new Promise<void>((resolve) => {
+      notifyStarted = resolve;
+    });
+    const fetchMock = vi.fn(
+      (_input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+        const signal = init?.signal;
+        notifyStarted?.();
+        if (!signal) {
+          return Promise.reject(new Error("transport omitted its signal"));
+        }
+        return new Promise<Response>((_resolve, reject) => {
+          signal.addEventListener("abort", () => reject(signal.reason), {
+            once: true,
+          });
+        });
+      }
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    // When
+    const request = fetchExaMcpTransport("https://mcp.exa.ai/mcp", {
+      signal: controller.signal,
+    });
+    await started;
+    controller.abort(reason);
+
+    // Then
+    await expect(request).rejects.toBe(reason);
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
   it("rejects Exa MCP responses with an oversized content length", async () => {
     vi.stubGlobal(
       "fetch",

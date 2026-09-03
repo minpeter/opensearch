@@ -18,7 +18,9 @@ export function tryFetchUrlViaExaMcp(
     return Promise.resolve(null);
   }
   return observeFetchProvider(context, operationId, "exa-mcp", () =>
-    provider.fetchUrl(url, context.env)
+    context.signal
+      ? provider.fetchUrl(url, context.env, context.signal)
+      : provider.fetchUrl(url, context.env)
   );
 }
 
@@ -39,11 +41,14 @@ export async function tryFetchUrlsViaExaMcp(
       operationId,
       "exa-mcp",
       async () => {
-        const results = await provider.fetchBatch(
-          urls,
-          maxCharacters,
-          context.env
-        );
+        const results = context.signal
+          ? await provider.fetchBatch(
+              urls,
+              maxCharacters,
+              context.env,
+              context.signal
+            )
+          : await provider.fetchBatch(urls, maxCharacters, context.env);
         return urls.map((url, index) => {
           const result =
             results.find((candidate) => candidate.url === url) ??
@@ -58,7 +63,7 @@ export async function tryFetchUrlsViaExaMcp(
       }
     );
   } catch (error) {
-    assertFallbackAllowed(error);
+    assertFallbackAllowed(error, context.signal);
     emitFetchFallback(
       context,
       operationId,

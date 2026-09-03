@@ -23,6 +23,13 @@ import type {
 } from "../types.ts";
 
 const ENGINE = "Ollama" as const;
+type SignalSearchProvider = SearchProvider & {
+  readonly search: (
+    query: string,
+    numResults: number,
+    signal?: AbortSignal
+  ) => Promise<SearchResult[]>;
+};
 const SHARED_AUTH_FAILURE_STATUSES = new Set([401, 402]);
 
 export interface OllamaSearchProviderOptions {
@@ -45,20 +52,25 @@ export interface OllamaSearchProviderOptions {
 export function createOllamaSearchProvider(
   env: EnvironmentReader = processEnvironmentReader,
   options: OllamaSearchProviderOptions = {}
-): SearchProvider | null {
+): SignalSearchProvider | null {
   if (!isOllamaEnabled(env)) {
     return null;
   }
 
   return {
     name: ENGINE,
-    async search(query, numResults) {
+    async search(query, numResults, signal?: AbortSignal) {
+      signal?.throwIfAborted();
+
       if ((options.localEnabled ?? true) && isOllamaLocalEnabled(env)) {
         try {
-          const items = await ollamaLocalSearch(query, numResults, env);
+          const items = await ollamaLocalSearch(query, numResults, env, signal);
           return finalizeResults(items, numResults);
         } catch (error) {
-          handleLocalSearchError(error);
+          signal?.throwIfAborted();
+          handleLocalSearchError(
+            error instanceof Error ? error : new Error(String(error))
+          );
           // Reaching here means the local daemon is unusable for a retryable
           // reason (unreachable, or unsigned-in) — fall through to the cloud.
         }
@@ -74,10 +86,18 @@ export function createOllamaSearchProvider(
       }
 
       try {
-        const items = await ollamaCloudSearch(query, numResults, apiKey);
+        const items = await ollamaCloudSearch(
+          query,
+          numResults,
+          apiKey,
+          signal
+        );
         return finalizeResults(items, numResults);
       } catch (error) {
-        throw classifyCloudSearchError(error);
+        signal?.throwIfAborted();
+        throw classifyCloudSearchError(
+          error instanceof Error ? error : new Error(String(error))
+        );
       }
     },
   };

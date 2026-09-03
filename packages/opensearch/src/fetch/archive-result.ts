@@ -10,9 +10,10 @@ type ResponseFetcher = (url: string) => Promise<Response>;
 export async function fetchViaArchiveFallback(
   url: string,
   parseResponse: ResponseParser,
-  fetcher: ResponseFetcher = fetch
+  fetcher: ResponseFetcher = fetch,
+  signal?: AbortSignal
 ): Promise<FetchResult | null> {
-  const archived = await fetchArchiveFallback(url, fetcher);
+  const archived = await fetchArchiveFallback(url, fetcher, signal);
   if (!archived) {
     return null;
   }

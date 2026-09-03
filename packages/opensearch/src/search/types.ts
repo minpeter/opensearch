@@ -48,5 +48,9 @@ export type EngineFailureKind =
 
 export interface SearchProvider {
   readonly name: SearchEngineName;
-  search: (query: string, numResults: number) => Promise<SearchResult[]>;
+  search: (
+    query: string,
+    numResults: number,
+    signal?: AbortSignal
+  ) => Promise<SearchResult[]>;
 }

@@ -7,6 +7,7 @@ import {
   type EnvironmentReader,
   processEnvironmentReader,
 } from "../environment.ts";
+import { composeAbortSignal } from "../providers/shared/abort.ts";
 import { ProviderHttpError } from "../providers/shared/error.ts";
 import { cancelResponseBody, readResponseJson } from "../response-body.ts";
 import { DEFAULT_MAX_CHARACTERS, EXA_API_KEY_ENV } from "./config.ts";
@@ -53,12 +54,14 @@ type ExaContentsStatus = z.infer<
 
 export async function fetchExaApi(
   url: string,
-  env: EnvironmentReader = processEnvironmentReader
+  env: EnvironmentReader = processEnvironmentReader,
+  signal?: AbortSignal
 ): Promise<FetchResult> {
   const [result] = await fetchExaApiBatchWithPool(
     [url],
     DEFAULT_MAX_CHARACTERS,
-    getExaApiKeyPool(env)
+    getExaApiKeyPool(env),
+    signal
   );
 
   if (!result) {
@@ -71,54 +74,76 @@ export async function fetchExaApi(
 export function fetchExaApiBatch(
   urls: string[],
   maxCharacters = DEFAULT_MAX_CHARACTERS,
-  env: EnvironmentReader = processEnvironmentReader
+  env: EnvironmentReader = processEnvironmentReader,
+  signal?: AbortSignal
 ): Promise<FetchResult[]> {
-  return fetchExaApiBatchWithPool(urls, maxCharacters, getExaApiKeyPool(env));
+  return fetchExaApiBatchWithPool(
+    urls,
+    maxCharacters,
+    getExaApiKeyPool(env),
+    signal
+  );
 }
 
 export async function fetchExaApiBatchWithPool(
   urls: string[],
   maxCharacters: number,
-  apiKeyPool: ApiKeyPool
+  apiKeyPool: ApiKeyPool,
+  signal?: AbortSignal
 ): Promise<FetchResult[]> {
-  const attemptOrder = apiKeyPool.getAttemptOrder();
-  if (attemptOrder.length === 0) {
-    throw new Error("Exa API key is not configured");
-  }
-
-  let lastRateLimitError: Error | null = null;
-
-  for (const apiKey of attemptOrder) {
-    // biome-ignore lint/performance/noAwaitInLoops: API keys are retried sequentially after rate-limit responses
-    const response = await requestExaContents(apiKey, urls, maxCharacters);
-    if (response.status === 429) {
-      await cancelResponseBody(response);
-      lastRateLimitError = new ProviderHttpError(
-        `Exa API fetch failed with status ${response.status}`,
-        response.status
-      );
-      continue;
+  let requestSignal: AbortSignal | undefined;
+  try {
+    signal?.throwIfAborted();
+    const attemptOrder = apiKeyPool.getAttemptOrder();
+    if (attemptOrder.length === 0) {
+      throw new Error("Exa API key is not configured");
     }
 
-    return parseExaContentsResponse(response, urls);
-  }
+    let lastRateLimitError: Error | null = null;
+    for (const apiKey of attemptOrder) {
+      signal?.throwIfAborted();
+      requestSignal = composeAbortSignal(signal, EXA_API_TIMEOUT_MS);
+      // biome-ignore lint/performance/noAwaitInLoops: API keys are retried sequentially after rate-limit responses
+      const response = await requestExaContents(apiKey, urls, {
+        maxCharacters,
+        signal: requestSignal,
+      });
+      requestSignal.throwIfAborted();
+      if (response.status === 429) {
+        await cancelResponseBody(response);
+        requestSignal.throwIfAborted();
+        lastRateLimitError = new ProviderHttpError(
+          `Exa API fetch failed with status ${response.status}`,
+          response.status
+        );
+        continue;
+      }
+      return await parseExaContentsResponse(response, urls, requestSignal);
+    }
 
-  if (lastRateLimitError) {
-    throw lastRateLimitError;
+    if (lastRateLimitError) {
+      throw lastRateLimitError;
+    }
+    throw new Error("Exa API key is not configured");
+  } catch (error) {
+    signal?.throwIfAborted();
+    requestSignal?.throwIfAborted();
+    throw error;
   }
-
-  throw new Error("Exa API key is not configured");
 }
 
 function requestExaContents(
   apiKey: string,
   urls: readonly string[],
-  maxCharacters: number
+  options: {
+    readonly maxCharacters: number;
+    readonly signal: AbortSignal;
+  }
 ): Promise<Response> {
   return fetch(EXA_CONTENTS_API_URL, {
     body: JSON.stringify({
       text: {
-        maxCharacters,
+        maxCharacters: options.maxCharacters,
       },
       urls,
     }),
@@ -127,13 +152,14 @@ function requestExaContents(
       "x-api-key": apiKey,
     },
     method: "POST",
-    signal: AbortSignal.timeout(EXA_API_TIMEOUT_MS),
+    signal: options.signal,
   });
 }
 
 async function parseExaContentsResponse(
   response: Response,
-  urls: readonly string[]
+  urls: readonly string[],
+  signal: AbortSignal
 ): Promise<FetchResult[]> {
   if (!response.ok) {
     await cancelResponseBody(response);
@@ -144,7 +170,7 @@ async function parseExaContentsResponse(
   }
 
   const payload = exaContentsResponseSchema.parse(
-    await readResponseJson(response)
+    await readResponseJson(response, undefined, signal)
   );
   const statusesById = new Map(
     (payload.statuses ?? [])

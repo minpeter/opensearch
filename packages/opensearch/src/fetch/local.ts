@@ -34,16 +34,26 @@ function abortLocalFetchFallback(error: unknown): boolean {
 
 async function fetchLocalUrlWithContext(
   url: string,
-  context: LocalFetchContext
+  context: LocalFetchContext,
+  signal?: AbortSignal
 ): Promise<FetchResult> {
+  signal?.throwIfAborted();
   assertSafeHttpUrl(url, context.options.allowPrivateNetwork);
   const planned = await runAttemptPlan(url, {
-    abortOnError: abortLocalFetchFallback,
-    executor: (input) => fetchAttemptResponse(input, context),
+    abortOnError: (error) => {
+      signal?.throwIfAborted();
+      return abortLocalFetchFallback(error);
+    },
+    executor: (input) => fetchAttemptResponse(input, context, signal),
   });
 
   if (planned.response) {
-    const result = await resultFromResponse(url, planned.response, context);
+    const result = await resultFromResponse(
+      url,
+      planned.response,
+      context,
+      signal
+    );
     if (result) {
       return result;
     }
@@ -63,6 +73,7 @@ async function fetchLocalUrlWithContext(
     (
       await fetchJinaReader(url, {
         maxResponseBytes: context.options.maxDownloadBytes,
+        signal,
       })
     )?.content ?? null;
   if (
@@ -76,13 +87,19 @@ async function fetchLocalUrlWithContext(
     abortOnError: abortLocalFetchFallback,
     maxRedirects: context.options.maxRedirects,
     maxResponseBytes: context.options.maxDownloadBytes,
+    signal,
     validateUrl: (candidateUrl: string) => {
       assertSafeHttpUrl(candidateUrl, context.options.allowPrivateNetwork);
     },
   };
   const tlsResult = await fetchViaTlsImpersonation(url, fallbackOptions);
   if (tlsResult.response) {
-    const result = await resultFromResponse(url, tlsResult.response, context);
+    const result = await resultFromResponse(
+      url,
+      tlsResult.response,
+      context,
+      signal
+    );
     if (result) {
       return result;
     }
@@ -95,7 +112,8 @@ async function fetchLocalUrlWithContext(
     const result = await resultFromResponse(
       url,
       playwrightResult.response,
-      context
+      context,
+      signal
     );
     if (result) {
       return result;
@@ -103,8 +121,10 @@ async function fetchLocalUrlWithContext(
   }
   const archiveResult = await fetchViaArchiveFallback(
     url,
-    (archiveUrl, response) => resultFromResponse(archiveUrl, response, context),
-    (archiveUrl) => fetchPage(archiveUrl, context)
+    (archiveUrl, response) =>
+      resultFromResponse(archiveUrl, response, context, signal),
+    (archiveUrl) => fetchPage(archiveUrl, context, signal),
+    signal
   );
   if (archiveResult) {
     return archiveResult;
@@ -114,7 +134,7 @@ async function fetchLocalUrlWithContext(
 
 export function createLocalFetch(
   options: LocalFetchOptions = {}
-): (url: string) => Promise<FetchResult> {
+): (url: string, signal?: AbortSignal) => Promise<FetchResult> {
   const resolvedOptions = resolveLocalFetchOptions(options);
   const context: LocalFetchContext = {
     dispatcher: createNetworkDispatcher({
@@ -123,7 +143,7 @@ export function createLocalFetch(
     }),
     options: resolvedOptions,
   };
-  return (url) => fetchLocalUrlWithContext(url, context);
+  return (url, signal) => fetchLocalUrlWithContext(url, context, signal);
 }
 
 const defaultLocalFetch = createLocalFetch();

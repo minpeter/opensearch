@@ -2,7 +2,11 @@ import { type CheerioAPI, load } from "cheerio/slim";
 
 import { cancelResponseBody, readResponseText } from "../response-body.ts";
 import { getErrorMessage, SearchEngineError } from "./errors.ts";
-import { classifyStatusFailure, createSearchRequestInit } from "./http.ts";
+import {
+  classifyStatusFailure,
+  createSearchRequestInit,
+  REQUEST_TIMEOUT_MS,
+} from "./http.ts";
 import { extractHeuristicResults } from "./scrape-heuristic.ts";
 import { attachEngine, dedupeResults, normalizeResult } from "./text.ts";
 import type {
@@ -13,6 +17,13 @@ import type {
 } from "./types.ts";
 
 type ScrapeEngineName = Extract<SearchEngineName, "DuckDuckGo">;
+type SignalSearchProvider = SearchProvider & {
+  readonly search: (
+    query: string,
+    numResults: number,
+    signal?: AbortSignal
+  ) => Promise<SearchResult[]>;
+};
 
 interface ScrapeSearchEngine {
   getRequestInit: (query: string) => {
@@ -52,25 +63,42 @@ export const SCRAPE_SEARCH_ENGINES: Record<
 
 export function createScrapeSearchProvider(
   engine: ScrapeSearchEngine
-): SearchProvider {
+): SignalSearchProvider {
   return {
     name: engine.name,
-    search(query: string): Promise<SearchResult[]> {
-      return searchWithScrapeEngine(engine, query);
+    search(
+      query: string,
+      _numResults: number,
+      signal?: AbortSignal
+    ): Promise<SearchResult[]> {
+      return searchWithScrapeEngine(engine, query, signal);
     },
   };
 }
 
 async function searchWithScrapeEngine(
   engine: ScrapeSearchEngine,
-  query: string
+  query: string,
+  signal?: AbortSignal
 ): Promise<SearchResult[]> {
   const { init, url } = engine.getRequestInit(query);
+  const requestSignal = signal
+    ? AbortSignal.any([
+        signal,
+        init.signal ?? AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      ])
+    : (init.signal ?? AbortSignal.timeout(REQUEST_TIMEOUT_MS));
   let response: Response;
 
   try {
-    response = await fetch(url, init);
+    response = await fetch(url, {
+      ...init,
+      signal: requestSignal,
+    });
   } catch (error) {
+    if (signal?.aborted) {
+      throw signal.reason;
+    }
     // biome-ignore lint/style/useErrorCause: SearchEngineError receives the original cause in its fourth argument
     throw new SearchEngineError(
       engine.name,
@@ -92,8 +120,11 @@ async function searchWithScrapeEngine(
 
   let html: string;
   try {
-    html = await readResponseText(response);
+    html = await readResponseText(response, undefined, requestSignal);
   } catch (error) {
+    if (signal?.aborted) {
+      throw signal.reason;
+    }
     // biome-ignore lint/style/useErrorCause: SearchEngineError receives the original cause in its fourth argument
     throw new SearchEngineError(
       engine.name,
@@ -103,6 +134,9 @@ async function searchWithScrapeEngine(
       )}`,
       { cause: error }
     );
+  }
+  if (signal?.aborted) {
+    throw signal.reason;
   }
   return attachEngine(engine.name, engine.parse(html));
 }

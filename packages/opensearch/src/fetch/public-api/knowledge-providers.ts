@@ -56,7 +56,10 @@ function result(url: string, title: string, content: string): FetchResult {
   return createFetchResult(url, content, title);
 }
 
-async function fetchArxiv(url: URL): Promise<FetchResult | null> {
+async function fetchArxiv(
+  url: URL,
+  signal?: AbortSignal
+): Promise<FetchResult | null> {
   const query =
     url.searchParams.get("query") ?? url.searchParams.get("search_query");
   if (!(url.pathname.startsWith("/search") && query)) {
@@ -67,7 +70,7 @@ async function fetchArxiv(url: URL): Promise<FetchResult | null> {
   endpoint.searchParams.set("max_results", "5");
   endpoint.searchParams.set("sortBy", "submittedDate");
   endpoint.searchParams.set("sortOrder", "descending");
-  const xml = await getText(endpoint.toString());
+  const xml = await getText(endpoint.toString(), signal);
   if (!xml) {
     return null;
   }
@@ -79,13 +82,16 @@ async function fetchArxiv(url: URL): Promise<FetchResult | null> {
   return result(url.toString(), title, `## ${title}\n\n${entries.join("\n")}`);
 }
 
-async function fetchCrossref(url: URL): Promise<FetchResult | null> {
+async function fetchCrossref(
+  url: URL,
+  signal?: AbortSignal
+): Promise<FetchResult | null> {
   const doi = decodeURIComponent(url.pathname.slice(1));
   if (!doi) {
     return null;
   }
   const endpoint = `https://api.crossref.org/works/${encodeURIComponent(doi)}`;
-  const parsed = crossrefSchema.safeParse(await getJson(endpoint));
+  const parsed = crossrefSchema.safeParse(await getJson(endpoint, signal));
   if (!parsed.success) {
     return null;
   }
@@ -111,7 +117,10 @@ async function fetchCrossref(url: URL): Promise<FetchResult | null> {
   return result(url.toString(), title, content);
 }
 
-async function fetchOpenLibrary(url: URL): Promise<FetchResult | null> {
+async function fetchOpenLibrary(
+  url: URL,
+  signal?: AbortSignal
+): Promise<FetchResult | null> {
   const isbn = url.pathname.match(OPEN_LIBRARY_ISBN_REGEX)?.[1];
   if (!isbn) {
     return null;
@@ -121,7 +130,7 @@ async function fetchOpenLibrary(url: URL): Promise<FetchResult | null> {
   endpoint.searchParams.set("jscmd", "data");
   endpoint.searchParams.set("format", "json");
   const parsed = openLibrarySchema.safeParse(
-    await getJson(endpoint.toString())
+    await getJson(endpoint.toString(), signal)
   );
   const book = parsed.success ? parsed.data[`ISBN:${isbn}`] : null;
   if (!book) {
@@ -141,14 +150,19 @@ async function fetchOpenLibrary(url: URL): Promise<FetchResult | null> {
   return result(url.toString(), book.title, content);
 }
 
-async function fetchWikipedia(url: URL): Promise<FetchResult | null> {
+async function fetchWikipedia(
+  url: URL,
+  signal?: AbortSignal
+): Promise<FetchResult | null> {
   const title = url.pathname.match(WIKIPEDIA_PAGE_REGEX)?.[1];
   const [language] = url.hostname.split(".");
   if (!(title && language)) {
     return null;
   }
   const endpoint = `https://${language}.wikipedia.org/api/rest_v1/page/summary/${title}`;
-  const parsed = wikipediaSummarySchema.safeParse(await getJson(endpoint));
+  const parsed = wikipediaSummarySchema.safeParse(
+    await getJson(endpoint, signal)
+  );
   if (!parsed.success) {
     return null;
   }
@@ -175,18 +189,21 @@ function isKnowledgeProvider(url: URL): boolean {
   );
 }
 
-function fetchKnowledgeProvider(url: URL): Promise<FetchResult | null> {
+function fetchKnowledgeProvider(
+  url: URL,
+  signal?: AbortSignal
+): Promise<FetchResult | null> {
   if (url.hostname === ARXIV_HOST) {
-    return fetchArxiv(url);
+    return fetchArxiv(url, signal);
   }
   if (url.hostname === "doi.org") {
-    return fetchCrossref(url);
+    return fetchCrossref(url, signal);
   }
   if (url.hostname === "openlibrary.org") {
-    return fetchOpenLibrary(url);
+    return fetchOpenLibrary(url, signal);
   }
   if (url.hostname.endsWith(".wikipedia.org")) {
-    return fetchWikipedia(url);
+    return fetchWikipedia(url, signal);
   }
   return Promise.resolve(null);
 }
