@@ -94,8 +94,8 @@ importers:
         version: 0.28.1
     optionalDependencies:
       wreq-js:
-        specifier: 2.3.1
-        version: 2.3.1
+        specifier: 3.0.0
+        version: 3.0.0
 
   packages/opensearch-ai-sdk:
     dependencies:
@@ -2289,8 +2289,9 @@ packages:
   wrappy@1.0.2:
     resolution: {integrity: sha512-l4Sp/DRseor9wL6EvV2+TuQn63dMkPjZ/sp9XkghTEbV9KlPS1xUsZ3u7/IQO4wxtcFB4bgpQPRcR3QCvezPcQ==}
 
-  wreq-js@2.3.1:
-    resolution: {integrity: sha512-vaKasaKeskrDKEuuO5Q5uamEG9a6FrF5ZSicH7TCvYS4RxF7/gzaU/vYqwJzcs+uydyJPVWY1KCvfVCgp0tiGA==}
+  wreq-js@3.0.0:
+    resolution: {integrity: sha512-RZCoRSevVPpH4A4B4MxbFGo/pVPFveWd2gbe4ENKpPWlKXEYklZSDESOjBMmrIsmnkHh+nhM4PNJvG+NL7wBPA==}
+    engines: {node: '>=20.0.0'}
     cpu: [x64, arm64]
     os: [darwin, linux, win32]
 
@@ -4241,7 +4242,7 @@ snapshots:
 
   wrappy@1.0.2: {}
 
-  wreq-js@2.3.1:
+  wreq-js@3.0.0:
     optional: true
 
   xml-name-validator@5.0.0: {}
