@@ -1,12 +1,12 @@
 core:changelogs:
-  - content: "---\npackages:\n  npm:@minpeter/opensearch:\n    type: patch\n---\n\n## Add per-call AbortSignal support\n\n- Export per-call `AbortSignal` options for fetch and search.\n- Propagate caller cancellation through default Node fetch and search boundaries,\n  retries, fallbacks, and shared cached operations without allowing one caller\n  to cancel work shared by unrelated callers.\n"
-    filename: abort-signal.md
+  - content: "---\npackages:\n  npm:@minpeter/opensearch:\n    type: patch\n---\n\n## Harden abort contracts\n\n- Preserve explicit abort reasons, reject pre-aborted public calls asynchronously,\n  and keep stalled response-body cleanup cancellable.\n- Avoid starting cache generations for callers that already cancelled.\n"
+    filename: abort-contract-followup.md
     v: 0.0.0
 core:packages:
   - id: npm:opensearch-workspace
     updated: false
   - changelogIds:
-      - abort-signal.md
+      - abort-contract-followup.md
     id: npm:@minpeter/opensearch
     updated: true
   - id: npm:opensearch-ai-sdk

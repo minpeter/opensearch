@@ -1,3 +1,11 @@
+## @minpeter/opensearch@0.1.3
+
+### Harden abort contracts
+
+- Preserve explicit abort reasons, reject pre-aborted public calls asynchronously,
+  and keep stalled response-body cleanup cancellable.
+- Avoid starting cache generations for callers that already cancelled.
+
 ## @minpeter/opensearch@0.1.2
 
 ### Add per-call AbortSignal support
