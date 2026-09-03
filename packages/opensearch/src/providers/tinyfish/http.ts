@@ -19,8 +19,12 @@ interface TinyFishRequestOptions {
 export async function requestTinyFishJson(
   serviceName: TinyFishServiceName,
   requestWithApiKey: (apiKey: string, signal: AbortSignal) => Promise<Response>,
-  options: TinyFishRequestOptions = {}
+  requestOptions: TinyFishRequestOptions | TinyFishApiKeyPool = {}
 ): Promise<unknown> {
+  const options =
+    "getAttemptOrder" in requestOptions
+      ? { apiKeyPool: requestOptions }
+      : requestOptions;
   let requestSignal: AbortSignal | undefined;
   try {
     options.signal?.throwIfAborted();

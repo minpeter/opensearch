@@ -29,6 +29,7 @@ export type WreqLoader = () => Promise<WreqModule>;
 export interface WreqRedirectPolicyOptions {
   readonly maxRedirects?: number;
   readonly maxResponseBytes?: number;
+  readonly signal?: AbortSignal;
   readonly validateUrl?: (url: string) => void;
 }
 
@@ -45,6 +46,7 @@ export async function fetchWreqWithRedirectPolicy(
   let url = rawUrl;
   const maxRedirects = options.maxRedirects ?? DEFAULT_MAX_REDIRECTS;
   for (let redirectCount = 0; ; redirectCount += 1) {
+    options.signal?.throwIfAborted();
     options.validateUrl?.(url);
     // biome-ignore lint/performance/noAwaitInLoops: each redirect URL depends on the previous response location
     const response = await wreq.fetch(url, { ...init, redirect: "manual" });
@@ -68,11 +70,13 @@ export async function fetchWreqWithRedirectPolicy(
 
 export function readWreqText(
   response: WreqResponse,
-  maxResponseBytes = DEFAULT_MAX_DOWNLOAD_BYTES
+  maxResponseBytes = DEFAULT_MAX_DOWNLOAD_BYTES,
+  signal?: AbortSignal
 ): Promise<string> {
   return readResponseText(
     { body: response.body ?? null, headers: toHeaders(response.headers) },
-    maxResponseBytes
+    maxResponseBytes,
+    signal
   );
 }
 

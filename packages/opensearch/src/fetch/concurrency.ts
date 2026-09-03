@@ -7,18 +7,22 @@ export function assertValidMaxConcurrency(maxConcurrency: number): void {
 export async function mapWithConcurrency<TInput, TOutput>(
   inputs: readonly TInput[],
   maxConcurrency: number,
-  mapper: (input: TInput, index: number) => Promise<TOutput>
+  mapper: (input: TInput, index: number) => Promise<TOutput>,
+  signal?: AbortSignal
 ): Promise<TOutput[]> {
   assertValidMaxConcurrency(maxConcurrency);
+  signal?.throwIfAborted();
 
   const results = new Array<TOutput>(inputs.length);
   const entries = inputs.entries();
   let failure: { readonly error: unknown } | undefined;
 
   const worker = async (): Promise<void> => {
-    let entry = entries.next();
-
-    while (!(entry.done || failure)) {
+    while (!(failure || signal?.aborted)) {
+      const entry = entries.next();
+      if (entry.done) {
+        return;
+      }
       const [index, input] = entry.value;
       try {
         // biome-ignore lint/performance/noAwaitInLoops: each worker processes sequentially to enforce the concurrency bound
@@ -27,13 +31,13 @@ export async function mapWithConcurrency<TInput, TOutput>(
         failure ??= { error };
         return;
       }
-      entry = entries.next();
     }
   };
 
   const workerCount = Math.min(inputs.length, maxConcurrency);
   await Promise.all(Array.from({ length: workerCount }, worker));
 
+  signal?.throwIfAborted();
   if (failure) {
     throw failure.error;
   }

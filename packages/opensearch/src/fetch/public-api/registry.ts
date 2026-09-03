@@ -18,6 +18,7 @@ export function createPublicApiRouter(
   routes: readonly PublicApiRoute[]
 ): PublicApiRouter {
   return (rawUrl, signal) => {
+    signal?.throwIfAborted();
     let url: URL;
     try {
       url = new URL(rawUrl);

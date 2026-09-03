@@ -30,6 +30,7 @@ export interface TlsImpersonationOptions {
   readonly maxRedirects?: number;
   readonly maxResponseBytes?: number;
   readonly referer?: string;
+  readonly signal?: AbortSignal;
   readonly timeoutMs?: number;
   readonly validateUrl?: (url: string) => void;
 }
@@ -51,6 +52,7 @@ export async function fetchViaTlsImpersonation(
   url: string,
   options: TlsImpersonationOptions = {}
 ): Promise<TlsImpersonationResult> {
+  options.signal?.throwIfAborted();
   if (!(options.enabled ?? tlsImpersonationEnabled())) {
     return unavailableTrace(url, "tls impersonation disabled");
   }
@@ -66,6 +68,7 @@ export async function fetchViaTlsImpersonation(
   const profiles = await supportedProfiles(wreq, options.browserProfiles);
   const trace: FetchAttemptTrace[] = [];
   for (const profile of profiles) {
+    options.signal?.throwIfAborted();
     const startedAt = Date.now();
     try {
       // biome-ignore lint/performance/noAwaitInLoops: browser profiles are tried sequentially to stop after the first valid response
@@ -75,11 +78,20 @@ export async function fetchViaTlsImpersonation(
         {
           browser: profile,
           headers: tlsHeaders(url, options.referer),
-          signal: AbortSignal.timeout(options.timeoutMs ?? DEFAULT_TIMEOUT_MS),
+          signal: options.signal
+            ? AbortSignal.any([
+                options.signal,
+                AbortSignal.timeout(options.timeoutMs ?? DEFAULT_TIMEOUT_MS),
+              ])
+            : AbortSignal.timeout(options.timeoutMs ?? DEFAULT_TIMEOUT_MS),
         },
         options
       );
-      const body = await readWreqText(response, options.maxResponseBytes);
+      const body = await readWreqText(
+        response,
+        options.maxResponseBytes,
+        options.signal
+      );
       const validation = validateChallenge({
         body,
         headers: toHeaders(response.headers),
@@ -106,6 +118,7 @@ export async function fetchViaTlsImpersonation(
         };
       }
     } catch (error) {
+      options.signal?.throwIfAborted();
       if (
         error instanceof ResponseSizeLimitError ||
         options.abortOnError?.(error)

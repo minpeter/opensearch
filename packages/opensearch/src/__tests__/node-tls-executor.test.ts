@@ -120,6 +120,29 @@ describe("fetchViaTlsImpersonation", () => {
     ]);
   });
 
+  it("does not try the next profile after caller abort", async () => {
+    const controller = new AbortController();
+    const reason = new DOMException("caller stopped", "AbortError");
+    const requestStarted = Promise.withResolvers<void>();
+    const fetchImpl = vi.fn(() => {
+      requestStarted.resolve();
+      return Promise.resolve(
+        new Response(new ReadableStream<Uint8Array>({ start: () => undefined }))
+      );
+    });
+
+    const fetching = fetchViaTlsImpersonation("https://example.com/a", {
+      enabled: true,
+      loader: loaderWithFetch(fetchImpl, ["chrome_131", "chrome_142"]),
+      signal: controller.signal,
+    });
+    await requestStarted.promise;
+    controller.abort(reason);
+
+    await expect(fetching).rejects.toBe(reason);
+    expect(fetchImpl).toHaveBeenCalledOnce();
+  });
+
   it("validates manual redirects before following them", async () => {
     const fetchImpl = vi.fn().mockResolvedValue({
       body: null,

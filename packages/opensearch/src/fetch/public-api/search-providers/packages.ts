@@ -29,7 +29,7 @@ const npmSearchSchema = z.object({
   ),
 });
 
-async function fetchGitHubSearch(url: URL) {
+async function fetchGitHubSearch(url: URL, signal?: AbortSignal) {
   const query = queryValue(url);
   if (!query) {
     return null;
@@ -39,7 +39,7 @@ async function fetchGitHubSearch(url: URL) {
   endpoint.searchParams.set("sort", "stars");
   endpoint.searchParams.set("per_page", "5");
   const parsed = githubSearchSchema.safeParse(
-    await getJson(endpoint.toString())
+    await getJson(endpoint.toString(), signal)
   );
   if (!(parsed.success && parsed.data.items.length > 0)) {
     return null;
@@ -56,7 +56,7 @@ async function fetchGitHubSearch(url: URL) {
   );
 }
 
-async function fetchNpmSearch(url: URL) {
+async function fetchNpmSearch(url: URL, signal?: AbortSignal) {
   const query = queryValue(url);
   if (!query) {
     return null;
@@ -64,7 +64,9 @@ async function fetchNpmSearch(url: URL) {
   const endpoint = new URL("https://registry.npmjs.org/-/v1/search");
   endpoint.searchParams.set("text", query);
   endpoint.searchParams.set("size", "5");
-  const parsed = npmSearchSchema.safeParse(await getJson(endpoint.toString()));
+  const parsed = npmSearchSchema.safeParse(
+    await getJson(endpoint.toString(), signal)
+  );
   if (!(parsed.success && parsed.data.objects.length > 0)) {
     return null;
   }
@@ -88,8 +90,8 @@ export function isPackageSearchProvider(url: URL): boolean {
   );
 }
 
-export function fetchPackageSearchProvider(url: URL) {
+export function fetchPackageSearchProvider(url: URL, signal?: AbortSignal) {
   return url.hostname === GITHUB_HOST
-    ? fetchGitHubSearch(url)
-    : fetchNpmSearch(url);
+    ? fetchGitHubSearch(url, signal)
+    : fetchNpmSearch(url, signal);
 }

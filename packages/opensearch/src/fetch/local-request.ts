@@ -1,5 +1,4 @@
 import type { Dispatcher } from "undici";
-import { withAbortSignal } from "../abort.ts";
 import {
   assertSafeHttpUrl,
   NetworkPolicyError,
@@ -45,18 +44,16 @@ export async function fetchPage(
   let url = assertSafeHttpUrl(rawUrl, context.options.allowPrivateNetwork);
 
   for (let redirectCount = 0; ; redirectCount += 1) {
+    signal?.throwIfAborted();
     // biome-ignore lint/performance/noAwaitInLoops: each redirect URL depends on the previous response location
-    const response = await withAbortSignal(
-      signal,
-      FETCH_TIMEOUT_MS,
-      (requestSignal) =>
-        fetch(url, {
-          dispatcher: context.dispatcher,
-          headers: buildRequestHeaders(url.toString()),
-          redirect: "manual",
-          signal: requestSignal,
-        } as DispatcherRequestInit)
-    );
+    const response = await fetch(url, {
+      dispatcher: context.dispatcher,
+      headers: buildRequestHeaders(url.toString()),
+      redirect: "manual",
+      signal: signal
+        ? AbortSignal.any([signal, AbortSignal.timeout(FETCH_TIMEOUT_MS)])
+        : AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    } as DispatcherRequestInit);
     if (!REDIRECT_STATUSES.has(response.status)) {
       return response;
     }
@@ -88,7 +85,8 @@ export async function fetchAttemptResponse(
   const response = await fetchPage(input.url, context, signal);
   const bytes = await readResponseBytes(
     response,
-    context.options.maxDownloadBytes
+    context.options.maxDownloadBytes,
+    signal
   );
   const body = new TextDecoder().decode(bytes);
   return {

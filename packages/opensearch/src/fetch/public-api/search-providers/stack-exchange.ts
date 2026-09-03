@@ -24,7 +24,10 @@ export function isStackExchangeSearchProvider(url: URL): boolean {
   return url.pathname === SEARCH_PATH && STACK_EXCHANGE_HOSTS.has(url.hostname);
 }
 
-export async function fetchStackExchangeSearchProvider(url: URL) {
+export async function fetchStackExchangeSearchProvider(
+  url: URL,
+  signal?: AbortSignal
+) {
   const site = STACK_EXCHANGE_HOSTS.get(url.hostname);
   const query = queryValue(url);
   const tag = url.searchParams.get("tagged");
@@ -42,7 +45,7 @@ export async function fetchStackExchangeSearchProvider(url: URL) {
     endpoint.searchParams.set("tagged", tag);
   }
   const parsed = stackExchangeSearchSchema.safeParse(
-    await getJson(endpoint.toString())
+    await getJson(endpoint.toString(), signal)
   );
   if (!(parsed.success && parsed.data.items.length > 0)) {
     return null;

@@ -31,7 +31,7 @@ const wikipediaSearchSchema = z.tuple([
   z.array(z.string()),
 ]);
 
-async function fetchOpenLibrarySearch(url: URL) {
+async function fetchOpenLibrarySearch(url: URL, signal?: AbortSignal) {
   const query = queryValue(url);
   if (!query) {
     return null;
@@ -40,7 +40,7 @@ async function fetchOpenLibrarySearch(url: URL) {
   endpoint.searchParams.set("q", query);
   endpoint.searchParams.set("limit", "5");
   const parsed = openLibrarySearchSchema.safeParse(
-    await getJson(endpoint.toString())
+    await getJson(endpoint.toString(), signal)
   );
   if (!(parsed.success && parsed.data.docs.length > 0)) {
     return null;
@@ -60,7 +60,7 @@ async function fetchOpenLibrarySearch(url: URL) {
   );
 }
 
-async function fetchCrossrefSearch(url: URL) {
+async function fetchCrossrefSearch(url: URL, signal?: AbortSignal) {
   const query = queryValue(url);
   if (!query) {
     return null;
@@ -70,7 +70,7 @@ async function fetchCrossrefSearch(url: URL) {
   endpoint.searchParams.set("rows", "5");
   endpoint.searchParams.set("sort", "relevance");
   const parsed = crossrefSearchSchema.safeParse(
-    await getJson(endpoint.toString())
+    await getJson(endpoint.toString(), signal)
   );
   if (!(parsed.success && parsed.data.message.items.length > 0)) {
     return null;
@@ -89,7 +89,7 @@ async function fetchCrossrefSearch(url: URL) {
   );
 }
 
-async function fetchWikipediaSearch(url: URL) {
+async function fetchWikipediaSearch(url: URL, signal?: AbortSignal) {
   const query = queryValue(url);
   const [language] = url.hostname.split(".");
   if (!(language && query)) {
@@ -101,7 +101,7 @@ async function fetchWikipediaSearch(url: URL) {
   endpoint.searchParams.set("limit", "5");
   endpoint.searchParams.set("format", "json");
   const parsed = wikipediaSearchSchema.safeParse(
-    await getJson(endpoint.toString())
+    await getJson(endpoint.toString(), signal)
   );
   if (!(parsed.success && parsed.data[1].length > 0)) {
     return null;
@@ -130,12 +130,12 @@ export function isKnowledgeSearchProvider(url: URL): boolean {
   );
 }
 
-export function fetchKnowledgeSearchProvider(url: URL) {
+export function fetchKnowledgeSearchProvider(url: URL, signal?: AbortSignal) {
   if (url.hostname === "openlibrary.org") {
-    return fetchOpenLibrarySearch(url);
+    return fetchOpenLibrarySearch(url, signal);
   }
   if (url.hostname === "www.crossref.org") {
-    return fetchCrossrefSearch(url);
+    return fetchCrossrefSearch(url, signal);
   }
-  return fetchWikipediaSearch(url);
+  return fetchWikipediaSearch(url, signal);
 }

@@ -17,6 +17,7 @@ export interface PlaywrightFallbackOptions {
   readonly loader?: PlaywrightLoader;
   readonly maxResponseBytes?: number;
   readonly profileDir?: string;
+  readonly signal?: AbortSignal;
   readonly successSelectors?: readonly string[];
   readonly timeoutMs?: number;
   readonly validateUrl?: (url: string) => void;

@@ -137,7 +137,8 @@ async function fetchUrlsViaTinyFish(
       async () => {
         const results = await fetchTinyFishUrls(
           urls,
-          context.tinyFishApiKeyPool
+          context.tinyFishApiKeyPool,
+          context.signal
         );
         return urls.map((url, index) => {
           const result = results[index];
@@ -151,7 +152,7 @@ async function fetchUrlsViaTinyFish(
       }
     );
   } catch (error) {
-    assertFallbackAllowed(error);
+    assertFallbackAllowed(error, context.signal);
     emitFetchFallback(
       context,
       operationId,
@@ -179,10 +180,15 @@ async function fetchUrlsWithoutTinyFish(
   if (context.exaApiKeyPool.hasApiKeys()) {
     try {
       return await observeFetchProvider(context, operationId, "exa-api", () =>
-        fetchExaApiBatchWithPool(urls, maxCharacters, context.exaApiKeyPool)
+        fetchExaApiBatchWithPool(
+          urls,
+          maxCharacters,
+          context.exaApiKeyPool,
+          context.signal
+        )
       );
     } catch (error) {
-      assertFallbackAllowed(error);
+      assertFallbackAllowed(error, context.signal);
       emitFetchFallback(
         context,
         operationId,
@@ -206,6 +212,7 @@ async function fetchUrlsWithoutTinyFish(
         context.env,
         (url) => runLocalFetch(url, context, operationId),
         maxConcurrency,
+        context.signal,
         (_url, error) => {
           emitFetchFallback(
             context,

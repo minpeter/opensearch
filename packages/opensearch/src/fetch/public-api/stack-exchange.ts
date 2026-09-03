@@ -52,7 +52,10 @@ function result(url: string, title: string, content: string): FetchResult {
   return createFetchResult(url, content, title);
 }
 
-async function fetchStackExchange(url: URL): Promise<FetchResult | null> {
+async function fetchStackExchange(
+  url: URL,
+  signal?: AbortSignal
+): Promise<FetchResult | null> {
   const site = STACK_EXCHANGE_HOSTS.get(url.hostname);
   const match = url.pathname.match(QUESTION_PATH_REGEX);
   if (!(site && match)) {
@@ -67,7 +70,9 @@ async function fetchStackExchange(url: URL): Promise<FetchResult | null> {
   endpoint.searchParams.set("sort", "votes");
   endpoint.searchParams.set("site", site);
   endpoint.searchParams.set("filter", "withbody");
-  const parsed = answersSchema.safeParse(await getJson(endpoint.toString()));
+  const parsed = answersSchema.safeParse(
+    await getJson(endpoint.toString(), signal)
+  );
   if (!(parsed.success && parsed.data.items.length > 0)) {
     return null;
   }

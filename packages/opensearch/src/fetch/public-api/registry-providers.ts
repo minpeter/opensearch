@@ -56,13 +56,16 @@ function result(url: string, title: string, content: string): FetchResult {
   return createFetchResult(url, content, title);
 }
 
-async function fetchNpm(url: URL): Promise<FetchResult | null> {
+async function fetchNpm(
+  url: URL,
+  signal?: AbortSignal
+): Promise<FetchResult | null> {
   const packageName = url.pathname.match(NPM_PACKAGE_REGEX)?.[1];
   if (!packageName) {
     return null;
   }
   const endpoint = `https://registry.npmjs.org/${packageName}/latest`;
-  const parsed = npmPackageSchema.safeParse(await getJson(endpoint));
+  const parsed = npmPackageSchema.safeParse(await getJson(endpoint, signal));
   if (!parsed.success) {
     return null;
   }
@@ -76,13 +79,16 @@ async function fetchNpm(url: URL): Promise<FetchResult | null> {
   return result(url.toString(), parsed.data.name, content);
 }
 
-async function fetchPyPi(url: URL): Promise<FetchResult | null> {
+async function fetchPyPi(
+  url: URL,
+  signal?: AbortSignal
+): Promise<FetchResult | null> {
   const packageName = url.pathname.match(PYPI_PROJECT_REGEX)?.[1];
   if (!packageName) {
     return null;
   }
   const endpoint = `https://pypi.org/pypi/${packageName}/json`;
-  const parsed = pypiPackageSchema.safeParse(await getJson(endpoint));
+  const parsed = pypiPackageSchema.safeParse(await getJson(endpoint, signal));
   if (!parsed.success) {
     return null;
   }
@@ -98,7 +104,10 @@ async function fetchPyPi(url: URL): Promise<FetchResult | null> {
   return result(url.toString(), info.name, content);
 }
 
-async function fetchGitHubReleases(url: URL): Promise<FetchResult | null> {
+async function fetchGitHubReleases(
+  url: URL,
+  signal?: AbortSignal
+): Promise<FetchResult | null> {
   const match = url.pathname.match(GITHUB_RELEASES_REGEX);
   if (!match) {
     return null;
@@ -106,7 +115,9 @@ async function fetchGitHubReleases(url: URL): Promise<FetchResult | null> {
   const owner = match[1] ?? "";
   const repo = match[2] ?? "";
   const endpoint = `https://api.github.com/repos/${owner}/${repo}/releases?per_page=5`;
-  const parsed = githubReleasesSchema.safeParse(await getJson(endpoint));
+  const parsed = githubReleasesSchema.safeParse(
+    await getJson(endpoint, signal)
+  );
   if (!(parsed.success && parsed.data.length > 0)) {
     return null;
   }
@@ -121,14 +132,19 @@ async function fetchGitHubReleases(url: URL): Promise<FetchResult | null> {
   return result(url.toString(), title, `## ${title}\n\n${entries.join("\n")}`);
 }
 
-async function fetchWayback(url: URL): Promise<FetchResult | null> {
+async function fetchWayback(
+  url: URL,
+  signal?: AbortSignal
+): Promise<FetchResult | null> {
   const target = url.pathname.match(WAYBACK_WEB_REGEX)?.[1];
   if (!target) {
     return null;
   }
   const endpoint = new URL("https://archive.org/wayback/available");
   endpoint.searchParams.set("url", decodeURIComponent(target));
-  const parsed = waybackSchema.safeParse(await getJson(endpoint.toString()));
+  const parsed = waybackSchema.safeParse(
+    await getJson(endpoint.toString(), signal)
+  );
   const closest = parsed.success
     ? parsed.data.archived_snapshots?.closest
     : null;
@@ -156,18 +172,21 @@ function isRegistryProvider(url: URL): boolean {
   );
 }
 
-function fetchRegistryProvider(url: URL): Promise<FetchResult | null> {
+function fetchRegistryProvider(
+  url: URL,
+  signal?: AbortSignal
+): Promise<FetchResult | null> {
   if (url.hostname === NPM_HOST) {
-    return fetchNpm(url);
+    return fetchNpm(url, signal);
   }
   if (url.hostname === PYPI_HOST) {
-    return fetchPyPi(url);
+    return fetchPyPi(url, signal);
   }
   if (url.hostname === GITHUB_HOST) {
-    return fetchGitHubReleases(url);
+    return fetchGitHubReleases(url, signal);
   }
   if (url.hostname === WAYBACK_HOST) {
-    return fetchWayback(url);
+    return fetchWayback(url, signal);
   }
   return Promise.resolve(null);
 }

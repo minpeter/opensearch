@@ -182,6 +182,30 @@ describe("fetchViaPlaywrightFallback", () => {
     });
   });
 
+  it("closes the browser context once when the caller aborts navigation", async () => {
+    const controller = new AbortController();
+    const reason = new DOMException("caller stopped", "AbortError");
+    const navigationStarted = Promise.withResolvers<void>();
+    const page = createPage();
+    page.goto.mockImplementation(() => {
+      navigationStarted.resolve();
+      return new Promise(() => undefined);
+    });
+    const { context, loader } = createLoader(page);
+
+    const fetching = fetchViaPlaywrightFallback("https://example.com/a", {
+      enabled: true,
+      loader,
+      profileDir: "/tmp/opensearch-test-profile",
+      signal: controller.signal,
+    });
+    await navigationStarted.promise;
+    controller.abort(reason);
+
+    await expect(fetching).rejects.toBe(reason);
+    expect(context.close).toHaveBeenCalledOnce();
+  });
+
   it("uses isolated temporary profiles and removes them after each call", async () => {
     const first = createLoader(createPage());
     const second = createLoader(createPage());

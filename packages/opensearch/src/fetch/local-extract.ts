@@ -30,12 +30,14 @@ function isPdf(url: string, contentType: string): boolean {
 export async function resultFromResponse(
   url: string,
   response: Response,
-  context: LocalFetchContext
+  context: LocalFetchContext,
+  signal?: AbortSignal
 ): Promise<FetchResult | null> {
   const contentType = response.headers.get("Content-Type") ?? "";
   const bytes = await readResponseBytes(
     response,
-    context.options.maxDownloadBytes
+    context.options.maxDownloadBytes,
+    signal
   );
   if (isFeedResponse(contentType)) {
     const feed = parseFeed(url, new TextDecoder().decode(bytes));
@@ -50,7 +52,7 @@ export async function resultFromResponse(
   if (isChallengePage(raw)) {
     return null;
   }
-  return buildResultFromHtml(url, raw, context);
+  return buildResultFromHtml(url, raw, context, signal);
 }
 
 function createTurndown(): TurndownService {
@@ -73,7 +75,8 @@ async function resolveContent(
   markdown: string,
   metadataMarkdown: string,
   context: LocalFetchContext,
-  feedContent: () => Promise<string | null> = () => Promise.resolve(null)
+  feedContent: () => Promise<string | null> = () => Promise.resolve(null),
+  signal?: AbortSignal
 ): Promise<string> {
   if (markdown.length >= SPARSE_CONTENT_THRESHOLD) {
     return markdown;
@@ -83,6 +86,7 @@ async function resolveContent(
     (
       await fetchJinaReader(url, {
         maxResponseBytes: context.options.maxDownloadBytes,
+        signal,
       })
     )?.content ?? null;
   if (reader && reader.length >= SPARSE_CONTENT_THRESHOLD) {
@@ -101,7 +105,8 @@ async function resolveContent(
 async function buildResultFromHtml(
   url: string,
   html: string,
-  context: LocalFetchContext
+  context: LocalFetchContext,
+  signal?: AbortSignal
 ): Promise<FetchResult> {
   const doc = new JSDOM(html.replace(IMG_TAG_REGEX, ""), { url });
   const article = new Readability(doc.window.document).parse();
@@ -119,10 +124,12 @@ async function buildResultFromHtml(
         html,
         includeTransforms: false,
         maxResponseBytes: context.options.maxDownloadBytes,
+        signal,
       });
       // biome-ignore lint/suspicious/noUnnecessaryConditions: optional chaining on null yields undefined; ?? normalizes to the callback's null contract
       return feed?.content ?? null;
-    }
+    },
+    signal
   );
   return createFetchResult(url, content, title);
 }

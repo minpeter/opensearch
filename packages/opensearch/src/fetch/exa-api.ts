@@ -100,7 +100,6 @@ export async function fetchExaApiBatchWithPool(
     }
 
     let lastRateLimitError: Error | null = null;
-
     for (const apiKey of attemptOrder) {
       signal?.throwIfAborted();
       requestSignal = composeAbortSignal(signal, EXA_API_TIMEOUT_MS);
@@ -119,14 +118,12 @@ export async function fetchExaApiBatchWithPool(
         );
         continue;
       }
-
       return await parseExaContentsResponse(response, urls);
     }
 
     if (lastRateLimitError) {
       throw lastRateLimitError;
     }
-
     throw new Error("Exa API key is not configured");
   } catch (error) {
     signal?.throwIfAborted();

@@ -36,21 +36,25 @@ function result(url: string, title: string, content: string): FetchResult {
   return createFetchResult(url, content, title);
 }
 
-function fetchBluesky(url: URL): Promise<FetchResult | null> {
+function fetchBluesky(
+  url: URL,
+  signal?: AbortSignal
+): Promise<FetchResult | null> {
   const feedMatch = url.pathname.match(FEED_PATH_REGEX);
   if (feedMatch) {
-    return fetchAuthorFeed(url, feedMatch[1] ?? "");
+    return fetchAuthorFeed(url, feedMatch[1] ?? "", signal);
   }
 
   const profileMatch = url.pathname.match(PROFILE_PATH_REGEX);
   return profileMatch
-    ? fetchProfile(url, profileMatch[1] ?? "")
+    ? fetchProfile(url, profileMatch[1] ?? "", signal)
     : Promise.resolve(null);
 }
 
 async function fetchProfile(
   url: URL,
-  actor: string
+  actor: string,
+  signal?: AbortSignal
 ): Promise<FetchResult | null> {
   if (!actor) {
     return null;
@@ -59,7 +63,9 @@ async function fetchProfile(
     "https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile"
   );
   endpoint.searchParams.set("actor", actor);
-  const parsed = profileSchema.safeParse(await getJson(endpoint.toString()));
+  const parsed = profileSchema.safeParse(
+    await getJson(endpoint.toString(), signal)
+  );
   if (!parsed.success) {
     return null;
   }
@@ -79,7 +85,8 @@ async function fetchProfile(
 
 async function fetchAuthorFeed(
   url: URL,
-  actor: string
+  actor: string,
+  signal?: AbortSignal
 ): Promise<FetchResult | null> {
   if (!actor) {
     return null;
@@ -89,7 +96,9 @@ async function fetchAuthorFeed(
   );
   endpoint.searchParams.set("actor", actor);
   endpoint.searchParams.set("limit", String(FEED_LIMIT));
-  const parsed = feedSchema.safeParse(await getJson(endpoint.toString()));
+  const parsed = feedSchema.safeParse(
+    await getJson(endpoint.toString(), signal)
+  );
   if (!parsed.success) {
     return null;
   }

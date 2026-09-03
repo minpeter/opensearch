@@ -42,6 +42,7 @@ export async function fetchViaPlaywrightFallback(
   url: string,
   options: PlaywrightFallbackOptions = {}
 ): Promise<PlaywrightFallbackResult> {
+  options.signal?.throwIfAborted();
   if (!(options.enabled ?? playwrightFallbackEnabled())) {
     return unavailableTrace(url, "playwright fallback disabled");
   }
@@ -58,7 +59,12 @@ export async function fetchViaPlaywrightFallback(
   const startedAt = Date.now();
   let context: BrowserContext | undefined;
   let blockedRequestError: unknown;
+  let cleanupPromise: Promise<void> | undefined;
   let temporaryProfileDir: string | undefined;
+  const cleanupOnce = (): Promise<void> => {
+    cleanupPromise ??= cleanupPlaywrightContext(context, temporaryProfileDir);
+    return cleanupPromise;
+  };
   try {
     options.validateUrl?.(url);
     const playwright = await (options.loader ?? defaultPlaywrightLoader)();
@@ -69,59 +75,82 @@ export async function fetchViaPlaywrightFallback(
       profile.path,
       launchOptions
     );
-    if (options.validateUrl) {
-      await context.route("**/*", async (route, request) => {
-        try {
-          const requestUrl = request.url();
-          if (isNetworkBrowserRequest(requestUrl)) {
-            options.validateUrl?.(requestUrl);
-          }
-          await route.continue();
-        } catch (error) {
-          blockedRequestError = error;
-          await route.abort("blockedbyclient");
-        }
+    const aborted = Promise.withResolvers<never>();
+    const abort = (): void => {
+      aborted.reject(options.signal?.reason);
+      cleanupOnce().catch(() => undefined);
+    };
+    options.signal?.addEventListener("abort", abort, { once: true });
+    const awaitWithAbort = <T>(operation: Promise<T>): Promise<T> =>
+      Promise.race([operation, aborted.promise]);
+    try {
+      if (options.validateUrl) {
+        await awaitWithAbort(
+          context.route("**/*", async (route, request) => {
+            try {
+              const requestUrl = request.url();
+              if (isNetworkBrowserRequest(requestUrl)) {
+                options.validateUrl?.(requestUrl);
+              }
+              await route.continue();
+            } catch (error) {
+              blockedRequestError = error;
+              await route.abort("blockedbyclient");
+            }
+          })
+        );
+      }
+      const page = await awaitWithAbort(context.newPage());
+      const timeout = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+      await awaitWithAbort(
+        page.goto(url, { timeout, waitUntil: "domcontentloaded" })
+      );
+      if (blockedRequestError) {
+        throw blockedRequestError;
+      }
+      const selector = options.waitSelector ?? options.successSelectors?.[0];
+      if (selector) {
+        await awaitWithAbort(
+          page.waitForSelector(selector, { state: "attached", timeout })
+        );
+      }
+      const body = await awaitWithAbort(page.content());
+      assertTextByteLimit(
+        body,
+        options.maxResponseBytes ?? DEFAULT_MAX_DOWNLOAD_BYTES
+      );
+      const validation = validateChallenge({
+        body,
+        status: 200,
+        successSelectors: options.successSelectors,
+        tinyBodyIsChallenge: false,
       });
+      const trace = playwrightTrace(url, executor, validation.verdict, {
+        bodySize: validation.bodySize,
+        elapsedMs: Date.now() - startedAt,
+        reasons: validation.reasons,
+        status: validation.status,
+        summary: validation.reasons.join(", ") || undefined,
+      });
+      return OK_VERDICTS.has(validation.verdict)
+        ? {
+            response: new Response(body, {
+              headers: { "Content-Type": "text/html; charset=utf-8" },
+              status: 200,
+            }),
+            trace: [trace],
+            verdict: validation.verdict,
+          }
+        : {
+            summary: trace.summary,
+            trace: [trace],
+            verdict: validation.verdict,
+          };
+    } finally {
+      options.signal?.removeEventListener("abort", abort);
     }
-    const page = await context.newPage();
-    const timeout = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-    await page.goto(url, { timeout, waitUntil: "domcontentloaded" });
-    if (blockedRequestError) {
-      throw blockedRequestError;
-    }
-    const selector = options.waitSelector ?? options.successSelectors?.[0];
-    if (selector) {
-      await page.waitForSelector(selector, { state: "attached", timeout });
-    }
-    const body = await page.content();
-    assertTextByteLimit(
-      body,
-      options.maxResponseBytes ?? DEFAULT_MAX_DOWNLOAD_BYTES
-    );
-    const validation = validateChallenge({
-      body,
-      status: 200,
-      successSelectors: options.successSelectors,
-      tinyBodyIsChallenge: false,
-    });
-    const trace = playwrightTrace(url, executor, validation.verdict, {
-      bodySize: validation.bodySize,
-      elapsedMs: Date.now() - startedAt,
-      reasons: validation.reasons,
-      status: validation.status,
-      summary: validation.reasons.join(", ") || undefined,
-    });
-    return OK_VERDICTS.has(validation.verdict)
-      ? {
-          response: new Response(body, {
-            headers: { "Content-Type": "text/html; charset=utf-8" },
-            status: 200,
-          }),
-          trace: [trace],
-          verdict: validation.verdict,
-        }
-      : { summary: trace.summary, trace: [trace], verdict: validation.verdict };
   } catch (error) {
+    options.signal?.throwIfAborted();
     const effectiveError = blockedRequestError ?? error;
     if (
       effectiveError instanceof ResponseSizeLimitError ||
@@ -141,7 +170,7 @@ export async function fetchViaPlaywrightFallback(
       verdict: "unknown",
     };
   } finally {
-    await cleanupPlaywrightContext(context, temporaryProfileDir);
+    await cleanupOnce();
   }
 }
 

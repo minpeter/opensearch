@@ -26,11 +26,12 @@ interface FeedCandidate {
 }
 
 export interface FeedDiscoveryOptions {
-  readonly fetcher?: (url: string) => Promise<Response>;
+  readonly fetcher?: (url: string, signal?: AbortSignal) => Promise<Response>;
   readonly html?: string;
   readonly includeTransforms?: boolean;
   readonly jinaAlternates?: readonly string[];
   readonly maxResponseBytes?: number;
+  readonly signal?: AbortSignal;
 }
 
 function entryLine(entry: FeedEntry): string {
@@ -130,21 +131,23 @@ export async function fetchDiscoveredFeed(
   const maxResponseBytes =
     options.maxResponseBytes ?? DEFAULT_MAX_DOWNLOAD_BYTES;
   for (const candidate of discoverFeedCandidates(rawUrl, options)) {
+    options.signal?.throwIfAborted();
     try {
       // biome-ignore lint/performance/noAwaitInLoops: feed candidates are tried sequentially to stop after the first valid feed
-      const response = await fetcher(candidate.url);
+      const response = await fetcher(candidate.url, options.signal);
       if (!response.ok) {
         await cancelResponseBody(response);
         continue;
       }
       const parsed = parseFeed(
         candidate.url,
-        await readResponseText(response, maxResponseBytes)
+        await readResponseText(response, maxResponseBytes, options.signal)
       );
       if (parsed) {
         return parsed;
       }
     } catch (error) {
+      options.signal?.throwIfAborted();
       if (!(error instanceof Error)) {
         throw error;
       }

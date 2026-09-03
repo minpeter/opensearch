@@ -47,7 +47,10 @@ function result(url: string, title: string, content: string): FetchResult {
   return createFetchResult(url, content, title);
 }
 
-async function fetchDevTo(url: URL): Promise<FetchResult | null> {
+async function fetchDevTo(
+  url: URL,
+  signal?: AbortSignal
+): Promise<FetchResult | null> {
   const tag = url.pathname.match(DEV_TO_TAG_REGEX)?.[1];
   if (!tag) {
     return null;
@@ -56,7 +59,7 @@ async function fetchDevTo(url: URL): Promise<FetchResult | null> {
   endpoint.searchParams.set("tag", tag);
   endpoint.searchParams.set("per_page", "5");
   const parsed = devToArticleSchema.safeParse(
-    await getJson(endpoint.toString())
+    await getJson(endpoint.toString(), signal)
   );
   if (!(parsed.success && parsed.data.length > 0)) {
     return null;
@@ -73,7 +76,10 @@ async function fetchDevTo(url: URL): Promise<FetchResult | null> {
   return result(url.toString(), title, `## ${title}\n\n${entries.join("\n")}`);
 }
 
-async function fetchLobsters(url: URL): Promise<FetchResult | null> {
+async function fetchLobsters(
+  url: URL,
+  signal?: AbortSignal
+): Promise<FetchResult | null> {
   const endpoint = new URL("https://lobste.rs/hottest.json");
   const tag = url.pathname.match(LOBSTERS_TAG_REGEX)?.[1];
   if (tag) {
@@ -84,7 +90,7 @@ async function fetchLobsters(url: URL): Promise<FetchResult | null> {
     return null;
   }
   const parsed = lobstersStorySchema.safeParse(
-    await getJson(endpoint.toString())
+    await getJson(endpoint.toString(), signal)
   );
   if (!(parsed.success && parsed.data.length > 0)) {
     return null;
@@ -98,12 +104,15 @@ async function fetchLobsters(url: URL): Promise<FetchResult | null> {
   return result(url.toString(), title, `## ${title}\n\n${entries.join("\n")}`);
 }
 
-async function fetchV2ex(url: URL): Promise<FetchResult | null> {
+async function fetchV2ex(
+  url: URL,
+  signal?: AbortSignal
+): Promise<FetchResult | null> {
   if (!["/", "/hot"].includes(url.pathname)) {
     return null;
   }
   const parsed = v2exTopicSchema.safeParse(
-    await getJson("https://www.v2ex.com/api/topics/hot.json")
+    await getJson("https://www.v2ex.com/api/topics/hot.json", signal)
   );
   if (!(parsed.success && parsed.data.length > 0)) {
     return null;
@@ -120,7 +129,10 @@ async function fetchV2ex(url: URL): Promise<FetchResult | null> {
   );
 }
 
-async function fetchNaverFinance(url: URL): Promise<FetchResult | null> {
+async function fetchNaverFinance(
+  url: URL,
+  signal?: AbortSignal
+): Promise<FetchResult | null> {
   const code = url.searchParams.get("code");
   if (!(url.pathname === NAVER_ITEM_PATH && code)) {
     return null;
@@ -130,7 +142,7 @@ async function fetchNaverFinance(url: URL): Promise<FetchResult | null> {
   endpoint.searchParams.set("requestType", "0");
   endpoint.searchParams.set("timeframe", "minute");
   endpoint.searchParams.set("count", "5");
-  const body = await getText(endpoint.toString());
+  const body = await getText(endpoint.toString(), signal);
   if (!(body?.includes(code) || body?.includes("날짜"))) {
     return null;
   }
@@ -154,18 +166,21 @@ function isCommunityProvider(url: URL): boolean {
   );
 }
 
-function fetchCommunityProvider(url: URL): Promise<FetchResult | null> {
+function fetchCommunityProvider(
+  url: URL,
+  signal?: AbortSignal
+): Promise<FetchResult | null> {
   if (url.hostname === DEV_TO_HOST) {
-    return fetchDevTo(url);
+    return fetchDevTo(url, signal);
   }
   if (url.hostname === LOBSTERS_HOST) {
-    return fetchLobsters(url);
+    return fetchLobsters(url, signal);
   }
   if (url.hostname === V2EX_HOST) {
-    return fetchV2ex(url);
+    return fetchV2ex(url, signal);
   }
   if (url.hostname === NAVER_FINANCE_HOST) {
-    return fetchNaverFinance(url);
+    return fetchNaverFinance(url, signal);
   }
   return Promise.resolve(null);
 }

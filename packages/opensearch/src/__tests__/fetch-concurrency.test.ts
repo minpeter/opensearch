@@ -184,6 +184,39 @@ describe("fetch batch concurrency", () => {
     );
   });
 
+  it("does not start a queued third item after both workers are aborted", async () => {
+    const controller = new AbortController();
+    const callerAbort = new Error("caller stopped batch");
+    const started: number[] = [];
+    let markWorkersStarted: (() => void) | undefined;
+    const workersStarted = new Promise<void>((resolve) => {
+      markWorkersStarted = resolve;
+    });
+
+    const operation = mapWithConcurrency(
+      [0, 1, 2],
+      2,
+      async (index) => {
+        started.push(index);
+        if (started.length === 2) {
+          markWorkersStarted?.();
+        }
+        await new Promise<void>((resolve) => {
+          controller.signal.addEventListener("abort", () => resolve(), {
+            once: true,
+          });
+        });
+        return index;
+      },
+      controller.signal
+    );
+    await workersStarted;
+    controller.abort(callerAbort);
+
+    await expect(operation).rejects.toBe(callerAbort);
+    expect(started).toStrictEqual([0, 1]);
+  });
+
   it("settles active workers and stops scheduling after a mapper failure", async () => {
     let active = 0;
     let started = 0;

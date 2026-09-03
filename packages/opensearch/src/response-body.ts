@@ -64,8 +64,10 @@ export async function limitResponseBody(
 
 export async function readResponseBytes(
   response: ResponseBodySource,
-  limitBytes = DEFAULT_MAX_RESPONSE_BYTES
+  limitBytes = DEFAULT_MAX_RESPONSE_BYTES,
+  signal?: AbortSignal
 ): Promise<Uint8Array> {
+  signal?.throwIfAborted();
   const declaredLength = Number(response.headers.get("Content-Length"));
   if (Number.isFinite(declaredLength) && declaredLength > limitBytes) {
     await cancelResponseBody(response);
@@ -79,11 +81,20 @@ export async function readResponseBytes(
   const reader = response.body.getReader();
   const chunks: Uint8Array[] = [];
   let totalBytes = 0;
+  const aborted = Promise.withResolvers<never>();
+  const abort = (): void => {
+    aborted.reject(signal?.reason);
+    reader.cancel(signal?.reason).catch(() => undefined);
+  };
+  signal?.addEventListener("abort", abort, { once: true });
   try {
     // biome-ignore lint/suspicious/noUnnecessaryConditions: stream completion is determined by each read result
     while (true) {
       // biome-ignore lint/performance/noAwaitInLoops: readable stream chunks must be consumed sequentially
-      const { done, value } = await reader.read();
+      const { done, value } = await Promise.race([
+        reader.read(),
+        aborted.promise,
+      ]);
       if (done) {
         break;
       }
@@ -95,6 +106,7 @@ export async function readResponseBytes(
       chunks.push(value);
     }
   } finally {
+    signal?.removeEventListener("abort", abort);
     reader.releaseLock();
   }
 
@@ -109,18 +121,20 @@ export async function readResponseBytes(
 
 export async function readResponseText(
   response: ResponseBodySource,
-  limitBytes = DEFAULT_MAX_RESPONSE_BYTES
+  limitBytes = DEFAULT_MAX_RESPONSE_BYTES,
+  signal?: AbortSignal
 ): Promise<string> {
   return new TextDecoder().decode(
-    await readResponseBytes(response, limitBytes)
+    await readResponseBytes(response, limitBytes, signal)
   );
 }
 
 export async function readResponseJson(
   response: ResponseBodySource,
-  limitBytes = DEFAULT_MAX_RESPONSE_BYTES
+  limitBytes = DEFAULT_MAX_RESPONSE_BYTES,
+  signal?: AbortSignal
 ): Promise<unknown> {
-  return JSON.parse(await readResponseText(response, limitBytes));
+  return JSON.parse(await readResponseText(response, limitBytes, signal));
 }
 
 export function assertTextByteLimit(text: string, limitBytes: number): void {

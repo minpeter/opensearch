@@ -50,14 +50,11 @@ export async function requestFirecrawlJson(
         requestSignal.throwIfAborted();
         continue;
       }
-
       if (!response.ok) {
         throw await createFirecrawlHttpError(options.endpoint, response);
       }
-
       return await readFirecrawlJson(options.endpoint, response);
     }
-
     throw new Error("Firecrawl request could not be attempted");
   } catch (error) {
     options.signal?.throwIfAborted();

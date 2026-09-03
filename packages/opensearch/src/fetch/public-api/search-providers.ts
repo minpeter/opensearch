@@ -21,15 +21,18 @@ function isSearchProvider(url: URL): boolean {
   );
 }
 
-function fetchSearchProvider(url: URL): Promise<FetchResult | null> {
+function fetchSearchProvider(
+  url: URL,
+  signal?: AbortSignal
+): Promise<FetchResult | null> {
   if (isPackageSearchProvider(url)) {
-    return fetchPackageSearchProvider(url);
+    return fetchPackageSearchProvider(url, signal);
   }
   if (isKnowledgeSearchProvider(url)) {
-    return fetchKnowledgeSearchProvider(url);
+    return fetchKnowledgeSearchProvider(url, signal);
   }
   if (isStackExchangeSearchProvider(url)) {
-    return fetchStackExchangeSearchProvider(url);
+    return fetchStackExchangeSearchProvider(url, signal);
   }
   return Promise.resolve(null);
 }

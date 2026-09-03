@@ -87,6 +87,7 @@ export async function tryFetchUrlWithOllama(
       () =>
         tryFetchUrlViaOllama(url, maxCharacters, context.env, {
           localEnabled: context.localFetch !== undefined,
+          signal: context.signal,
         })
     );
     if (!result) {
@@ -100,7 +101,7 @@ export async function tryFetchUrlWithOllama(
     }
     return result;
   } catch (error) {
-    assertFallbackAllowed(error);
+    assertFallbackAllowed(error, context.signal);
     emitFetchFallback(
       context,
       operationId,
@@ -122,14 +123,14 @@ async function fetchUrlViaTinyFish(
       context,
       operationId,
       "tinyfish",
-      () => fetchTinyFishUrls([url], context.tinyFishApiKeyPool)
+      () => fetchTinyFishUrls([url], context.tinyFishApiKeyPool, context.signal)
     );
     if (!result) {
       throw new Error("TinyFish fetch returned an unexpected response shape");
     }
     return createFetchResult(url, result.content, result.title);
   } catch (error) {
-    assertFallbackAllowed(error);
+    assertFallbackAllowed(error, context.signal);
     emitFetchFallback(
       context,
       operationId,
@@ -150,7 +151,7 @@ async function fetchUrlWithoutTinyFish(
     try {
       return await fetchExaApiForContext(url, context, operationId);
     } catch (error) {
-      assertFallbackAllowed(error);
+      assertFallbackAllowed(error, context.signal);
       emitFetchFallback(
         context,
         operationId,
@@ -167,10 +168,10 @@ async function fetchUrlWithoutTinyFish(
   if (isFirecrawlEnabled(context.env)) {
     try {
       return await observeFetchProvider(context, operationId, "firecrawl", () =>
-        fetchUrlViaFirecrawl(url, context.env)
+        fetchUrlViaFirecrawl(url, context.env, context.signal)
       );
     } catch (error) {
-      assertFallbackAllowed(error);
+      assertFallbackAllowed(error, context.signal);
       emitFetchFallback(
         context,
         operationId,
@@ -192,7 +193,7 @@ export function runLocalFetch(
     if (!context.localFetch) {
       throw new NoFetchProviderError(url);
     }
-    return context.localFetch(url, context.signal);
+    return context.localFetch(url);
   });
 }
 
@@ -209,7 +210,8 @@ async function fetchExaApiForContext(
       fetchExaApiBatchWithPool(
         [url],
         DEFAULT_MAX_CHARACTERS,
-        context.exaApiKeyPool
+        context.exaApiKeyPool,
+        context.signal
       )
   );
 

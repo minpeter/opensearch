@@ -478,6 +478,45 @@ describe("Ollama fetch provider", () => {
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
+  it("does not fall back to cloud after caller cancellation", async () => {
+    // Given
+    const env = enableOllamaEnv({ OLLAMA_API_KEY: "ollama-key" });
+    const controller = new AbortController();
+    const reason = new Error("caller cancelled Ollama fetch");
+    let notifyStarted: (() => void) | undefined;
+    const started = new Promise<void>((resolve) => {
+      notifyStarted = resolve;
+    });
+    const mockFetch = vi.fn(
+      (_input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+        const signal = init?.signal;
+        notifyStarted?.();
+        if (!signal) {
+          return Promise.reject(
+            new Error("Ollama transport omitted its signal")
+          );
+        }
+        return new Promise<Response>((_resolve, reject) => {
+          signal.addEventListener("abort", () => reject(signal.reason), {
+            once: true,
+          });
+        });
+      }
+    );
+    vi.stubGlobal("fetch", mockFetch);
+
+    // When
+    const request = tryFetchUrlViaOllama("https://example.com/", 1000, env, {
+      signal: controller.signal,
+    });
+    await started;
+    controller.abort(reason);
+
+    // Then
+    await expect(request).rejects.toBe(reason);
+    expect(mockFetch).toHaveBeenCalledOnce();
+  });
+
   it("fetches via the local daemon and truncates to maxCharacters", async () => {
     const env = enableOllamaEnv();
     const longContent = "A".repeat(50);
