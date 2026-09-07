@@ -43,6 +43,6 @@
   "dependencies": {
     "@minpeter/opensearch": "^0.1.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "zod": "^4.4.3"
+    "zod": "^4.5.4"
   }
 }
