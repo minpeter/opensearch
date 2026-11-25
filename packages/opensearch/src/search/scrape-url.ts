@@ -55,19 +55,13 @@ export function normalizeHeuristicUrl(
 ): string {
   const trimmedUrl = url.trim();
 
-  if (
-    !trimmedUrl ||
-    trimmedUrl.startsWith("#") ||
-    trimmedUrl.startsWith("javascript:") ||
-    trimmedUrl.startsWith("mailto:") ||
-    trimmedUrl.startsWith("tel:")
-  ) {
+  if (!(trimmedUrl && hasHttpProtocol(trimmedUrl))) {
     return "";
   }
 
   switch (engine) {
     case "DuckDuckGo": {
-      return hasHttpProtocol(trimmedUrl) ? trimmedUrl : "";
+      return trimmedUrl;
     }
     default: {
       return "";
