@@ -13,7 +13,13 @@ export function cleanProviderText(text: string): string {
 }
 
 export function stripProviderHtmlTags(text: string): string {
-  return cleanProviderText(text.replace(HTML_TAG_PATTERN, ""));
+  let previous: string;
+  let current = text;
+  do {
+    previous = current;
+    current = current.replace(HTML_TAG_PATTERN, "");
+  } while (current !== previous);
+  return cleanProviderText(current.replace(/[<>]/g, ""));
 }
 
 export function truncateProviderText(text: string, maxLength: number): string {
